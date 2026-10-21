@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Drag a cause onto another node to move it there, with its own causes; refused, with the reason, when it would make a loop or the node already has it. M, or Move to another effect in the Properties panel, does the same from the keyboard.
+- Drag a cause to a sibling's top or bottom edge, or the gap beside it, to reorder; Alt+↑ and Alt+↓ do the same. Actions stay above conditions.
+- While dragging, a copy of the node, the drop target, and a label show what a drop does; Esc cancels.
+
 ## v1.0 — 2026-10-21
 
 First release as Causeway: milestones M1–M4 below, then the rename.

@@ -107,6 +107,33 @@ function removeLink(linkId) {
   state.links = state.links.filter(l => l.id !== linkId);
 }
 
+// Moving a cause to another effect moves the one link it is drawn along, from `fromId`; its other
+// links (a shared cause) and its own causes stay as they are. The link goes last among the new
+// effect's causes.
+function moveProblem(causeId, fromId, toId) {
+  if (toId === fromId) return 'It is already a cause of that effect.';
+  return linkProblem(toId, causeId);
+}
+function moveCause(causeId, fromId, toId) {
+  const problem = moveProblem(causeId, fromId, toId);
+  if (problem) return problem;
+  const link = state.links.find(l => l.effectId === fromId && l.causeId === causeId);
+  state.links.splice(state.links.indexOf(link), 1);
+  link.effectId = toId;
+  state.links.push(link);
+  collapsed.delete(toId);
+  return null;
+}
+// The causes of an effect are drawn actions first, then conditions, each group in link order.
+// Places the cause's link just before or after a sibling's link.
+function placeCause(effectId, causeId, siblingId, after) {
+  const link = state.links.find(l => l.effectId === effectId && l.causeId === causeId);
+  const anchor = state.links.find(l => l.effectId === effectId && l.causeId === siblingId);
+  if (!link || !anchor || link === anchor) return;
+  state.links.splice(state.links.indexOf(link), 1);
+  state.links.splice(state.links.indexOf(anchor) + (after ? 1 : 0), 0, link);
+}
+
 // Expands every collapsed branch that hides the node. Returns whether anything changed.
 function reveal(id) {
   const hiding = [...collapsed].filter(c => c !== id && reaches(c, id));

@@ -1,4 +1,4 @@
-// Pointer and keyboard: selecting, panning, zooming.
+// Pointer and keyboard: selecting, dragging nodes, panning, zooming.
 
 const MIN_ZOOM = .15, MAX_ZOOM = 3;
 
@@ -13,16 +13,33 @@ function select(id) {
   render();
 }
 
+const capture = e => { try { svg.setPointerCapture(e.pointerId); } catch {} };
+
 svg.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   const node = e.target.closest('.node');
-  if (node && linking) { linkTo(node.dataset.id); return; }
+  if (node && linking) { pickNode(node.dataset.id); return; }
   if (node && e.target.closest('.toggle')) { selected = node.dataset.id; toggleCollapse(); return; }
-  if (node) { select(node.dataset.id); return; }
+  if (node) {
+    const id = node.dataset.id, b = layout.boxes.get(id), p = point(e);
+    select(id);
+    // A cause can be dragged once the pointer has moved a little; the primary effect stays put.
+    if (b && layout.parent.has(id)) { nodeDrag = {id, from: layout.parent.get(id), start: {x: e.clientX, y: e.clientY}, moved: false}; capture(e); }
+    return;
+  }
   drag = {x: e.clientX, y: e.clientY, view: {...view}, moved: false};
-  svg.setPointerCapture(e.pointerId);
+  capture(e);
 });
 svg.addEventListener('pointermove', e => {
+  if (nodeDrag) {
+    if (!nodeDrag.moved && Math.hypot(e.clientX - nodeDrag.start.x, e.clientY - nodeDrag.start.y) < 5) return;
+    nodeDrag.moved = true;
+    svg.classList.add('dragging');
+    nodeDrag.at = point(e);
+    nodeDrag.drop = dropTarget(nodeDrag, nodeDrag.at);
+    renderCanvas();
+    return;
+  }
   if (!drag) return;
   const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
   if (!drag.moved && Math.hypot(dx, dy) < 4) return;
@@ -32,11 +49,52 @@ svg.addEventListener('pointermove', e => {
   renderCanvas();
 });
 svg.addEventListener('pointerup', () => {
+  if (nodeDrag) { finishNodeDrag(); return; }
   if (drag && !drag.moved && linking) cancelLinking();
   else if (drag && !drag.moved && (selected || highlight)) { highlight = null; select(null); }
   drag = null;
   svg.classList.remove('panning');
 });
+svg.addEventListener('pointercancel', () => cancelNodeDrag());
+
+// What dropping the dragged node at chart point p would do. On a sibling's top or bottom 30 %, or in
+// the gap next to it, it is placed above or below that sibling (siblings of the same kind only);
+// anywhere else on a node, it moves under that node.
+function dropTarget(d, p) {
+  const kind = byId(d.id).kind;
+  const siblings = (layout.children.get(d.from) || []).filter(n => n.kind === kind && n.id !== d.id).map(n => layout.boxes.get(n.id)).filter(Boolean);
+  const hit = [...layout.boxes.values()].find(b => b.id !== d.id && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
+  if (hit && siblings.includes(hit)) {
+    const f = (p.y - hit.y) / hit.h;
+    if (f < .3 || f > .7) return {type: 'order', sibling: hit.id, after: f > .7};
+  }
+  if (hit) return {type: 'move', target: hit.id, problem: moveProblem(d.id, d.from, hit.id)};
+  const reach = SUBTREE_GAP * 1.5;
+  for (const s of siblings) {
+    if (p.x < s.x || p.x > s.x + s.w) continue;
+    if (p.y < s.y && p.y >= s.y - reach) return {type: 'order', sibling: s.id, after: false};
+    if (p.y > s.y + s.h && p.y <= s.y + s.h + reach) return {type: 'order', sibling: s.id, after: true};
+  }
+  return null;
+}
+
+function finishNodeDrag() {
+  const d = nodeDrag;
+  nodeDrag = null;
+  svg.classList.remove('dragging');
+  if (!d.moved || !d.drop) { renderCanvas(); return; }
+  if (d.drop.type === 'move') { if (!moveTo(d.id, d.from, d.drop.target)) renderCanvas(); return; }
+  placeCause(d.from, d.id, d.drop.sibling, d.drop.after);
+  render(); persist();
+  setStatus(`Placed "${byId(d.id).title}" ${d.drop.after ? 'below' : 'above'} "${byId(d.drop.sibling).title}"`);
+}
+function cancelNodeDrag() {
+  if (!nodeDrag) return;
+  nodeDrag = null;
+  svg.classList.remove('dragging');
+  renderCanvas();
+}
+
 svg.addEventListener('dblclick', e => { if (e.target.closest('.node')) focusTitle(); });
 
 function zoom(factor, at) {
@@ -68,6 +126,7 @@ $('redo').onclick = () => restoreHistory(true);
 
 window.addEventListener('keydown', e => {
   const key = e.key.toLowerCase(), command = (e.ctrlKey || e.metaKey) && !e.altKey;
+  if (nodeDrag?.moved && key === 'escape') { e.preventDefault(); cancelNodeDrag(); setStatus('Drag cancelled'); return; }
   if (command && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   if (command && (key === 'z' || key === 'y')) {
@@ -75,7 +134,9 @@ window.addEventListener('keydown', e => {
     restoreHistory(key === 'y' || e.shiftKey);
     return;
   }
-  if (command || e.altKey || record !== 'chart') return;
+  if (command || record !== 'chart') return;
+  if (e.altKey && (key === 'arrowup' || key === 'arrowdown') && byId(selected)) { e.preventDefault(); nudgeCause(key === 'arrowup' ? -1 : 1); return; }
+  if (e.altKey) return;
   if (key === 'escape' && (linking || highlight || selected)) {
     e.preventDefault();
     if (linking) cancelLinking(); else if (highlight) clearHighlight(); else select(null);
@@ -88,6 +149,7 @@ window.addEventListener('keydown', e => {
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
   else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
+  else if (key === 'm' && !e.shiftKey) { e.preventDefault(); startMoving(); }
   else if (key === ' ' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); toggleCollapse(); }
 });
 

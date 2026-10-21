@@ -11,7 +11,7 @@ function nodeMarkup(b, opts) {
   const C = opts.colors || CHART_COLORS, n = b.node, c = C[n.kind], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
-  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) ? ' opacity="0.35"' : ''}>`;
+  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) || opts.dragging?.id === n.id ? ' opacity="0.35"' : ''}>`;
   if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${C.highlight}" stroke-width="4"/>`;
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
@@ -74,7 +74,33 @@ function chartMarkup(l, opts = {}) {
     s += `<g class="junction"><rect x="${x - 16}" y="${y - 8}" width="32" height="16" rx="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><text x="${x}" y="${y + 3}" font-size="8.5" font-weight="800" letter-spacing="0.5" text-anchor="middle" fill="${C.junctionText}">AND</text></g>`;
   }
   for (const b of l.boxes.values()) s += nodeMarkup(b, opts);
+  if (opts.dragging) s += dragMarkup(l, opts.dragging, C);
   return s + '</g>';
+}
+
+// While a node is dragged: the drop target, a copy of the node under the pointer, and what a drop does.
+function dragMarkup(l, d, C) {
+  let s = '', label = 'Drop on an effect to move, or between causes to reorder';
+  const drop = d.drop;
+  if (drop?.type === 'move') {
+    const t = l.boxes.get(drop.target), ok = !drop.problem;
+    s += `<rect x="${t.x - 6}" y="${t.y - 6}" width="${t.w + 12}" height="${t.h + 12}" rx="12" fill="none" stroke="${ok ? C.select : C.issue}" stroke-width="3"${ok ? '' : ' stroke-dasharray="6 4"'}/>`;
+    label = ok ? `Move under “${shorten(t.node.title, 40)}”` : drop.problem;
+  } else if (drop?.type === 'order') {
+    const t = l.boxes.get(drop.sibling), y = drop.after ? t.y + t.h + SIBLING_GAP / 2 : t.y - SIBLING_GAP / 2;
+    s += `<rect x="${t.x - 6}" y="${y - 2}" width="${t.w + 12}" height="4" rx="2" fill="${C.select}"/>`;
+    label = `Place ${drop.after ? 'below' : 'above'} “${shorten(t.node.title, 40)}”`;
+  }
+  // The copy and the label keep one size on screen whatever the zoom, below and right of the pointer,
+  // so the drop target stays in view. Inside the group, units are screen pixels.
+  const b = l.boxes.get(d.id), k = .7, bad = drop?.type === 'move' && drop.problem;
+  const lw = textWidth(label, 12, 600) + 18, ly = 14 + b.h * k + 6, wide = Math.max(lw, b.w * k);
+  // Near the right edge of the canvas, both go to the left of the pointer instead.
+  const ox = (d.at.x - view.x) * view.k + 14 + wide > svg.clientWidth ? -14 - wide : 14;
+  s += `<g class="ghost" pointer-events="none" transform="translate(${d.at.x} ${d.at.y}) scale(${1 / view.k})">`;
+  s += `<g opacity="0.85" transform="translate(${ox} 14) scale(${k})">${nodeMarkup({...b, x: 0, y: 0}, {colors: C}).replace(/class="node" data-id="[^"]*" /, '')}</g>`;
+  s += `<rect x="${ox}" y="${ly}" width="${lw}" height="24" rx="6" fill="${bad ? C.issue : C.stop}"/><text x="${ox + 9}" y="${ly + 16}" font-size="12" font-weight="600" fill="${C.stopText}">${escapeHtml(label)}</text></g>`;
+  return s;
 }
 
 function issueMap(issues) {
@@ -86,9 +112,10 @@ function issueMap(issues) {
 function renderCanvas() {
   const width = svg.clientWidth || 1, height = svg.clientHeight || 1;
   svg.setAttribute('viewBox', `${view.x} ${view.y} ${width / view.k} ${height / view.k}`);
-  const dimmed = linking ? new Set(state.nodes.filter(n => linkProblem(linking.effectId, n.id)).map(n => n.id)) : null;
+  const cannot = !linking ? null : linking.mode === 'move' ? n => n.id === linking.causeId || moveProblem(linking.causeId, linking.fromId, n.id) : n => linkProblem(linking.effectId, n.id);
+  const dimmed = cannot ? new Set(state.nodes.filter(cannot).map(n => n.id)) : null;
   const lit = highlight && !linking ? new Set(citingNodes(highlight).map(n => n.id)) : null;
-  svg.innerHTML = chartMarkup(layout, {colors: darkTheme() ? CHART_COLORS_DARK : CHART_COLORS, selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true});
+  svg.innerHTML = chartMarkup(layout, {colors: darkTheme() ? CHART_COLORS_DARK : CHART_COLORS, selectedId: linking ? linking.effectId ?? linking.causeId : selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true, dragging: nodeDrag?.moved ? nodeDrag : null});
   svg.classList.toggle('linking', !!linking);
   $('zoomReset').textContent = `${Math.round(view.k * 100)}%`;
 }
@@ -109,7 +136,9 @@ function render() {
   $('deleteNode').disabled = !n || n.id === state.problem.primaryEffectId;
   $('linkCause').disabled = !n;
   $('linkBanner').hidden = !linking;
-  if (linking) $('linkTarget').textContent = byId(linking.effectId)?.title || '';
+  if (linking) $('linkText').innerHTML = linking.mode === 'move'
+    ? `Click the effect to move <b>${escapeHtml(byId(linking.causeId)?.title || '')}</b> under. Faded nodes would make a loop or already have it as a cause.`
+    : `Click the node to link as a cause of <b>${escapeHtml(byId(linking.effectId)?.title || '')}</b>. Faded nodes would make a loop or are already linked.`;
   const ev = highlight && !linking ? evidenceById(highlight) : null;
   $('evidenceBanner').hidden = !ev;
   if (ev) {

@@ -143,7 +143,8 @@ function computeLayout() {
   }
 
   const placed = links.filter(l => boxes.has(l.effectId) && boxes.has(l.causeId));
-  return {boxes, edges: routeEdges(boxes, placed, parent, rank), bounds: chartBounds(boxes)};
+  // parent and children: the effect each cause is drawn under, and each effect's causes in drawing order.
+  return {boxes, edges: routeEdges(boxes, placed, parent, rank), bounds: chartBounds(boxes), parent, children};
 }
 
 // ---- Connectors ----

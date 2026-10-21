@@ -71,7 +71,7 @@
 
   <main>
     <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
-    <div id="linkBanner" class="banner" role="status" hidden><span>Click the node to link as a cause of <b id="linkTarget"></b>. Faded nodes would make a loop or are already linked.</span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
+    <div id="linkBanner" class="banner" role="status" hidden><span id="linkText"></span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
     <div id="evidenceBanner" class="banner" role="status" hidden><span id="evidenceBannerText"></span><button id="clearHighlight">Clear <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
@@ -94,7 +94,7 @@
   <footer>
     <span id="status">Ready</span>
     <span id="count">0 causes · 0 evidence items</span>
-    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> move · <kbd>Del</kbd> delete</span>
+    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
 <div id="report" aria-hidden="true"></div>

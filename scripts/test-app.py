@@ -105,7 +105,8 @@ def run_tests(b):
 
     def select(title):
         b.js('''const n=document.querySelector(`#chart .node[data-id="${arguments[0]}"] rect:not([fill=none])`),r=n.getBoundingClientRect();
-            n.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:r.x+5,clientY:r.y+5}));return true''', [node_id(title)])
+            n.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:r.x+5,clientY:r.y+5}));
+            document.getElementById('chart').dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,clientX:r.x+5,clientY:r.y+5}));return true''', [node_id(title)])
 
     def type_into(field, value):
         b.js('const i=document.getElementById(arguments[0]);i.focus();i.value=arguments[1];i.dispatchEvent(new Event("input",{bubbles:true}));return true', [field, value])
@@ -317,6 +318,82 @@ def run_tests(b):
     click('expandAll')
     assert len(boxes()) == len(rca()['nodes']) and rca() == before_link
     print('PASS: collapse and expand branches', flush=True)
+
+    # ---- Moving and reordering causes ----
+    def drag(title, to_title, frac=0.5, hold=False):
+        # Drags a node by its middle to a point on another node: frac 0 is its top edge, 1 its bottom.
+        return b.js('''const chart=document.getElementById('chart'),box=id=>document.querySelector(`#chart .node[data-id="${id}"] rect:not([fill=none])`);
+            const a=box(arguments[0]).getBoundingClientRect(),sx=a.x+a.width/2,sy=a.y+a.height/2;
+            box(arguments[0]).dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:sx,clientY:sy}));
+            const t=box(arguments[1]).getBoundingClientRect(),tx=t.x+t.width/2,ty=t.y+t.height*arguments[2];
+            chart.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:(sx+tx)/2,clientY:(sy+ty)/2}));
+            chart.dispatchEvent(new PointerEvent('pointermove',{bubbles:true,clientX:tx,clientY:ty}));
+            const label=[...chart.querySelectorAll('.ghost text')].map(x=>x.textContent).at(-1)??null;
+            if(!arguments[3]) chart.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,clientX:tx,clientY:ty}));
+            return label''', [node_id(title), node_id(to_title), frac, hold])
+
+    def alt_key(name):
+        b.js('document.activeElement.blur();window.dispatchEvent(new KeyboardEvent("keydown",{key:arguments[0],altKey:true,bubbles:true}));return true', [name])
+
+    def drawn_under(effect):
+        data = rca(); titles = {n['id']: n['title'] for n in data['nodes']}
+        return [titles[l['causeId']] for l in data['links'] if l['effectId'] == node_id(effect)]
+
+    before_move = rca()
+    heat, temp, film = 'Heat input from face friction and pump', 'Seal chamber temperature rose 18 °C', 'Fluid film flashed to vapour (intermittent dry running)'
+    label = drag(heat, film)
+    assert label.startswith('Move under “Fluid film flashed'), label
+    assert heat in drawn_under(film) and heat not in drawn_under(temp), 'dropping on an effect moves the cause'
+    assert b.js("return document.querySelectorAll('#chart .ghost').length") == 0
+    check_layout()
+    click('undo')
+    assert rca() == before_move
+
+    label = drag('Plan 11 flush flow dropped to near zero', 'Solids entered the flush line')
+    assert 'loop' in label and rca() == before_move, 'a drop that would make a loop is refused'
+    assert 'loop' in b.js("return document.getElementById('status').textContent")
+
+    drag(heat, film, hold=True)
+    key('Escape')
+    assert rca() == before_move and b.js("return document.querySelectorAll('#chart .ghost').length") == 0, 'Escape cancels a drag'
+    b.js("document.getElementById('chart').dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));return true")
+
+    primary_title = next(n['title'] for n in rca()['nodes'] if n['id'] == rca()['problem']['primaryEffectId'])
+    assert drag(primary_title, film) is None and rca() == before_move, 'the primary effect cannot be dragged'
+
+    select(heat)
+    key('m')
+    assert banner_shown() and 'move' in b.js("return document.getElementById('linkText').textContent")
+    select(film)
+    assert heat in drawn_under(film) and not banner_shown(), 'M, then a click, moves the cause'
+    click('undo')
+    assert rca() == before_move
+
+    # Reordering: two actions under one effect.
+    plan, solids = 'Plan 11 flush flow dropped to near zero', 'Solids entered the flush line'
+    select(plan)
+    key('Insert')
+    type_into('nodeTitle', 'Strainer basket removed')
+    actions = lambda: [t for t in drawn_under(plan) if next(n for n in rca()['nodes'] if n['title'] == t)['kind'] == 'action']
+    assert actions() == [solids, 'Strainer basket removed']
+    label = drag('Strainer basket removed', solids, frac=0.1)
+    assert label.startswith('Place above “Solids'), label
+    assert actions() == ['Strainer basket removed', solids], 'dropping on the top edge of a sibling places it above'
+    placed = {x['id']: x for x in boxes()}
+    assert placed[node_id('Strainer basket removed')]['y'] < placed[node_id(solids)]['y']
+    check_layout()
+    alt_key('ArrowDown')
+    assert actions() == [solids, 'Strainer basket removed'], 'Alt+Down moves it below its sibling'
+    alt_key('ArrowUp')
+    assert actions() == ['Strainer basket removed', solids], 'Alt+Up moves it back'
+    label = drag('3 mm orifice, no strainer or cyclone', solids, frac=0.1)
+    assert label.startswith('Move under'), 'a condition does not reorder among actions'
+    for _ in range(6):
+        if rca() == before_move:
+            break
+        click('undo')
+    assert rca() == before_move
+    print('PASS: drag to move and reorder, M, Alt+arrows, refused and cancelled drags', flush=True)
 
     # ---- Deleting ----
     solutions_before = sum(len(s['causeIds']) for s in rca()['solutions'])

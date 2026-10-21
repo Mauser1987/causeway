@@ -38,7 +38,7 @@ function setRecord(name) {
   });
 }
 function showRecord(name, focusId) {
-  if (linking) linking = null;
+  linking = null; nodeDrag = null;
   setRecord(name);
   render();
   if (name === 'chart') { if (selected) scrollToNode(selected); return; }

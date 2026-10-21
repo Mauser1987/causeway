@@ -50,6 +50,19 @@ One cause can support more than one effect. To chart that:
 
 **Esc**, **Cancel**, or a click on the empty canvas stops linking. The selected cause's **Supports** section lists every effect it supports; **×** removes one link. A cause keeps at least one effect; to take it off the chart, delete it.
 
+## Move and reorder causes
+
+The chart always lays itself out; boxes are not placed by hand. Dragging a cause changes the structure instead:
+
+- **Drop it on another node** to make it a cause of that node. Its own causes move with it. A blue outline and a label show what a drop will do; a drop that would make a loop, or onto an effect that already has the cause, is refused and says why.
+- **Drop it on the top or bottom edge of a sibling, or in the gap next to it,** to place it above or below that sibling. A blue bar shows where it will go. Actions stay above conditions, so a cause is reordered among causes of its own kind.
+
+**Esc** cancels a drag. The primary effect cannot be dragged.
+
+Without the mouse: **M** (or **Move to another effect** in the Properties panel) asks for the new effect, the way **Link cause** does; **Alt+↑** and **Alt+↓** move a cause above or below its neighbour.
+
+For a shared cause, moving changes only the link it is drawn along (the solid one); its dashed links stay.
+
 ## Collapse branches
 
 Click the **−** circle where a node's connector leaves it, press **Space**, or choose **Collapse branch** in the Properties panel. The node then shows **+N** for the causes it hides, and its circle turns to **+**. **Space**, the **+** circle, or **→** expands it again. With nothing selected, the Properties panel offers **Expand all branches**.
@@ -103,9 +116,11 @@ With a node selected and no field focused:
 | **←** | Select the effect |
 | **→** | Select a cause; on a collapsed node, expand it |
 | **↑ ↓** | Select the node above or below in the same column |
+| **M** | Move the cause under another effect |
+| **Alt+↑ Alt+↓** | Move the cause above or below its neighbour |
 | **L** | Link an existing node as a further cause |
 | **Space** | Collapse or expand the branch |
-| **Esc** | Stop linking, or clear the selection |
+| **Esc** | Cancel linking, moving, or a drag; or clear the selection |
 | **Delete** | Delete the selected cause |
 
 With nothing selected, an arrow key selects the primary effect. A and C are there for laptops without an Insert key.
@@ -187,4 +202,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

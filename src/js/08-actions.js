@@ -56,8 +56,39 @@ function expandAll() {
 function startLinking() {
   const n = byId(selected);
   if (!n) return;
-  linking = {effectId: n.id};
+  linking = {mode: 'link', effectId: n.id};
   render();
+}
+// Moving: the next node clicked becomes the effect of the selected cause.
+function startMoving() {
+  const n = byId(selected), from = layout.parent.get(selected);
+  if (!n || !from) return;
+  linking = {mode: 'move', causeId: n.id, fromId: from};
+  render();
+}
+function pickNode(id) {
+  if (linking.mode === 'move') moveTo(linking.causeId, linking.fromId, id);
+  else linkTo(id);
+}
+function moveTo(causeId, fromId, toId) {
+  const problem = moveCause(causeId, fromId, toId);
+  if (problem) { setStatus(problem); return false; }
+  linking = null; selected = causeId;
+  render(); persist();
+  scrollToNode(causeId);
+  setStatus(`Moved "${byId(causeId).title}" under "${byId(toId).title}"`);
+  return true;
+}
+// Alt+Up and Alt+Down: swap with the neighbouring cause of the same kind under the same effect.
+function nudgeCause(direction) {
+  const effect = layout.parent.get(selected), n = byId(selected);
+  if (!effect || !n) return;
+  const group = (layout.children.get(effect) || []).filter(c => c.kind === n.kind);
+  const i = group.findIndex(c => c.id === n.id), other = group[i + direction];
+  if (!other) return;
+  placeCause(effect, n.id, other.id, direction > 0);
+  render(); persist();
+  scrollToNode(n.id);
 }
 function cancelLinking() {
   linking = null;

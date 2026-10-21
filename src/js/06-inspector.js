@@ -42,10 +42,13 @@ function renderRcaProperties(box) {
         <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add an action to the selected effect</dd>
         <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
-        <dt><kbd>←↑↓→</kbd></dt><dd>Move the selection</dd>
+        <dt><kbd>←↑↓→</kbd></dt><dd>Select the neighbouring node</dd>
+        <dt><kbd>M</kbd></dt><dd>Move the cause under another effect</dd>
+        <dt><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd></dt><dd>Reorder among its siblings</dd>
+        <dt>Drag a node</dt><dd>Onto an effect: move. Between siblings: reorder</dd>
         <dt><kbd>L</kbd></dt><dd>Link an existing node as a cause</dd>
         <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, or clear the selection</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, moving, or a drag; or clear the selection</dd>
         <dt><kbd>Del</kbd></dt><dd>Delete the selected cause</dd>
         <dt><kbd>Ctrl+S</kbd></dt><dd>Save</dd>
         <dt><kbd>Ctrl+Z</kbd> <kbd>Ctrl+Y</kbd></dt><dd>Undo, redo</dd>
@@ -111,6 +114,8 @@ function renderNodeProperties(box, n) {
       <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
       ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
+      <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (M), or drag the node onto it">Move to another effect</button>
+      <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
     </div>`}
 
     ${isPrimary ? '' : `<div class="section">
@@ -142,6 +147,7 @@ function renderNodeProperties(box, n) {
   $('inspAddAction').onclick = () => addCauseToSelected('action');
   $('inspAddCondition').onclick = () => addCauseToSelected('condition');
   $('inspLink').onclick = startLinking;
+  if ($('inspMove')) $('inspMove').onclick = startMoving;
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
   box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
