@@ -1,6 +1,10 @@
 # Changelog
 
-## Renamed to Causeway — 2026-10-21
+## v1.0 — 2026-10-21
+
+First release as Causeway: milestones M1–M4 below, then the rename.
+
+### Renamed to Causeway
 
 - The tool is now **Causeway**, a root cause analysis workbench, ready for further methods such as 5 Whys and fishbone diagrams. It was the Apollo RCA Builder.
 - The page is `index.html` (was `apollo-rca.html`), so GitHub Pages serves it at the repository's address.
