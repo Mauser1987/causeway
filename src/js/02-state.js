@@ -41,13 +41,14 @@ let selected = null;           // node id
 let collapsed = new Set();     // node ids whose causes are hidden; view state, not undoable
 let view = {x: 0, y: 0, k: 1}; // chart point at the top-left of the canvas, and pixels per unit
 let drag = null;               // the pointer gesture in progress
+let linking = null;            // {effectId} while picking an existing node to link as its cause
 
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
 
 function resetInteraction() {
-  selected = null; drag = null;
+  selected = null; drag = null; linking = null;
 }
 
 // The file and the autosave hold the RCA and the collapsed branches.

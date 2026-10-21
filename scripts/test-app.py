@@ -259,6 +259,64 @@ def run_tests(b):
     assert b.js("return document.querySelectorAll('#chart .junction').length") > 0, 'AND junctions are drawn'
     print('PASS: arrow keys, issues list, AND junctions', flush=True)
 
+    # ---- Shared causes: linking an existing node ----
+    def banner_shown():
+        return not b.js("return document.getElementById('linkBanner').hidden")
+
+    def has_link(effect, cause):
+        return any(l['effectId'] == node_id(effect) and l['causeId'] == node_id(cause) for l in rca()['links'])
+
+    film, orifice = 'Fluid film flashed to vapour (intermittent dry running)', '3 mm orifice, no strainer or cyclone'
+    before_link = rca()
+    select(film)
+    key('l')
+    assert banner_shown(), 'L starts linking'
+    assert b.js("return document.querySelectorAll('#chart .node[opacity]').length") > 0, 'nodes that cannot be linked are faded'
+    select('Leak path opened across primary faces')
+    assert 'loop' in b.js("return document.getElementById('status').textContent") and banner_shown(), 'a loop is refused'
+    assert rca()['links'] == before_link['links']
+    select(orifice)
+    assert has_link(film, orifice) and not banner_shown(), 'clicking a node links it'
+    assert b.js("return document.querySelectorAll('#chart path[stroke-dasharray]').length") == 1, 'the further link is dashed'
+    check_layout()
+    select(orifice)
+    assert b.js("return document.querySelectorAll('[data-unlink-effect]').length") == 2, 'a shared cause lists both effects'
+    b.js('document.querySelector(`[data-unlink-effect="${arguments[0]}"]`).click();return true', [node_id(film)])
+    assert not has_link(film, orifice) and b.js("return document.querySelectorAll('[data-unlink-effect]').length") == 0, 'unlinking keeps the last effect'
+    click('undo')
+    assert has_link(film, orifice)
+    click('undo')
+    assert rca() == before_link
+    select(film)
+    click('linkCause')
+    key('Escape')
+    assert not banner_shown() and rca() == before_link, 'Escape cancels linking'
+    print('PASS: link an existing node as a shared cause, unlink, cancel', flush=True)
+
+    # ---- Collapse and expand ----
+    plan = 'Plan 11 flush flow dropped to near zero'
+    shown = len(boxes())
+    select(plan)
+    key(' ')
+    assert len(boxes()) == shown - 4, 'Space collapses the branch'
+    assert b.js("return [...document.querySelectorAll('#chart text')].some(t=>t.textContent==='+4')"), 'the collapsed node counts its hidden causes'
+    assert rca()['view']['collapsed'] == [node_id(plan)], 'collapsing is saved with the RCA'
+    assert b.js('return document.getElementById("undo").disabled') is False and rca()['nodes'] == before_link['nodes']
+    key('ArrowRight')
+    assert len(boxes()) == shown, 'right expands a collapsed node'
+    b.js('''const t=document.querySelector(`#chart .node[data-id="${arguments[0]}"] .toggle circle`);
+        t.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0}));return true''', [node_id(plan)])
+    assert len(boxes()) == shown - 4, 'the toggle on the chart collapses'
+    select(film)
+    key(' ')
+    click('issuesButton')
+    b.js("[...document.querySelectorAll('#issuesList [data-node]')].find(x=>x.textContent.startsWith('Product close')).click();return true")
+    assert selected_title() == 'Product close to its vapour pressure', 'choosing a hidden issue expands its branch'
+    b.js("document.getElementById('chart').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:5,clientY:5}));document.getElementById('chart').dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,clientX:5,clientY:5}));return true")
+    click('expandAll')
+    assert len(boxes()) == len(rca()['nodes']) and rca() == before_link
+    print('PASS: collapse and expand branches', flush=True)
+
     # ---- Deleting ----
     solutions_before = sum(len(s['causeIds']) for s in rca()['solutions'])
     select('Plan 11 flush flow dropped to near zero')

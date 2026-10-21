@@ -9,12 +9,15 @@ function point(e) {
 
 function select(id) {
   selected = id;
+  if (id && reveal(id)) autosave();
   render();
 }
 
 svg.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   const node = e.target.closest('.node');
+  if (node && linking) { linkTo(node.dataset.id); return; }
+  if (node && e.target.closest('.toggle')) { selected = node.dataset.id; toggleCollapse(); return; }
   if (node) { select(node.dataset.id); return; }
   drag = {x: e.clientX, y: e.clientY, view: {...view}, moved: false};
   svg.setPointerCapture(e.pointerId);
@@ -29,7 +32,8 @@ svg.addEventListener('pointermove', e => {
   renderCanvas();
 });
 svg.addEventListener('pointerup', () => {
-  if (drag && !drag.moved && selected) select(null);
+  if (drag && !drag.moved && linking) cancelLinking();
+  else if (drag && !drag.moved && selected) select(null);
   drag = null;
   svg.classList.remove('panning');
 });
@@ -72,11 +76,14 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (command || e.altKey || !byId(selected)) return;
+  if (key === 'escape') { e.preventDefault(); if (linking) cancelLinking(); else select(null); return; }
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
   const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
+  else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
+  else if (key === ' ' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); toggleCollapse(); }
 });
 
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
@@ -85,6 +92,8 @@ window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
+  // Right on a collapsed node expands it.
+  if (from && e.key === 'ArrowRight' && collapsed.has(from.id)) { toggleCollapse(from.id); return; }
   const next = from ? neighbour(from, e.key) : layout.boxes.get(state.problem.primaryEffectId);
   if (!next) return;
   select(next.id);

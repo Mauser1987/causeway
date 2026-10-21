@@ -27,6 +27,46 @@ function deleteSelected() {
   setStatus(`Deleted ${ids.length} node${ids.length > 1 ? 's' : ''}`);
 }
 
+// Collapsing is a view setting: saved with the file, but not an undo step.
+function toggleCollapse(id = selected) {
+  if (!causeLinks(id).length) return;
+  if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+  render(); autosave();
+}
+function expandAll() {
+  collapsed.clear();
+  render(); autosave();
+}
+
+// Linking an existing node as a further cause of the selected effect: the next node clicked is linked.
+function startLinking() {
+  const n = byId(selected);
+  if (!n) return;
+  linking = {effectId: n.id};
+  render();
+}
+function cancelLinking() {
+  linking = null;
+  render();
+}
+function linkTo(causeId) {
+  const effectId = linking.effectId, problem = linkProblem(effectId, causeId);
+  if (problem) { setStatus(problem); return; }
+  addLink(effectId, causeId);
+  collapsed.delete(effectId);
+  linking = null; selected = effectId;
+  render(); persist();
+  setStatus(`Linked "${byId(causeId).title}" as a cause of "${byId(effectId).title}"`);
+}
+// A cause keeps at least one effect; to take it off the chart, delete it.
+function unlinkFrom(effectId, causeId) {
+  if (effectLinks(causeId).length < 2) return;
+  state.links = state.links.filter(l => !(l.effectId === effectId && l.causeId === causeId));
+  render(); persist();
+}
+
 $('addAction').onclick = () => addCauseToSelected('action');
 $('addCondition').onclick = () => addCauseToSelected('condition');
 $('deleteNode').onclick = deleteSelected;
+$('linkCause').onclick = startLinking;
+$('cancelLink').onclick = cancelLinking;

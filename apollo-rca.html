@@ -159,7 +159,17 @@ main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
   background-size: 18px 18px;
 }
 #chart.panning { cursor: grabbing; }
+#chart.linking .node { cursor: crosshair; }
+.toggle { cursor: pointer; }
+.banner {
+  position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%);
+  max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 14px; border: 1px solid #b8c9f5; border-radius: 8px;
+  background: #eef3fe; color: #1e3a8a; box-shadow: 0 4px 14px rgba(22, 35, 47, .10);
+}
+.banner button { flex: none; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #b8c9f5; border-radius: 6px; background: #fff; color: #1e3a8a; }
 .node { cursor: pointer; }
+main:has(.banner:not([hidden])) .hint { display: none; }
 .hint { position: absolute; left: 16px; top: 12px; margin: 0; font-size: 12px; color: var(--muted); pointer-events: none; }
 .editbar {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
@@ -275,6 +285,8 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .cause-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .cause-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 6px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 12px; }
 .cause-list button:hover { background: var(--line-soft); }
+.cause-list .with-action { display: flex; align-items: center; gap: 2px; }
+.cause-list .with-action > button:first-child { flex: 1; min-width: 0; }
 .cause-list .sw { width: 10px; min-width: 10px; height: 10px; border-radius: 2px; }
 
 .info { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: #f3f6f9; color: var(--ink-2); font-size: 12px; line-height: 1.45; }
@@ -342,10 +354,12 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 
   <main>
     <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
+    <div id="linkBanner" class="banner" role="status" hidden><span>Click the node to link as a cause of <b id="linkTarget"></b>. Faded nodes would make a loop or are already linked.</span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
       <button id="addAction" class="add-action" title="Add an action cause to the selected effect">+ Action <kbd>Ins</kbd></button>
       <button id="addCondition" class="add-condition" title="Add a condition cause to the selected effect">+ Condition <kbd>Shift+Ins</kbd></button>
+      <button id="linkCause" title="Link a node already on the chart as a further cause of the selected effect">Link cause <kbd>L</kbd></button>
       <button id="deleteNode" class="danger" title="Delete the selected cause">Delete <kbd>Del</kbd></button>
       <span class="sep" aria-hidden="true"></span>
       <button id="zoomOut" title="Zoom out" aria-label="Zoom out">−</button>
@@ -360,7 +374,7 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
   <footer>
     <span id="status">Ready</span>
     <span id="count">0 causes · 0 evidence items</span>
-    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>←↑↓→</kbd> move · <kbd>Del</kbd> delete</span>
+    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
 <script>
@@ -459,13 +473,14 @@ let selected = null;           // node id
 let collapsed = new Set();     // node ids whose causes are hidden; view state, not undoable
 let view = {x: 0, y: 0, k: 1}; // chart point at the top-left of the canvas, and pixels per unit
 let drag = null;               // the pointer gesture in progress
+let linking = null;            // {effectId} while picking an existing node to link as its cause
 
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
 
 function resetInteraction() {
-  selected = null; drag = null;
+  selected = null; drag = null; linking = null;
 }
 
 // The file and the autosave hold the RCA and the collapsed branches.
@@ -610,6 +625,13 @@ function deleteNodes(ids) {
 }
 function removeLink(linkId) {
   state.links = state.links.filter(l => l.id !== linkId);
+}
+
+// Expands every collapsed branch that hides the node. Returns whether anything changed.
+function reveal(id) {
+  const hiding = [...collapsed].filter(c => c !== id && reaches(c, id));
+  hiding.forEach(c => collapsed.delete(c));
+  return hiding.length > 0;
 }
 
 // ---- Rule checks ----
@@ -869,7 +891,7 @@ function nodeMarkup(b, opts) {
   const n = b.node, c = CHART_COLORS[n.kind], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
-  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})">`;
+  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) ? ' opacity="0.35"' : ''}>`;
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1})}/>`;
@@ -907,6 +929,11 @@ function nodeMarkup(b, opts) {
   }
   // A stop point closes the branch with a double bar on the right.
   if (n.stopPoint) s += `<path d="M ${w + 7} ${h * .25} V ${h * .75} M ${w + 12} ${h * .25} V ${h * .75}" stroke="${CHART_COLORS.stop}" stroke-width="3"/>`;
+  // On the canvas only: the collapse toggle where the node's connector leaves it.
+  if (opts.toggles && causeLinks(n.id).length) {
+    const open = !collapsed.has(n.id);
+    s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="#ffffff" stroke="${CHART_COLORS.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${CHART_COLORS.stop}" stroke-width="1.6"/></g>`;
+  }
   if (isCause(n) && needsEvidence(n)) {
     s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${CHART_COLORS.unverified.fill}" stroke="#ffffff" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${CHART_COLORS.unverified.text}">?</text></g>`;
   }
@@ -937,7 +964,9 @@ function issueMap(issues) {
 function renderCanvas() {
   const width = svg.clientWidth || 1, height = svg.clientHeight || 1;
   svg.setAttribute('viewBox', `${view.x} ${view.y} ${width / view.k} ${height / view.k}`);
-  svg.innerHTML = chartMarkup(layout, {selectedId: selected, issues: issueMap(ruleIssues())});
+  const dimmed = linking ? new Set(state.nodes.filter(n => linkProblem(linking.effectId, n.id)).map(n => n.id)) : null;
+  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, toggles: true});
+  svg.classList.toggle('linking', !!linking);
   $('zoomReset').textContent = `${Math.round(view.k * 100)}%`;
 }
 function render() {
@@ -952,6 +981,9 @@ function render() {
   const n = byId(selected);
   $('addAction').disabled = $('addCondition').disabled = !n;
   $('deleteNode').disabled = !n || n.id === state.problem.primaryEffectId;
+  $('linkCause').disabled = !n;
+  $('linkBanner').hidden = !linking;
+  if (linking) $('linkTarget').textContent = byId(linking.effectId)?.title || '';
   renderProperties();
 }
 
@@ -986,12 +1018,14 @@ function renderRcaProperties(box) {
     ${field('Equipment / tag', 'equipmentTag', state.meta.equipmentTag, 'placeholder="e.g. P-101A"')}
     ${area('Primary effect', 'primaryTitle', primaryEffect()?.title || '', 'rows="2" style="min-height:44px"')}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
+    ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
       <ol class="steps">
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
         <li>Each effect needs at least one action and one condition.</li>
+        <li>When one cause supports several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
         <li>Back each cause with evidence: select it and search or type under <b>Evidence</b>.</li>
         <li>Save the RCA as a JSON file with <b>Save</b>.</li>
       </ol>
@@ -1003,12 +1037,16 @@ function renderRcaProperties(box) {
         <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
         <dt><kbd>←↑↓→</kbd></dt><dd>Move the selection</dd>
+        <dt><kbd>L</kbd></dt><dd>Link an existing node as a cause</dd>
+        <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, or clear the selection</dd>
         <dt><kbd>Del</kbd></dt><dd>Delete the selected cause</dd>
         <dt><kbd>Ctrl+S</kbd></dt><dd>Save</dd>
         <dt><kbd>Ctrl+Z</kbd> <kbd>Ctrl+Y</kbd></dt><dd>Undo, redo</dd>
         <dt>Drag, wheel</dt><dd>Pan, zoom</dd>
       </dl>
     </div>`;
+  if ($('expandAll')) $('expandAll').onclick = expandAll;
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
   $('primaryTitle').oninput = e => { primaryEffect().title = e.target.value; refreshChart(); persist('title:' + state.problem.primaryEffectId); };
@@ -1057,8 +1095,16 @@ function renderNodeProperties(box, n) {
       <div class="button-grid">
         <button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
         <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>
+        <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (L)">Link existing</button>
+        ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
       </div>
     </div>
+    ${isPrimary ? '' : `<div class="section">
+      <div class="panel-title">Supports</div>
+      <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
+        ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
+      ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
+    </div>`}
 
     <div class="section">
       ${area('Description', 'nodeDescription', n.description).replace('class="field"', 'class="field" style="margin-top:0"')}
@@ -1080,6 +1126,9 @@ function renderNodeProperties(box, n) {
   evidenceCombo(n);
   $('inspAddAction').onclick = () => addCauseToSelected('action');
   $('inspAddCondition').onclick = () => addCauseToSelected('condition');
+  $('inspLink').onclick = startLinking;
+  if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
+  box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
 }
 
@@ -1207,9 +1256,49 @@ function deleteSelected() {
   setStatus(`Deleted ${ids.length} node${ids.length > 1 ? 's' : ''}`);
 }
 
+// Collapsing is a view setting: saved with the file, but not an undo step.
+function toggleCollapse(id = selected) {
+  if (!causeLinks(id).length) return;
+  if (collapsed.has(id)) collapsed.delete(id); else collapsed.add(id);
+  render(); autosave();
+}
+function expandAll() {
+  collapsed.clear();
+  render(); autosave();
+}
+
+// Linking an existing node as a further cause of the selected effect: the next node clicked is linked.
+function startLinking() {
+  const n = byId(selected);
+  if (!n) return;
+  linking = {effectId: n.id};
+  render();
+}
+function cancelLinking() {
+  linking = null;
+  render();
+}
+function linkTo(causeId) {
+  const effectId = linking.effectId, problem = linkProblem(effectId, causeId);
+  if (problem) { setStatus(problem); return; }
+  addLink(effectId, causeId);
+  collapsed.delete(effectId);
+  linking = null; selected = effectId;
+  render(); persist();
+  setStatus(`Linked "${byId(causeId).title}" as a cause of "${byId(effectId).title}"`);
+}
+// A cause keeps at least one effect; to take it off the chart, delete it.
+function unlinkFrom(effectId, causeId) {
+  if (effectLinks(causeId).length < 2) return;
+  state.links = state.links.filter(l => !(l.effectId === effectId && l.causeId === causeId));
+  render(); persist();
+}
+
 $('addAction').onclick = () => addCauseToSelected('action');
 $('addCondition').onclick = () => addCauseToSelected('condition');
 $('deleteNode').onclick = deleteSelected;
+$('linkCause').onclick = startLinking;
+$('cancelLink').onclick = cancelLinking;
 
 // Pointer and keyboard: selecting, panning, zooming.
 
@@ -1222,12 +1311,15 @@ function point(e) {
 
 function select(id) {
   selected = id;
+  if (id && reveal(id)) autosave();
   render();
 }
 
 svg.addEventListener('pointerdown', e => {
   if (e.button !== 0) return;
   const node = e.target.closest('.node');
+  if (node && linking) { linkTo(node.dataset.id); return; }
+  if (node && e.target.closest('.toggle')) { selected = node.dataset.id; toggleCollapse(); return; }
   if (node) { select(node.dataset.id); return; }
   drag = {x: e.clientX, y: e.clientY, view: {...view}, moved: false};
   svg.setPointerCapture(e.pointerId);
@@ -1242,7 +1334,8 @@ svg.addEventListener('pointermove', e => {
   renderCanvas();
 });
 svg.addEventListener('pointerup', () => {
-  if (drag && !drag.moved && selected) select(null);
+  if (drag && !drag.moved && linking) cancelLinking();
+  else if (drag && !drag.moved && selected) select(null);
   drag = null;
   svg.classList.remove('panning');
 });
@@ -1285,11 +1378,14 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (command || e.altKey || !byId(selected)) return;
+  if (key === 'escape') { e.preventDefault(); if (linking) cancelLinking(); else select(null); return; }
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
   const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
+  else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
+  else if (key === ' ' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); toggleCollapse(); }
 });
 
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
@@ -1298,6 +1394,8 @@ window.addEventListener('keydown', e => {
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
+  // Right on a collapsed node expands it.
+  if (from && e.key === 'ArrowRight' && collapsed.has(from.id)) { toggleCollapse(from.id); return; }
   const next = from ? neighbour(from, e.key) : layout.boxes.get(state.problem.primaryEffectId);
   if (!next) return;
   select(next.id);

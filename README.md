@@ -2,7 +2,7 @@
 
 An offline, single-file HTML tool for root cause analyses with the Apollo method: build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it. No installation, server, account, or network connection is needed.
 
-> Status: milestone M1, plus the new layout, evidence linking, the keyboard, and the issues list from M2. Linking an existing cause to a second effect, collapsing branches, the RCA record panels (M3), export, printing, and the dark theme (M4) follow.
+> Status: milestones M1 and M2 of four. The RCA record panels (M3), export, printing, and the dark theme (M4) follow.
 
 ## Run it
 
@@ -36,6 +36,22 @@ Open [`apollo-rca.html`](apollo-rca.html) in Chrome, Edge, or Firefox. Choose **
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
 - **Status bar** at the bottom: the last file action, the counts, and the keys.
 
+## Shared causes
+
+One cause can support more than one effect. To chart that:
+
+1. Select the second effect.
+2. Choose **Link cause** (or press **L**). A banner asks for the cause; nodes that cannot be linked are faded, because the link would make a loop or already exists.
+3. Click the cause. The new link is drawn dashed in purple.
+
+**Esc**, **Cancel**, or a click on the empty canvas stops linking. The selected cause's **Supports** section lists every effect it supports; **×** removes one link. A cause keeps at least one effect; to take it off the chart, delete it.
+
+## Collapse branches
+
+Click the **−** circle where a node's connector leaves it, press **Space**, or choose **Collapse branch** in the Properties panel. The node then shows **+N** for the causes it hides, and its circle turns to **+**. **Space**, the **+** circle, or **→** expands it again. With nothing selected, the Properties panel offers **Expand all branches**.
+
+Collapsing is part of the view, not an edit: it is not an undo step and does not count as an unsaved change, but it is saved with the file. Choosing a hidden node from the issues list expands the branches that hide it.
+
 ## Link evidence
 
 Select a cause. Its **Evidence** section lists the items it cites, each with its code, description, type, collector, and date.
@@ -60,8 +76,11 @@ With a node selected and no field focused:
 | **Shift+Insert** or **C** | Add a condition cause |
 | **F2** or **Enter** | Edit the title |
 | **←** | Select the effect |
-| **→** | Select a cause |
+| **→** | Select a cause; on a collapsed node, expand it |
 | **↑ ↓** | Select the node above or below in the same column |
+| **L** | Link an existing node as a further cause |
+| **Space** | Collapse or expand the branch |
+| **Esc** | Stop linking, or clear the selection |
 | **Delete** | Delete the selected cause |
 
 With nothing selected, an arrow key selects the primary effect. A and C are there for laptops without an Insert key.
@@ -128,4 +147,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.

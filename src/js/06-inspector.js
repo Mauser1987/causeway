@@ -24,12 +24,14 @@ function renderRcaProperties(box) {
     ${field('Equipment / tag', 'equipmentTag', state.meta.equipmentTag, 'placeholder="e.g. P-101A"')}
     ${area('Primary effect', 'primaryTitle', primaryEffect()?.title || '', 'rows="2" style="min-height:44px"')}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
+    ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
       <ol class="steps">
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
         <li>Each effect needs at least one action and one condition.</li>
+        <li>When one cause supports several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
         <li>Back each cause with evidence: select it and search or type under <b>Evidence</b>.</li>
         <li>Save the RCA as a JSON file with <b>Save</b>.</li>
       </ol>
@@ -41,12 +43,16 @@ function renderRcaProperties(box) {
         <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
         <dt><kbd>←↑↓→</kbd></dt><dd>Move the selection</dd>
+        <dt><kbd>L</kbd></dt><dd>Link an existing node as a cause</dd>
+        <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, or clear the selection</dd>
         <dt><kbd>Del</kbd></dt><dd>Delete the selected cause</dd>
         <dt><kbd>Ctrl+S</kbd></dt><dd>Save</dd>
         <dt><kbd>Ctrl+Z</kbd> <kbd>Ctrl+Y</kbd></dt><dd>Undo, redo</dd>
         <dt>Drag, wheel</dt><dd>Pan, zoom</dd>
       </dl>
     </div>`;
+  if ($('expandAll')) $('expandAll').onclick = expandAll;
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
   $('primaryTitle').oninput = e => { primaryEffect().title = e.target.value; refreshChart(); persist('title:' + state.problem.primaryEffectId); };
@@ -95,8 +101,16 @@ function renderNodeProperties(box, n) {
       <div class="button-grid">
         <button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
         <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>
+        <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (L)">Link existing</button>
+        ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
       </div>
     </div>
+    ${isPrimary ? '' : `<div class="section">
+      <div class="panel-title">Supports</div>
+      <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
+        ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
+      ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
+    </div>`}
 
     <div class="section">
       ${area('Description', 'nodeDescription', n.description).replace('class="field"', 'class="field" style="margin-top:0"')}
@@ -118,6 +132,9 @@ function renderNodeProperties(box, n) {
   evidenceCombo(n);
   $('inspAddAction').onclick = () => addCauseToSelected('action');
   $('inspAddCondition').onclick = () => addCauseToSelected('condition');
+  $('inspLink').onclick = startLinking;
+  if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
+  box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
 }
 

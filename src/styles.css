@@ -147,7 +147,17 @@ main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
   background-size: 18px 18px;
 }
 #chart.panning { cursor: grabbing; }
+#chart.linking .node { cursor: crosshair; }
+.toggle { cursor: pointer; }
+.banner {
+  position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%);
+  max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 14px; border: 1px solid #b8c9f5; border-radius: 8px;
+  background: #eef3fe; color: #1e3a8a; box-shadow: 0 4px 14px rgba(22, 35, 47, .10);
+}
+.banner button { flex: none; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #b8c9f5; border-radius: 6px; background: #fff; color: #1e3a8a; }
 .node { cursor: pointer; }
+main:has(.banner:not([hidden])) .hint { display: none; }
 .hint { position: absolute; left: 16px; top: 12px; margin: 0; font-size: 12px; color: var(--muted); pointer-events: none; }
 .editbar {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
@@ -263,6 +273,8 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .cause-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
 .cause-list button { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 6px; border: 0; border-radius: 6px; background: none; text-align: left; font-size: 12px; }
 .cause-list button:hover { background: var(--line-soft); }
+.cause-list .with-action { display: flex; align-items: center; gap: 2px; }
+.cause-list .with-action > button:first-child { flex: 1; min-width: 0; }
 .cause-list .sw { width: 10px; min-width: 10px; height: 10px; border-radius: 2px; }
 
 .info { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: #f3f6f9; color: var(--ink-2); font-size: 12px; line-height: 1.45; }

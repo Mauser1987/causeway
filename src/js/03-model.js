@@ -82,6 +82,13 @@ function removeLink(linkId) {
   state.links = state.links.filter(l => l.id !== linkId);
 }
 
+// Expands every collapsed branch that hides the node. Returns whether anything changed.
+function reveal(id) {
+  const hiding = [...collapsed].filter(c => c !== id && reaches(c, id));
+  hiding.forEach(c => collapsed.delete(c));
+  return hiding.length > 0;
+}
+
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one
 // action and one condition; each cause needs evidence; each branch ends in a stop point.

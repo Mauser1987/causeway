@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## M2 — 2026-10-21
+
+- Shared causes: Link cause (L) links a node already on the chart as a further cause of the selected effect. Nodes that would make a loop or are already linked are faded; Esc cancels. The Properties panel lists the effects a cause supports and unlinks all but the last.
+- Collapse and expand branches: the circle on a node's connector, Space, → on a collapsed node, or the Properties panel; Expand all. Saved with the file, not an undo step. Choosing a hidden issue expands its branch.
 
 - New layout: light top bar with the issues button, records list and legend on the left, floating edit bar on the chart showing each key, status bar.
 - AND junction marked where an effect's connector splits to its causes; evidence codes drawn as pills, `+N` when they do not fit; dot-grid canvas.
