@@ -1,5 +1,5 @@
-// The RCA record pages beside the chart: problem definition, team and dates, evidence log,
-// causes ruled out, solutions, and the action plan.
+// The pages beside the chart: the 5 Whys, and the RCA records (problem definition, team and dates,
+// evidence log, causes ruled out, solutions, and the action plan).
 //
 // Fields are bound by data attributes: data-list names the record (or "meta", "problem", "node"),
 // data-id the row, and data-field the dotted path of the value. Typing updates the state in
@@ -32,7 +32,18 @@ const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${tex
 function setRecord(name) {
   record = name;
   $('app').dataset.record = name;
-  document.querySelectorAll('.rail [data-record]').forEach(b => {
+  // Enter in a why's answer goes to the next why, adding one after the last.
+$('records').addEventListener('keydown', e => {
+  const field = e.target.closest('textarea.answer');
+  if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  const chain = chainOf(field.dataset.step), i = chain.steps.findIndex(s => s.id === field.dataset.step);
+  let next = chain.steps[i + 1];
+  if (!next) { next = blankStep(); chain.steps.push(next); render(); persist(); }
+  document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
+});
+
+document.querySelectorAll('.rail [data-record]').forEach(b => {
     b.classList.toggle('active', b.dataset.record === name);
     if (b.dataset.record === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
@@ -51,7 +62,7 @@ function showRecord(name, focusId) {
 }
 
 function renderRecord() {
-  const page = {problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {whys: whysPage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
@@ -61,6 +72,58 @@ function renderRecord() {
 }
 
 // ---- Pages ----
+
+function whysPage() {
+  return `${pageHead('5 Whys', 'Ask why the problem happened, then why that happened, and so on, until you reach a cause you can act on. Five is a guide, not a rule. Add the steps to the cause-and-effect chart, where each one gains the other causes it needs.',
+    '<button class="button primary" data-act="add-chain">+ New chain</button>')}
+    ${state.fiveWhys.length ? state.fiveWhys.map(chainCard).join('') : '<p class="empty-card">No chains yet. <b>+ New chain</b> starts one from the primary effect.</p>'}
+    <p class="note">In an answer, <kbd>Enter</kbd> goes to the next why, adding one after the last; <kbd>Shift+Enter</kbd> starts a new line.</p>`;
+}
+
+function chainCard(c) {
+  const start = byId(c.effectId), off = c.steps.filter(s => !stepNode(s)).length;
+  return `<article class="card chain">
+    <div class="card-head">
+      <h2>Why did “${escapeHtml(shorten(start?.title || '', 90))}” happen?</h2>
+      <button class="unlink" data-act="delete-chain" data-id="${c.id}" aria-label="Delete this chain">×</button>
+    </div>
+    <label class="starts">Starts from <select class="picker" data-act="chain-effect" data-id="${c.id}" aria-label="The node this chain starts from">${state.nodes.map(n =>
+      `<option value="${n.id}" ${n.id === c.effectId ? 'selected' : ''}>${escapeHtml(shorten(n.title, 70))}</option>`).join('')}</select></label>
+    <ol class="whys">${c.steps.map((s, i) => stepRow(c, s, i)).join('')}</ol>
+    <div class="decision-row">
+      <button class="button" data-act="add-step" data-id="${c.id}">+ Why</button>
+      <span class="spacer"></span>
+      ${off ? `<span class="muted">${off} step${off > 1 ? 's' : ''} not on the chart</span><button class="button" data-act="chain-to-chart" data-id="${c.id}">Add all to chart</button>`
+        : c.steps.length ? '<span class="muted">Every step is on the chart</span>' : ''}
+    </div>
+  </article>`;
+}
+
+function stepRow(c, s, i) {
+  const n = stepNode(s), src = stepSource(s), last = i === c.steps.length - 1;
+  const asked = i === 0 ? byId(c.effectId)?.title : whyAnswer(c.steps[i - 1]);
+  const cited = src.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !src.evidenceIds.includes(e.id));
+  const kind = n ? n.kind : s.kind, label = `Why ${i + 1}`;
+  return `<li class="why${n ? ' on-chart' : ''}">
+    <div class="why-num">${label}${last && c.steps.length > 1 ? '<small>root cause so far</small>' : ''}</div>
+    <div class="why-body">
+      <div class="why-q">Why did “${escapeHtml(shorten(asked?.trim() || '…', 90))}” happen?</div>
+      ${n ? `<textarea class="cell answer" rows="1" ${bind('node', n.id, 'title')} data-step="${s.id}" aria-label="${label}">${escapeHtml(n.title)}</textarea>`
+        : `<textarea class="cell answer" rows="1" ${bind('whySteps', s.id, 'answer')} data-step="${s.id}" aria-label="${label}" placeholder="Because…">${escapeHtml(s.answer)}</textarea>`}
+      <div class="why-meta">
+        <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+          `<button class="kind" data-act="step-kind" data-id="${s.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+        <div class="chips">${cited.map(e => evidenceChip(e, 'step-remove-evidence', s.id)).join('')}
+          ${rest.length ? `<select class="picker" data-act="step-add-evidence" data-id="${s.id}" aria-label="Cite evidence for ${label}"><option value="">+ Evidence…</option>${rest.map(e =>
+            `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
+        <span class="spacer"></span>
+        ${n ? `<button class="link" data-act="goto-node" data-node="${n.id}" title="Show it on the chart">On the chart</button>`
+          : `<button class="button" data-act="step-to-chart" data-id="${s.id}" ${stepParent(c, i) ? '' : 'disabled title="Add the step before it to the chart first"'}>Add to chart</button>`}
+      </div>
+    </div>
+    <button class="unlink" data-act="delete-step" data-id="${s.id}" aria-label="Remove ${label}${n ? '; it stays on the chart' : ''}">×</button>
+  </li>`;
+}
 
 function problemPage() {
   const p = state.problem, s = p.significance, effect = primaryEffect();
@@ -225,6 +288,7 @@ function boundObject(el) {
   if (list === 'meta') return state.meta;
   if (list === 'problem') return state.problem;
   if (list === 'node') return byId(id);
+  if (list === 'whySteps') return stepById(id);
   return (list === 'team' ? state.meta.team : state[list]).find(r => r.id === id);
 }
 function setPath(obj, path, value) {
@@ -251,6 +315,8 @@ $('records').addEventListener('change', e => {
     const value = el.value;
     if (el.dataset.act === 'ruled-add-evidence') state.ruledOut.find(r => r.id === el.dataset.id).evidenceIds.push(value);
     if (el.dataset.act === 'solution-add-cause') state.solutions.find(s => s.id === el.dataset.id).causeIds.push(value);
+    if (el.dataset.act === 'step-add-evidence') stepSource(stepById(el.dataset.id)).evidenceIds.push(value);
+    if (el.dataset.act === 'chain-effect') state.fiveWhys.find(c => c.id === el.dataset.id).effectId = value;
     render(); persist();
   }
   const radio = e.target.closest('input[data-act="lead"]');
@@ -274,6 +340,45 @@ $('records').addEventListener('click', e => {
       citingNodes(id).forEach(n => reveal(n.id));
       showRecord('chart');
       return;
+    case 'add-chain': focusId = addChain().steps[0].id; break;
+    case 'delete-chain': {
+      const chain = state.fiveWhys.find(c => c.id === id);
+      if (chain.steps.some(s => whyAnswer(s).trim()) && !confirm(`Delete this chain of ${chain.steps.length} why${chain.steps.length > 1 ? 's' : ''}? Steps added to the chart stay on the chart.`)) return;
+      state.fiveWhys = state.fiveWhys.filter(c => c !== chain);
+      break;
+    }
+    case 'add-step': {
+      const step = blankStep();
+      state.fiveWhys.find(c => c.id === id).steps.push(step); focusId = step.id;
+      break;
+    }
+    case 'delete-step': {
+      const chain = chainOf(id);
+      chain.steps = chain.steps.filter(s => s.id !== id);
+      break;
+    }
+    case 'step-kind': {
+      const step = stepById(id);
+      stepSource(step).kind = el.dataset.v;
+      if (!stepNode(step)) step.kind = el.dataset.v;
+      break;
+    }
+    case 'step-remove-evidence': {
+      const src = stepSource(stepById(id));
+      src.evidenceIds = src.evidenceIds.filter(x => x !== el.dataset.evidence);
+      break;
+    }
+    case 'step-to-chart': {
+      const chain = chainOf(id), problem = stepToChart(chain, chain.steps.findIndex(s => s.id === id));
+      if (problem) { setStatus(problem); return; }
+      setStatus(`Added "${whyAnswer(stepById(id))}" to the chart`);
+      break;
+    }
+    case 'chain-to-chart': {
+      const added = chainToChart(state.fiveWhys.find(c => c.id === id));
+      setStatus(`Added ${added} step${added === 1 ? '' : 's'} to the chart`);
+      break;
+    }
     case 'add-member': {
       const m = {id: uuid(), name: '', role: ''};
       state.meta.team.push(m); focusId = m.id;

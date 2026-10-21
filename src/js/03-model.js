@@ -58,9 +58,51 @@ const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
 const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
 function deleteEvidence(id) {
   state.evidence = state.evidence.filter(e => e.id !== id);
-  for (const x of [...state.nodes, ...state.ruledOut]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps)]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
   if (highlight === id) highlight = null;
 }
+// ---- 5 Whys ----
+// A chain starts from a chart node (effectId) and asks why, step after step; each answer is a cause
+// of the one before. A step added to the chart is that node: its words, type, and evidence are the
+// node's. Otherwise the step keeps its own.
+
+const blankStep = () => ({id: uuid(), answer: '', kind: 'condition', evidenceIds: [], nodeId: null});
+function addChain(effectId = state.problem.primaryEffectId) {
+  const chain = {id: uuid(), effectId, steps: [blankStep()]};
+  state.fiveWhys.push(chain);
+  return chain;
+}
+const stepNode = step => step.nodeId ? byId(step.nodeId) : null;
+const whyAnswer = step => stepNode(step)?.title ?? step.answer;
+const stepSource = step => stepNode(step) ?? step;
+const chainOf = stepId => state.fiveWhys.find(c => c.steps.some(s => s.id === stepId));
+const stepById = id => chainOf(id)?.steps.find(s => s.id === id);
+
+// The node a step's cause is added under: the previous step's node, or the chain's start for step 1.
+function stepParent(chain, i) {
+  return i === 0 ? byId(chain.effectId) : stepNode(chain.steps[i - 1]);
+}
+function stepToChart(chain, i) {
+  const step = chain.steps[i];
+  if (stepNode(step)) return null;
+  const parent = stepParent(chain, i);
+  if (!parent) return `Add why ${i} to the chart first.`;
+  const n = addCause(parent.id, step.kind, step.answer.trim() || 'Untitled cause');
+  n.evidenceIds = [...step.evidenceIds];
+  step.nodeId = n.id;
+  return null;
+}
+// Adds every step not yet on the chart, in order. Returns how many were added.
+function chainToChart(chain) {
+  let added = 0;
+  for (let i = 0; i < chain.steps.length; i++) {
+    if (stepNode(chain.steps[i])) continue;
+    if (stepToChart(chain, i)) break;
+    added++;
+  }
+  return added;
+}
+
 const solutionsOf = id => state.solutions.filter(s => s.causeIds.includes(id));
 const actionsOf = id => state.actions.filter(a => a.solutionId === id);
 const blankCriteria = () => Object.fromEntries(Object.keys(CRITERIA).map(k => [k, {v: '', c: ''}]));
@@ -98,6 +140,14 @@ function deletionSet(id) {
 }
 function deleteNodes(ids) {
   const gone = new Set(ids);
+  // A why-step on the chart keeps its words, type, and evidence when its node goes, and is no longer on the chart.
+  for (const chain of state.fiveWhys) {
+    if (gone.has(chain.effectId)) chain.effectId = state.problem.primaryEffectId;
+    for (const step of chain.steps) {
+      const n = gone.has(step.nodeId) && stepNode(step);
+      if (n) Object.assign(step, {answer: n.title, kind: n.kind === 'effect' ? 'condition' : n.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
+    }
+  }
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));
   for (const s of state.solutions) s.causeIds = s.causeIds.filter(id => !gone.has(id));

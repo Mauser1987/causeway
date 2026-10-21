@@ -35,7 +35,7 @@ RCAs are saved as files on your computer (see **Files** below). Nothing is sent 
 ## Screen
 
 - **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the theme, export, and print buttons; the file commands.
-- **Records** on the left: the chart and the six RCA records, with their counts. Below them, the legend.
+- **Analysis** and **Records** on the left: the cause-and-effect chart and the 5 Whys, then the six RCA records, with their counts. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
 - **Status bar** at the bottom: the last file action, the counts, and the keys.
@@ -78,6 +78,17 @@ Select a cause. Its **Evidence** section lists the items it cites, each with its
 - **×** unlinks an item. It stays in the evidence log.
 
 The "?" marker goes away once a cause cites at least one item and is not marked unverified. Codes are never reused: after E11 is deleted, the next item is still E12. (Undoing the addition of E11 does free the code.) On the chart, codes show as pills under the title; when they do not fit, the last pill counts the rest (`+3`).
+
+## 5 Whys
+
+**5 Whys** in the left column. A chain starts from a node of the chart (the primary effect, unless you choose another under **Starts from**) and asks why it happened; each answer is asked why in turn, until you reach a cause you can act on. Five is a guide, not a rule.
+
+- **+ New chain** starts a chain; **+ Why** adds a step. In an answer, **Enter** goes to the next why (adding one after the last) and **Shift+Enter** starts a new line.
+- Each step has its type (action or condition) and the evidence it cites, as on the chart. The last step is marked "root cause so far".
+- **Add to chart** makes the step a cause of the step before it, or of the chain's starting node for the first step; **Add all to chart** adds every step not yet on it, in order. A step on the chart is that node: editing its words, type, or evidence in either place changes both. On the chart it then gains the other causes it needs, such as the condition beside an action.
+- **×** removes a step from the chain; its node stays on the chart. Deleting the node keeps the step, with its words, off the chart.
+
+The printed report lists every chain after the chart.
 
 ## RCA records
 
@@ -137,7 +148,7 @@ Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whol
 |---|---|
 | **Export ▾ → Chart as SVG** | The chart as one self-contained SVG file: colours are attributes, with no stylesheet, font, or image to fetch. It opens in browsers, Inkscape, and Office, and can be edited further. |
 | **Export ▾ → Chart as PNG** | The chart as an image at twice screen resolution (less for very large charts, which browsers limit). |
-| **Print report** or **Ctrl/Cmd+P** | The RCA report, on landscape pages: cover (RCA number, equipment, seal type, lead and team, dates), problem definition, chart and open rule issues, evidence log, causes ruled out, solutions with the four criteria, and the action plan. Choose **Save as PDF** as the printer for a PDF. |
+| **Print report** or **Ctrl/Cmd+P** | The RCA report, on landscape pages: cover (RCA number, equipment, seal type, lead and team, dates), problem definition, chart and open rule issues, 5 Whys, evidence log, causes ruled out, solutions with the four criteria, and the action plan. Choose **Save as PDF** as the printer for a PDF. |
 
 Exports and the report always show the **whole chart**, with every branch expanded, in the light colours, whatever the screen shows. On the report, a chart that fits one page at 55 % or more is scaled to fit; a larger one is split into page-sized parts, numbered by row and column, with the cuts between columns so no box is split across.
 
@@ -177,6 +188,7 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
 | `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |
 | `solutions` | {`id`, `title`, `causeIds`, `criteria` {`preventsRecurrence`, `withinControl`, `meetsGoals`, `noNewProblems`: {`v`: `yes` \| `no` \| `partly`, `c`: comment}}, `decision`: `implement` \| `reject` \| `study` \| `""` (not decided)}; criterion `v` may be `""` too |
+| `fiveWhys` | {`id`, `effectId` (the node the chain starts from), `steps` [{`id`, `answer`, `kind`: `action` \| `condition`, `evidenceIds`, `nodeId`: the node on the chart, or null}]}. While a step is on the chart, its node's title, kind, and evidence are its own. |
 | `actions` | {`id`, `action`, `solutionId`, `owner`, `due`, `verification`, `status`: `open` \| `in-progress` \| `done` \| `cancelled`, `effectiveness` {`date`, `result`}} |
 | `counters` | `evidence`: the number of the next evidence code, so deleted codes are not reused. Files without it start after the highest code. |
 | `view` | `collapsed`: ids of nodes whose causes are hidden |
@@ -202,4 +214,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

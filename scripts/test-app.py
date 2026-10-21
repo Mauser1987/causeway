@@ -131,7 +131,7 @@ def run_tests(b):
     data = rca()
     assert len(data['nodes']) == 16 and len(data['links']) == 15 and len(data['evidence']) == 10
     assert [e['code'] for e in data['evidence']] == [f'E{i}' for i in range(1, 11)]
-    assert len(data['ruledOut']) == 5 and len(data['solutions']) == 7 and len(data['actions']) == 4
+    assert len(data['ruledOut']) == 5 and len(data['solutions']) == 7 and len(data['actions']) == 4 and len(data['fiveWhys']) == 2
     assert data['schemaVersion'] == 1 and data['type'] == 'causeway'
     uuid = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
     every_id = [x['id'] for key in ('nodes', 'links', 'evidence', 'ruledOut', 'solutions', 'actions') for x in data[key]] + [data['id']]
@@ -553,6 +553,48 @@ def run_tests(b):
     page('chart')
     print('PASS: action plan', flush=True)
 
+    # 5 Whys: chains of why-steps, each of which can be added to the chart.
+    page('whys')
+    chains = rca()['fiveWhys']
+    assert len(chains) == 2 and len(chains[0]['steps']) == 6 and all(x['nodeId'] for x in chains[0]['steps']), 'the example has a chain on the chart'
+    assert b.js("return document.querySelectorAll('#records .why').length") == 8
+    first = chains[0]['steps'][0]
+    set_field('node', first['nodeId'], 'title', 'Leak path opened across the primary faces')
+    assert next(n for n in rca()['nodes'] if n['id'] == first['nodeId'])['title'] == 'Leak path opened across the primary faces', 'a step on the chart is its node'
+    act('add-chain')
+    chain = rca()['fiveWhys'][-1]
+    assert chain['effectId'] == primary and focused() == ['whySteps', chain['steps'][0]['id'], 'answer'], 'a new chain starts from the primary effect, ready to type'
+    set_field('whySteps', chain['steps'][0]['id'], 'answer', 'Seal faces opened')
+    b.js('document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));return true')
+    chain = rca()['fiveWhys'][-1]
+    assert len(chain['steps']) == 2 and focused() == ['whySteps', chain['steps'][1]['id'], 'answer'], 'Enter adds the next why'
+    second = chain['steps'][1]['id']
+    set_field('whySteps', second, 'answer', 'Spring force too low')
+    act('step-kind', second, v='action')
+    pick('step-add-evidence', second, e4)
+    assert b.js('return document.querySelector(`#records button[data-act="step-to-chart"][data-id="${arguments[0]}"]`).disabled', [second]), 'a step waits for the one before it'
+    nodes_before = len(rca()['nodes'])
+    act('chain-to-chart', chain['id'])
+    chain = rca()['fiveWhys'][-1]
+    one, two = (next(n for n in rca()['nodes'] if n['id'] == x['nodeId']) for x in chain['steps'])
+    assert len(rca()['nodes']) == nodes_before + 2 and one['title'] == 'Seal faces opened' and two['title'] == 'Spring force too low'
+    assert two['kind'] == 'action' and two['evidenceIds'] == [e4], 'type and evidence go to the chart'
+    links = {(l['effectId'], l['causeId']) for l in rca()['links']}
+    assert (primary, one['id']) in links and (one['id'], two['id']) in links, 'each step is a cause of the one before'
+    page('chart')
+    select('Spring force too low')
+    b.js('__dialogs.length=0;return true')
+    click('deleteNode')
+    page('whys')
+    kept = rca()['fiveWhys'][-1]['steps'][1]
+    assert kept['nodeId'] is None and kept['answer'] == 'Spring force too low' and kept['kind'] == 'action' and kept['evidenceIds'] == [e4], 'a step keeps its words when its node is deleted'
+    act('step-to-chart', kept['id'])
+    assert rca()['fiveWhys'][-1]['steps'][1]['nodeId'], 'a step can be added again'
+    b.js('__dialogs.length=0;return true')
+    act('delete-chain', chain['id'])
+    assert len(b.js('return __dialogs')) == 1 and len(rca()['fiveWhys']) == 2 and len(rca()['nodes']) == nodes_before + 2, 'deleting a chain keeps its nodes on the chart'
+    print('PASS: 5 Whys, and adding the steps to the chart', flush=True)
+
     # Every record edit is in the undo history.
     for _ in range(60):
         if b.js('return document.getElementById("undo").disabled'):
@@ -646,10 +688,12 @@ def run_tests(b):
     b.js('window.dispatchEvent(new Event("beforeprint"));return true')
     report = b.js('''const r=document.getElementById("report");return {h2:[...r.querySelectorAll("h2")].map(h=>h.textContent),
         figures:r.querySelectorAll("figure").length,nodes:[...r.querySelectorAll("figure svg")].map(s=>s.querySelectorAll(".node").length),
-        evidence:r.querySelectorAll("section:nth-of-type(3) tbody tr").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+        evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
+        whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
+    assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'
     assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Revise upset procedure OP-212' in report['text']
     pdf = base64.b64decode(b.call('WebDriver:Print', {'orientation': 'landscape', 'background': True})['value'])
     assert pdf.startswith(b'%PDF') and pdf.count(b'/Type /Page') - pdf.count(b'/Type /Pages') >= 5, 'the report prints over several pages'

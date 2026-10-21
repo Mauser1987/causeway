@@ -106,5 +106,17 @@ function exampleRca() {
     action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', 'in-progress'),
     action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', 'done'),
   ];
+  // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
+  const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});
+  s.fiveWhys = [
+    {id: uuid(), effectId: ids.leak, steps: [
+      step('', 'action', [], 'path'), step('', 'action', [], 'damaged'), step('', 'action', [], 'flashed'),
+      step('', 'action', [], 'temp'), step('', 'action', [], 'flow'), step('', 'action', [], 'solids'),
+    ]},
+    {id: uuid(), effectId: ids.nocheck, steps: [
+      step('Upset procedure OP-212 does not mention the seal system', 'condition', ['E8']),
+      step('OP-212 was last revised before the Plan 11 seals were fitted', 'condition'),
+    ]},
+  ];
   return {...s, view: {collapsed: []}};
 }

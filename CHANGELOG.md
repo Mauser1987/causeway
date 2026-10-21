@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- 5 Whys: chains of why-steps from any node of the chart, each step with its type and evidence; Enter goes to the next why. Add a step, or the whole chain, to the chart as causes one under another; a step on the chart is that node. The example has one chain on the chart and one not yet. The printed report lists the chains.
+- The left column groups the chart and the 5 Whys under Analysis, and the RCA records under Records.
+
 - Drag a cause onto another node to move it there, with its own causes; refused, with the reason, when it would make a loop or the node already has it. M, or Move to another effect in the Properties panel, does the same from the keyboard.
 - Drag a cause to a sibling's top or bottom edge, or the gap beside it, to reorder; Alt+↑ and Alt+↓ do the same. Actions stay above conditions.
 - While dragging, a copy of the node, the drop target, and a label show what a drop does; Esc cancels.
