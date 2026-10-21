@@ -1,5 +1,13 @@
 # Changelog
 
+## Renamed to Causeway — 2026-10-21
+
+- The tool is now **Causeway**, a root cause analysis workbench, ready for further methods such as 5 Whys and fishbone diagrams. It was the Apollo RCA Builder.
+- The page is `index.html` (was `apollo-rca.html`), so GitHub Pages serves it at the repository's address.
+- Files have `"type": "causeway"`. Files with the old type `apollo-rca` still open, and are saved with the new type.
+- The autosave and the theme choice move to new browser-storage keys; the old ones are taken over once, then removed.
+- On screen, solutions are weighed against "the four solution criteria".
+
 ## M4 — 2026-10-21
 
 - Export the chart as a self-contained SVG, or as a PNG at twice screen resolution. Exports show the whole chart, expanded, in the light colours, with a heading.

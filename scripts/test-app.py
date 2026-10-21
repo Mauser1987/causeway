@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Browser regression tests, run through Firefox using Marionette; no Python dependencies.
 
-Checks the script's syntax, then loads apollo-rca.html and covers the example, the layout,
+Checks the script's syntax, then loads index.html and covers the example, the layout,
 editing the chart with the mouse and keyboard, rule checks, shared causes, collapsing, the RCA
 record pages, undo and redo, opening and saving files, export, the printed report, themes,
 autosave, and that the page makes no network requests.
@@ -20,7 +20,7 @@ import tempfile
 import time
 
 ROOT = Path(__file__).resolve().parents[1]
-STORAGE = 'apollo-rca-v1'
+STORAGE = 'causeway-v1'
 
 
 class Browser:
@@ -67,7 +67,7 @@ class Browser:
 
 def check_syntax(b):
     """Parses the built script without running it. Done on a blank page, outside the app's CSP."""
-    html = (ROOT / 'apollo-rca.html').read_text(encoding='utf-8')
+    html = (ROOT / 'index.html').read_text(encoding='utf-8')
     source = re.search(r'<script>\n(.*)</script>', html, re.S).group(1)
     b.call('WebDriver:Navigate', {'url': 'about:blank'})
     error = b.js('try{new Function(arguments[0]);return null}catch(e){return e.name+": "+e.message+" (line "+e.lineNumber+")"}', [source])
@@ -76,7 +76,7 @@ def check_syntax(b):
 
 
 def run_tests(b):
-    url = (ROOT / 'apollo-rca.html').as_uri()
+    url = (ROOT / 'index.html').as_uri()
 
     def open_app(clear=False):
         b.call('WebDriver:Navigate', {'url': url})
@@ -131,7 +131,7 @@ def run_tests(b):
     assert len(data['nodes']) == 16 and len(data['links']) == 15 and len(data['evidence']) == 10
     assert [e['code'] for e in data['evidence']] == [f'E{i}' for i in range(1, 11)]
     assert len(data['ruledOut']) == 5 and len(data['solutions']) == 7 and len(data['actions']) == 4
-    assert data['schemaVersion'] == 1 and data['type'] == 'apollo-rca'
+    assert data['schemaVersion'] == 1 and data['type'] == 'causeway'
     uuid = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
     every_id = [x['id'] for key in ('nodes', 'links', 'evidence', 'ruledOut', 'solutions', 'actions') for x in data[key]] + [data['id']]
     assert all(uuid.match(i) for i in every_id) and len(set(every_id)) == len(every_id), 'every entity has its own UUID'
@@ -491,7 +491,7 @@ def run_tests(b):
     click('saveProject')
     text = b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)')
     saved_file = json.loads(text)
-    assert saved_file['type'] == 'apollo-rca' and saved_file['schemaVersion'] == 1
+    assert saved_file['type'] == 'causeway' and saved_file['schemaVersion'] == 1
     assert saved()['dirty'] is False, 'saving clears the unsaved-changes flag'
 
     def load(project):
@@ -523,11 +523,24 @@ def run_tests(b):
 
     b.js('__dialogs.length=0;return true')
     load({'type': 'something-else', 'nodes': []})
-    assert 'not an Apollo RCA file' in b.js('return __dialogs[0]')
+    assert 'not a Causeway RCA file' in b.js('return __dialogs[0]')
     load({**saved_file, 'schemaVersion': 99})
     assert 'newer' in b.js('return __dialogs[1]')
     assert len(rca()['nodes']) == 16, 'a rejected file leaves the RCA as it was'
     print('PASS: invalid files are refused', flush=True)
+
+    # Files and browser storage from before the tool was named Causeway.
+    load({**saved_file, 'type': 'apollo-rca'})
+    assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'
+    legacy = {'savedAt': '2026-10-21T10:00:00Z', 'dirty': True, 'rca': {**saved_file, 'type': 'apollo-rca', 'meta': {**saved_file['meta'], 'rcaNumber': 'RCA-OLD-1'}}}
+    b.js(f"localStorage.removeItem('{STORAGE}');localStorage.setItem('apollo-rca-v1',JSON.stringify(arguments[0]));localStorage.setItem('apollo-rca-theme','light');return true", [legacy])
+    b.call('WebDriver:Navigate', {'url': url})
+    assert rca()['meta']['rcaNumber'] == 'RCA-OLD-1' and 'Recovered' in b.js("return document.getElementById('status').textContent"), 'the old autosave is recovered'
+    assert b.js("return [localStorage.getItem('apollo-rca-v1'), localStorage.getItem('apollo-rca-theme'), localStorage.getItem('causeway-theme'), document.documentElement.dataset.theme]") == [None, None, 'light', 'light']
+    b.js("localStorage.removeItem('causeway-theme');return true")
+    open_app()
+    load(saved_file)
+    print('PASS: files and storage from the earlier name', flush=True)
 
     # ---- Export, print, theme ----
     import base64
@@ -572,7 +585,7 @@ def run_tests(b):
     assert b.js('return document.documentElement.dataset.theme') == 'light'
     click('themeButton')
     assert b.js('return document.documentElement.dataset.theme') == 'dark'
-    assert b.js("return localStorage.getItem('apollo-rca-theme')") == 'dark'
+    assert b.js("return localStorage.getItem('causeway-theme')") == 'dark'
     assert node_fill('Plan 11 flush flow dropped to near zero') == '#0d6e76', 'the canvas uses the dark palette'
     assert b.js("return getComputedStyle(document.body).backgroundColor") == 'rgb(22, 31, 40)'
     b.js('__downloads.length=0;return true')
@@ -604,7 +617,7 @@ def run_tests(b):
     assert b.js("return performance.getEntriesByType('resource').filter(r=>!r.name.startsWith('blob:')&&!r.name.startsWith('data:')).length") == 0, 'no resources were fetched'
     assert b.js('return __violations') == []
     assert b.js("return document.querySelector('meta[http-equiv=Content-Security-Policy]').content").startswith("default-src 'none'")
-    html = (ROOT / 'apollo-rca.html').read_text(encoding='utf-8')
+    html = (ROOT / 'index.html').read_text(encoding='utf-8')
     assert not re.search(r'''(?:src|href)\s*=\s*["']?(?:https?:)?//''', html), 'no remote references in the page'
     print('PASS: no network requests', flush=True)
 
@@ -615,7 +628,7 @@ def main():
     args = parser.parse_args()
     process = None
     b = None
-    with tempfile.TemporaryDirectory(prefix='apollo-rca-test-') as profile:
+    with tempfile.TemporaryDirectory(prefix='causeway-test-') as profile:
         try:
             port = args.port
             if port is None:

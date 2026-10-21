@@ -1,10 +1,16 @@
-# Apollo RCA Builder
+# Causeway
 
-An offline, single-file HTML tool for root cause analyses with the Apollo method: build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it. No installation, server, account, or network connection is needed.
+A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, team, evidence log, causes ruled out, solutions, and the action plan. No installation, server, account, or network connection is needed.
+
+The chart follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. Further methods, such as 5 Whys and fishbone diagrams, are planned.
+
+Causeway is independent. Apollo Root Cause Analysis is a trademark of its owner; Causeway is not affiliated with or endorsed by it.
 
 ## Run it
 
-Open [`apollo-rca.html`](apollo-rca.html) in Chrome, Edge, or Firefox. Choose **Load example** to see a finished chart: high leakage on the single cartridge seal of pump P-101A.
+Open **https://mauser1987.github.io/causeway/** in Chrome, Edge, or Firefox, or download [`index.html`](index.html) and open it from disk; it works the same offline. Choose **Load example** to see a finished chart: high leakage on the single cartridge seal of pump P-101A.
+
+RCAs are saved as files on your computer (see **Files** below). Nothing is sent anywhere, including from the hosted page.
 
 ## Build a chart
 
@@ -70,7 +76,7 @@ Choose a record in the left column; **Chart** returns to the chart. Every field 
 | **Team and dates** | RCA number, equipment/tag, seal type; event, opened, and closed dates; team members with their roles, and the lead. Team names are offered for "collected by" and "owner". |
 | **Evidence log** | One row per item: code, description, type (sensed or inferred), source, collected by, date, and the nodes and ruled-out causes that cite it. **Show** goes to the chart with those nodes outlined and the rest faded; **Esc** or **Clear** ends it. Deleting a cited item asks first and removes its citations. |
 | **Causes ruled out** | Possible cause, its type, the evidence or test that ruled it out, the evidence items it cites, and the status (being tested, ruled out). |
-| **Solutions** | The causes each solution attacks, the four Apollo criteria (prevents recurrence, within our control, meets our goals, no new problems) as Yes / Partly / No with a comment, and the decision (implement, study further, reject). Clicking a chosen value again clears it. Controllable causes are marked ● in the cause picker. |
+| **Solutions** | The causes each solution attacks, the four solution criteria (prevents recurrence, within our control, meets our goals, no new problems) as Yes / Partly / No with a comment, and the decision (implement, study further, reject). Clicking a chosen value again clears it. Controllable causes are marked ● in the cause picker. |
 | **Action plan** | Action, solution, owner, due date, verification, status (open, in progress, done, cancelled), and the effectiveness check: its date and result. An action past its due date that is not done or cancelled is marked overdue. |
 
 From the chart, with a cause selected:
@@ -144,7 +150,7 @@ The RCA is also kept in browser storage after every edit, as crash recovery. Reo
 
 ## File format
 
-The file is JSON with `"type": "apollo-rca"` and `"schemaVersion": 1`. Every entity has a UUID that never changes, so the files can be imported into another system without renumbering.
+The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved before the tool was named Causeway (`"type": "apollo-rca"`) open as well, and are saved with the new type. Every entity has a UUID that never changes, so the files can be imported into another system without renumbering.
 
 | Key | Content |
 |---|---|
@@ -168,12 +174,12 @@ The page has no external references and uses the system fonts, and its Content S
 
 ## Project files and development
 
-`apollo-rca.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
+`index.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
 - `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the record pages), `12-output` (SVG and PNG export, the printed report, themes), `13-example`, `14-main` (startup).
 - `media/favicon.svg` — the tab icon.
-- `scripts/build.py` — builds `apollo-rca.html`; standard library only. It refuses to build if the page references a remote resource.
+- `scripts/build.py` — builds `index.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.
 
 ```
@@ -181,4 +187,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

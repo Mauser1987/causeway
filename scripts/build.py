@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the single-file apollo-rca.html from src/ and media/favicon.svg.
+"""Build the single-file index.html from src/ and media/favicon.svg.
 
 Uses only the Python standard library. Run it after editing anything in src/ or media/.
 """
@@ -22,8 +22,8 @@ def build():
     remote = re.findall(r'''(?:src|href)\s*=\s*["']?(?:https?:)?//''', html) + re.findall(r'@import|url\(\s*["\']?https?:', html)
     if remote:
         raise SystemExit(f'Refusing to build: the page references remote resources {remote}.')
-    (ROOT / 'apollo-rca.html').write_text(html, encoding='utf-8')
-    print(f'Built apollo-rca.html: {len(scripts)} scripts, {len(html) // 1024} KB.')
+    (ROOT / 'index.html').write_text(html, encoding='utf-8')
+    print(f'Built index.html: {len(scripts)} scripts, {len(html) // 1024} KB.')
 
 
 if __name__ == '__main__':

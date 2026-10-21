@@ -1,4 +1,4 @@
-// The cause-and-effect graph: links, cycle check, deletion, and the Apollo rule checks.
+// The cause-and-effect graph: links, cycle check, deletion, and the rule checks.
 // Links run from an effect to one of its causes; together they form a DAG rooted at the
 // primary effect.
 

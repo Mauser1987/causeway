@@ -1,9 +1,11 @@
 // Constants: file format, node kinds, chart geometry and colours.
 
 const NS = 'http://www.w3.org/2000/svg';
-const FILE_TYPE = 'apollo-rca';
+const FILE_TYPE = 'causeway';
+const LEGACY_FILE_TYPE = 'apollo-rca';   // files saved before the tool was named Causeway
 const SCHEMA_VERSION = 1;
-const STORAGE_KEY = 'apollo-rca-v1';
+const STORAGE_KEY = 'causeway-v1';
+const LEGACY_STORAGE_KEY = 'apollo-rca-v1';
 const HISTORY_LIMIT = 100;
 
 const KINDS = {

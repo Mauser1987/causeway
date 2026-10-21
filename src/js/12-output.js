@@ -118,7 +118,7 @@ function buildReport() {
 
   $('report').innerHTML = `
     <header class="r-cover">
-      <div class="r-kicker">Apollo root cause analysis${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}</div>
+      <div class="r-kicker">Root cause analysis${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}</div>
       <h1>${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</h1>
       <dl class="r-grid">
         ${item('Equipment / tag', m.equipmentTag)}${item('Seal type', m.sealType)}${item('Lead', lead && `${lead.name}${lead.role ? ', ' + lead.role : ''}`)}
@@ -163,7 +163,7 @@ function buildReport() {
         <td class="r-crit">${text(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${text(a.verification)}</td><td>${ACTION_STATUS[a.status] || ''}</td>
         <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`), 'No actions recorded.')}
     </section>
-    <p class="r-foot">Apollo RCA Builder · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
+    <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
 }
 
 function printReport() {
@@ -176,10 +176,14 @@ window.addEventListener('beforeprint', buildReport);
 // ---- Theme ----
 // System follows the operating system; the choice is kept in this browser only.
 
-const THEME_KEY = 'apollo-rca-theme';
+const THEME_KEY = 'causeway-theme', LEGACY_THEME_KEY = 'apollo-rca-theme';
 const THEMES = {system: 'System', light: 'Light', dark: 'Dark'};
 let theme = 'system';
-try { theme = THEMES[localStorage.getItem(THEME_KEY)] ? localStorage.getItem(THEME_KEY) : 'system'; } catch {}
+try {
+  const stored = localStorage.getItem(THEME_KEY) ?? localStorage.getItem(LEGACY_THEME_KEY);
+  theme = THEMES[stored] ? stored : 'system';
+  if (localStorage.getItem(LEGACY_THEME_KEY)) { localStorage.setItem(THEME_KEY, theme); localStorage.removeItem(LEGACY_THEME_KEY); }
+} catch {}
 const systemDark = matchMedia('(prefers-color-scheme: dark)');
 const darkTheme = () => theme === 'dark' || theme === 'system' && systemDark.matches;
 

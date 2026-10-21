@@ -121,6 +121,6 @@ function render() {
 
 function renderTitle() {
   $('sheetTitle').textContent = primaryEffect()?.title.trim() || 'Untitled RCA';
-  document.title = `${rcaName()} · Apollo RCA Builder`;
-  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag].filter(s => s?.trim()).join(' · ') || 'Apollo RCA Builder';
+  document.title = `${rcaName()} · Causeway`;
+  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag].filter(s => s?.trim()).join(' · ') || 'Causeway';
 }

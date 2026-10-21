@@ -2,7 +2,7 @@
 
 let fileHandle = null;   // the file last opened or saved, where the File System Access API exists
 const canPickFiles = typeof window.showSaveFilePicker === 'function' && typeof window.showOpenFilePicker === 'function';
-const FILE_TYPES = [{description: 'Apollo RCA', accept: {'application/json': ['.json']}}];
+const FILE_TYPES = [{description: 'Causeway RCA', accept: {'application/json': ['.json']}}];
 
 function download(name, blob) {
   const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -33,12 +33,12 @@ const confirmDiscard = what => !isDirty() || confirm(`${what} The current RCA ha
 
 // Checks a file and fills in what older or hand-edited files leave out. Throws when it is not an RCA.
 function normalizeProject(p) {
-  if (p?.type !== FILE_TYPE) throw Error('This is not an Apollo RCA file.');
+  if (p?.type !== FILE_TYPE && p?.type !== LEGACY_FILE_TYPE) throw Error('This is not a Causeway RCA file.');
   if (!Number.isInteger(p.schemaVersion) || p.schemaVersion > SCHEMA_VERSION) throw Error(`File format version ${p.schemaVersion} is newer than this tool understands (${SCHEMA_VERSION}).`);
   if (!Array.isArray(p.nodes) || !Array.isArray(p.links)) throw Error('The file has no chart.');
   const blank = blankState();
   const s = {
-    ...blank, ...p,
+    ...blank, ...p, type: FILE_TYPE,
     meta: {...blank.meta, ...p.meta, dates: {...blank.meta.dates, ...p.meta?.dates}},
     problem: {...blank.problem, ...p.problem, significance: {...blank.problem.significance, ...p.problem?.significance}},
   };

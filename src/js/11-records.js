@@ -164,7 +164,7 @@ function ruledOutPage() {
 function solutionsPage() {
   const causes = state.nodes.filter(n => n.id !== state.problem.primaryEffectId)
     .sort((a, b) => (b.controllable - a.controllable) || a.title.localeCompare(b.title));
-  return `${pageHead('Solutions', 'Each solution attacks one or more causes, and is weighed against the four Apollo criteria. Controllable causes are the candidates.',
+  return `${pageHead('Solutions', 'Each solution attacks one or more causes, and is weighed against the four solution criteria. Controllable causes are the candidates.',
     '<button class="button primary" data-act="add-solution">+ Add solution</button>')}
     ${state.solutions.length ? state.solutions.map(s => {
       const linked = s.causeIds.map(byId).filter(Boolean), actions = actionsOf(s.id);
