@@ -43,13 +43,38 @@ function addCause(effectId, kind, title = kind === 'action' ? 'New action' : 'Ne
   return n;
 }
 
-// Evidence codes are E1, E2, … and are never reused, so the next one follows the highest.
-const nextEvidenceCode = () => 'E' + (Math.max(0, ...state.evidence.map(e => +/^E(\d+)$/.exec(e.code)?.[1] || 0)) + 1);
-function addEvidence(description) {
-  const e = {id: uuid(), code: nextEvidenceCode(), description, type: 'sensed', source: '', collectedBy: '', date: today()};
+// Evidence codes are E1, E2, … and are never reused: the counter remembers codes of deleted items.
+const nextEvidenceNumber = () => Math.max(state.counters.evidence || 1, ...state.evidence.map(e => (+/^E(\d+)$/.exec(e.code)?.[1] || 0) + 1));
+const nextEvidenceCode = () => 'E' + nextEvidenceNumber();
+function addEvidence(description = '') {
+  const number = nextEvidenceNumber();
+  const e = {id: uuid(), code: 'E' + number, description, type: 'sensed', source: '', collectedBy: '', date: today()};
   state.evidence.push(e);
+  state.counters.evidence = number + 1;
   return e;
 }
+// Where an evidence item is cited: chart nodes and ruled-out causes.
+const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
+const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
+function deleteEvidence(id) {
+  state.evidence = state.evidence.filter(e => e.id !== id);
+  for (const x of [...state.nodes, ...state.ruledOut]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  if (highlight === id) highlight = null;
+}
+const solutionsOf = id => state.solutions.filter(s => s.causeIds.includes(id));
+const actionsOf = id => state.actions.filter(a => a.solutionId === id);
+const blankCriteria = () => Object.fromEntries(Object.keys(CRITERIA).map(k => [k, {v: '', c: ''}]));
+function addSolution(causeIds = []) {
+  const s = {id: uuid(), title: '', causeIds, criteria: blankCriteria(), decision: ''};
+  state.solutions.push(s);
+  return s;
+}
+function addAction(solutionId = '') {
+  const a = {id: uuid(), action: '', solutionId, owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
+  state.actions.push(a);
+  return a;
+}
+const isOverdue = a => a.due && a.due < today() && !['done', 'cancelled'].includes(a.status);
 
 // Nodes reachable from the primary effect.
 function reachable(links = state.links) {

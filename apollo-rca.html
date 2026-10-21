@@ -300,14 +300,100 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .keys dd { margin: 0; }
 
 @media (max-width: 1280px) {
-  .app { grid-template-columns: 0 minmax(0, 1fr) 300px; }
-  .rail { display: none; }
+  .app { grid-template-columns: 168px minmax(0, 1fr) 300px; }
+  .legend, .legend-title { display: none; }
   .keyhints { display: none; }
 }
+
+/* ---- Record pages ---- */
+.records { display: none; grid-column: 2 / 4; overflow: auto; padding: 24px 28px 48px; background: var(--canvas); }
+.app:not([data-record=chart]) main, .app:not([data-record=chart]) .inspector { display: none; }
+.app:not([data-record=chart]) .records { display: block; }
+.app:not([data-record=chart]) .keyhints { visibility: hidden; }
+.page { max-width: 920px; margin: 0 auto; }
+.page.wide { max-width: 1400px; }
+.page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+.page h1 { margin: 0 0 4px; font-size: 20px; }
+.page h2 { margin: 0 0 4px; font-size: 14px; }
+.lede { margin: 0; color: var(--muted); max-width: 70ch; line-height: 1.45; }
+.button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; white-space: nowrap; }
+.button.primary:hover { background: #0e7880; }
+.card { margin-bottom: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.card-head h2 { flex: 1; margin: 0; }
+.form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
+.form-grid.dates { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.card .field { margin-top: 12px; }
+.card .field .text { display: block; margin-top: 5px; font-weight: 400; }
+.card > .field:first-child { margin-top: 0; }
+.empty-card { padding: 28px; border: 1px dashed var(--field-line); border-radius: 10px; text-align: center; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+table.log { width: 100%; min-width: 1060px; border-collapse: collapse; table-layout: fixed; }
+.card table.log { min-width: 0; }
+table.log th { padding: 9px 8px; border-bottom: 1px solid var(--line); background: var(--rail); text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+table.log td { padding: 6px 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+table.log tr:last-child td { border-bottom: 0; }
+table.log tr.current td { background: #fff8e1; }
+table.log tr.done td { color: var(--muted); }
+table.log .center { text-align: center; vertical-align: middle; }
+table.log td.code-cell, table.log td:first-child .code { margin-top: 6px; display: inline-block; }
+.empty-row { padding: 24px !important; text-align: center; color: var(--muted); }
+.cell {
+  width: 100%; padding: 5px 7px;
+  border: 1px solid transparent; border-radius: 5px;
+  background: transparent; color: var(--ink); line-height: 1.4;
+}
+textarea.cell { resize: vertical; min-height: 34px; display: block; }
+.cell:hover { border-color: var(--line); }
+.cell:focus { outline: none; border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 2px #cdeef0; }
+select.cell { border-color: var(--line); }
+td > .cell + .cell { margin-top: 4px; }
+.row-actions { white-space: nowrap; text-align: right; vertical-align: middle !important; }
+.cited { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding-top: 3px; }
+.link { padding: 0 4px; border: 0; background: none; color: var(--accent); text-decoration: underline; text-underline-offset: 2px; text-align: left; }
+.overdue, .overdue small { color: var(--danger); font-weight: 600; }
+td.overdue small { display: block; padding: 0 7px; font-size: 11px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.cause-chip, .ev-chip { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; padding: 2px 2px 2px 7px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel); font-size: 12px; }
+.cause-chip .link { color: var(--ink); text-decoration: none; padding: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cause-chip .link:hover { text-decoration: underline; }
+.cause-chip .sw { width: 10px; min-width: 10px; height: 10px; border-radius: 2px; }
+.ev-chip { padding-left: 2px; }
+.cause-chip .unlink, .ev-chip .unlink { width: 20px; height: 20px; font-size: 13px; }
+.picker { max-width: 220px; padding: 3px 6px; border: 1px dashed var(--field-line); border-radius: 14px; background: var(--panel); color: var(--accent-ink); font-size: 12px; }
+button.code { border: 0; cursor: pointer; }
+button.code:hover { background: #ffe9a8; }
+
+.solution .card-head .title { flex: 1; font-size: 15px; font-weight: 600; }
+.sub { margin: 10px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.badge { flex: none; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.badge.small { padding: 0 6px; font-size: 10px; }
+.badge.implement { background: #e3f3e6; color: #1f5f2a; }
+.badge.study { background: var(--warn-soft); color: var(--warn-ink); }
+.badge.reject { background: #eef1f4; color: #4a5866; }
+.badge.none { background: #f3f6f9; color: var(--muted); font-weight: 600; }
+.cause-list .badge { margin-right: 2px; }
+table.criteria { width: 100%; margin-top: 12px; border-collapse: collapse; }
+table.criteria th { width: 180px; padding: 4px 8px 4px 0; text-align: left; font-weight: 600; font-size: 12px; color: var(--ink-2); }
+table.criteria td { padding: 4px 0; }
+table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
+.seg { display: inline-flex; border: 1px solid var(--field-line); border-radius: 6px; overflow: hidden; }
+.seg button { padding: 5px 12px; border: 0; border-left: 1px solid var(--field-line); background: var(--panel); color: var(--ink-2); font-size: 12px; }
+.seg button:first-child { border-left: 0; }
+.seg button:hover { background: var(--line-soft); }
+.seg .yes[aria-pressed=true], .seg .implement[aria-pressed=true] { background: #2f7a3a; color: #fff; font-weight: 600; }
+.seg .partly[aria-pressed=true], .seg .study[aria-pressed=true] { background: #b45309; color: #fff; font-weight: 600; }
+.seg .no[aria-pressed=true], .seg .reject[aria-pressed=true] { background: #52606d; color: #fff; font-weight: 600; }
+.decision-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.decision-row .sub { margin: 0; }
+.decision-row .spacer { flex: 1; }
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" data-record="chart">
   <header>
     <div class="mark" aria-hidden="true">A</div>
     <div class="brand"><small id="sheetMeta">Apollo RCA Builder</small><strong id="sheetTitle">Untitled RCA</strong></div>
@@ -331,13 +417,13 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 
   <nav class="rail" aria-label="RCA records">
     <div class="panel-title">Records</div>
-    <button class="record active" aria-current="page">Chart<span id="railCauses">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Problem definition</button>
-    <button class="record" disabled title="Arrives in milestone M3">Team and dates</button>
-    <button class="record" disabled title="Arrives in milestone M3">Evidence log<span id="railEvidence">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Causes ruled out<span id="railRuledOut">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Solutions<span id="railSolutions">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Action plan<span id="railActions">0</span></button>
+    <button class="record active" data-record="chart" aria-current="page">Chart<span id="railCauses">0</span></button>
+    <button class="record" data-record="problem">Problem definition</button>
+    <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
+    <button class="record" data-record="evidence">Evidence log<span id="railEvidence">0</span></button>
+    <button class="record" data-record="ruledOut">Causes ruled out<span id="railRuledOut">0</span></button>
+    <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>
+    <button class="record" data-record="actions">Action plan<span id="railActions">0</span></button>
     <div class="panel-title legend-title">Legend</div>
     <ul class="legend">
       <li><span class="sw effect"></span>Primary effect</li>
@@ -355,6 +441,7 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
   <main>
     <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
     <div id="linkBanner" class="banner" role="status" hidden><span>Click the node to link as a cause of <b id="linkTarget"></b>. Faded nodes would make a loop or are already linked.</span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
+    <div id="evidenceBanner" class="banner" role="status" hidden><span id="evidenceBannerText"></span><button id="clearHighlight">Clear <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
       <button id="addAction" class="add-action" title="Add an action cause to the selected effect">+ Action <kbd>Ins</kbd></button>
@@ -370,6 +457,8 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
   </main>
 
   <aside class="inspector" aria-label="Properties"><div id="properties"></div></aside>
+
+  <section class="records" id="records" aria-live="off"></section>
 
   <footer>
     <span id="status">Ready</span>
@@ -400,6 +489,17 @@ const STOP_REASONS = {
   'no-value': 'Going further adds nothing',
 };
 
+// Record values. Keys are what the file stores; values are what the page shows.
+const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
+const RULED_OUT_STATUS = {'testing': 'Being tested', 'ruled-out': 'Ruled out'};
+const CRITERIA = {
+  preventsRecurrence: 'Prevents recurrence?', withinControl: 'Within our control?',
+  meetsGoals: 'Meets our goals?', noNewProblems: 'No new problems?',
+};
+const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
+const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
+const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+
 // Chart geometry, in chart units (one unit is one CSS pixel at 100 %).
 const NODE_W = 200;
 const NODE_PAD_X = 12;
@@ -423,6 +523,7 @@ const CHART_COLORS = {
   junction: {fill: '#ffffff', text: '#3d4f60'},
   shared: '#7b5ab7',
   select: '#2563eb',
+  highlight: '#e0a100',
   issue: '#c2570c',
   unverified: {fill: '#c2570c', text: '#ffffff'},
   controllable: {fill: '#2f7a3a', text: '#ffffff'},
@@ -465,6 +566,7 @@ function blankState() {
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [],
+    counters: {evidence: 1},
   };
 }
 
@@ -474,13 +576,15 @@ let collapsed = new Set();     // node ids whose causes are hidden; view state, 
 let view = {x: 0, y: 0, k: 1}; // chart point at the top-left of the canvas, and pixels per unit
 let drag = null;               // the pointer gesture in progress
 let linking = null;            // {effectId} while picking an existing node to link as its cause
+let highlight = null;          // evidence id whose citing nodes are highlighted on the chart
+let record = 'chart';          // the page shown: the chart or one of the RCA records
 
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
 
 function resetInteraction() {
-  selected = null; drag = null; linking = null;
+  selected = null; drag = null; linking = null; highlight = null;
 }
 
 // The file and the autosave hold the RCA and the collapsed branches.
@@ -539,6 +643,7 @@ function replaceState(next, {saved = true, fit = true} = {}) {
   collapsed = new Set(saveView?.collapsed || []);
   resetInteraction();
   if (saved) markSaved(); else savedSnapshot = null;
+  setRecord('chart');
   render(); persist(); resetHistory();
   if (fit) zoomToFit();
 }
@@ -588,13 +693,38 @@ function addCause(effectId, kind, title = kind === 'action' ? 'New action' : 'Ne
   return n;
 }
 
-// Evidence codes are E1, E2, … and are never reused, so the next one follows the highest.
-const nextEvidenceCode = () => 'E' + (Math.max(0, ...state.evidence.map(e => +/^E(\d+)$/.exec(e.code)?.[1] || 0)) + 1);
-function addEvidence(description) {
-  const e = {id: uuid(), code: nextEvidenceCode(), description, type: 'sensed', source: '', collectedBy: '', date: today()};
+// Evidence codes are E1, E2, … and are never reused: the counter remembers codes of deleted items.
+const nextEvidenceNumber = () => Math.max(state.counters.evidence || 1, ...state.evidence.map(e => (+/^E(\d+)$/.exec(e.code)?.[1] || 0) + 1));
+const nextEvidenceCode = () => 'E' + nextEvidenceNumber();
+function addEvidence(description = '') {
+  const number = nextEvidenceNumber();
+  const e = {id: uuid(), code: 'E' + number, description, type: 'sensed', source: '', collectedBy: '', date: today()};
   state.evidence.push(e);
+  state.counters.evidence = number + 1;
   return e;
 }
+// Where an evidence item is cited: chart nodes and ruled-out causes.
+const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
+const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
+function deleteEvidence(id) {
+  state.evidence = state.evidence.filter(e => e.id !== id);
+  for (const x of [...state.nodes, ...state.ruledOut]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  if (highlight === id) highlight = null;
+}
+const solutionsOf = id => state.solutions.filter(s => s.causeIds.includes(id));
+const actionsOf = id => state.actions.filter(a => a.solutionId === id);
+const blankCriteria = () => Object.fromEntries(Object.keys(CRITERIA).map(k => [k, {v: '', c: ''}]));
+function addSolution(causeIds = []) {
+  const s = {id: uuid(), title: '', causeIds, criteria: blankCriteria(), decision: ''};
+  state.solutions.push(s);
+  return s;
+}
+function addAction(solutionId = '') {
+  const a = {id: uuid(), action: '', solutionId, owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
+  state.actions.push(a);
+  return a;
+}
+const isOverdue = a => a.due && a.due < today() && !['done', 'cancelled'].includes(a.status);
 
 // Nodes reachable from the primary effect.
 function reachable(links = state.links) {
@@ -891,7 +1021,8 @@ function nodeMarkup(b, opts) {
   const n = b.node, c = CHART_COLORS[n.kind], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
-  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) ? ' opacity="0.35"' : ''}>`;
+  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) ? ' opacity="0.35"' : ''}>`;
+  if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${CHART_COLORS.highlight}" stroke-width="4"/>`;
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1})}/>`;
@@ -965,25 +1096,35 @@ function renderCanvas() {
   const width = svg.clientWidth || 1, height = svg.clientHeight || 1;
   svg.setAttribute('viewBox', `${view.x} ${view.y} ${width / view.k} ${height / view.k}`);
   const dimmed = linking ? new Set(state.nodes.filter(n => linkProblem(linking.effectId, n.id)).map(n => n.id)) : null;
-  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, toggles: true});
+  const lit = highlight && !linking ? new Set(citingNodes(highlight).map(n => n.id)) : null;
+  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true});
   svg.classList.toggle('linking', !!linking);
   $('zoomReset').textContent = `${Math.round(view.k * 100)}%`;
 }
 function render() {
   layout = computeLayout();
   if (selected && !layout.boxes.has(selected)) selected = null;
-  renderCanvas();
+  if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length], ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
+  for (const [id, n] of [['railCauses', causes], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
+    ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
+  if (record !== 'chart') { renderRecord(); return; }
+  renderCanvas();
   const n = byId(selected);
   $('addAction').disabled = $('addCondition').disabled = !n;
   $('deleteNode').disabled = !n || n.id === state.problem.primaryEffectId;
   $('linkCause').disabled = !n;
   $('linkBanner').hidden = !linking;
   if (linking) $('linkTarget').textContent = byId(linking.effectId)?.title || '';
+  const ev = highlight && !linking ? evidenceById(highlight) : null;
+  $('evidenceBanner').hidden = !ev;
+  if (ev) {
+    const count = citingNodes(ev.id).length;
+    $('evidenceBannerText').innerHTML = `<b>${escapeHtml(ev.code)}</b> is cited by ${count} node${count === 1 ? '' : 's'}, outlined: ${escapeHtml(shorten(ev.description, 80))}`;
+  }
   renderProperties();
 }
 
@@ -1057,6 +1198,7 @@ function renderNodeProperties(box, n) {
   const causes = causesOf(n.id), effects = effectsOf(n.id);
   const issues = ruleIssues().filter(i => i.nodeId === n.id);
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
+  const solutions = solutionsOf(n.id);
   const kindName = isPrimary ? 'Primary effect' : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
@@ -1078,7 +1220,7 @@ function renderNodeProperties(box, n) {
     <div class="section">
       <div class="section-head"><div class="panel-title">Evidence · ${evidence.length} cited</div></div>
       ${evidence.length ? evidence.map(e => `<div class="evidence">
-        <span class="code">${escapeHtml(e.code)}</span>
+        <button class="code" data-highlight="${e.id}" title="Highlight every node that cites ${escapeHtml(e.code)}">${escapeHtml(e.code)}</button>
         <div class="body"><span>${escapeHtml(e.description)}</span><small>${escapeHtml([e.type === 'inferred' ? 'Inferred' : 'Sensed', e.collectedBy, e.date].filter(Boolean).join(' · '))}</small></div>
         <button class="unlink" data-unlink="${e.id}" title="Unlink ${escapeHtml(e.code)}; it stays in the evidence log" aria-label="Unlink ${escapeHtml(e.code)}">×</button>
       </div>`).join('') : isCause(n) ? '<p class="empty-note">No evidence linked yet. Every cause needs evidence.</p>' : ''}
@@ -1106,11 +1248,19 @@ function renderNodeProperties(box, n) {
       ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
     </div>`}
 
+    ${isPrimary ? '' : `<div class="section">
+      <div class="section-head"><div class="panel-title">Solutions · ${solutions.length}</div><button class="link" data-goto-record="solutions">All solutions</button></div>
+      ${solutions.length ? `<ul class="cause-list">${solutions.map(s => `<li><button data-solution="${s.id}"><span class="badge small ${s.decision || 'none'}">${DECISIONS[s.decision] || 'Not decided'}</span>${escapeHtml(s.title || 'Untitled solution')}</button></li>`).join('')}</ul>` : ''}
+      <button class="button block" id="inspAddSolution" style="margin-top:8px">+ Solution for this cause</button>
+    </div>`}
     <div class="section">
       ${area('Description', 'nodeDescription', n.description).replace('class="field"', 'class="field" style="margin-top:0"')}
       ${area('Notes', 'nodeNotes', n.notes)}
     </div>
-    ${isPrimary ? '' : '<button class="button danger block" id="inspDelete">Delete cause <kbd>Del</kbd></button>'}`;
+    ${isPrimary ? '' : `<div class="button-grid" style="margin-top:16px">
+      <button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>
+      <button class="button danger" id="inspDelete">Delete <kbd>Del</kbd></button>
+    </div>`}`;
 
   $('nodeTitle').oninput = e => { n.title = e.target.value; refreshChart(); persist('title:' + n.id); };
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
@@ -1130,6 +1280,11 @@ function renderNodeProperties(box, n) {
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
   box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
+  if ($('inspRuleOut')) $('inspRuleOut').onclick = ruleOutSelected;
+  box.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => { highlight = highlight === b.dataset.highlight ? null : b.dataset.highlight; render(); });
+  box.querySelectorAll('[data-goto-record]').forEach(b => b.onclick = () => showRecord(b.dataset.gotoRecord));
+  box.querySelectorAll('[data-solution]').forEach(b => b.onclick = () => showSolution(b.dataset.solution));
+  if ($('inspAddSolution')) $('inspAddSolution').onclick = () => { const s = addSolution([n.id]); render(); persist(); showSolution(s.id, true); };
 }
 
 // The evidence search box: matching items from the evidence log, and an option to log what was typed
@@ -1178,6 +1333,13 @@ function evidenceCombo(n) {
     e.preventDefault();
     pick(+li.dataset.option);
   };
+}
+
+function showSolution(id, focus = false) {
+  showRecord('solutions');
+  const card = $('solution-' + id);
+  card?.scrollIntoView({block: 'start'});
+  if (focus) card?.querySelector('[data-field="title"]').focus();
 }
 
 // Redraws the chart without rebuilding the panel, so a field being typed in keeps its focus.
@@ -1254,6 +1416,20 @@ function deleteSelected() {
   selected = effect?.id ?? null;
   render(); persist();
   setStatus(`Deleted ${ids.length} node${ids.length > 1 ? 's' : ''}`);
+}
+
+// A candidate cause that the evidence rejects moves to the causes ruled out, with its evidence.
+function ruleOutSelected() {
+  const n = byId(selected);
+  if (!n || n.id === state.problem.primaryEffectId) return;
+  const ids = deletionSet(n.id), others = ids.length - 1;
+  if (others && !confirm(`Rule out "${n.title}"? The ${others} cause${others > 1 ? 's' : ''} that only it supports will be deleted.`)) return;
+  state.ruledOut.push({id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'});
+  const effect = effectsOf(n.id)[0];
+  deleteNodes(ids);
+  selected = effect?.id ?? null;
+  render(); persist();
+  setStatus(`Moved "${n.title}" to the causes ruled out`);
 }
 
 // Collapsing is a view setting: saved with the file, but not an undo step.
@@ -1335,7 +1511,7 @@ svg.addEventListener('pointermove', e => {
 });
 svg.addEventListener('pointerup', () => {
   if (drag && !drag.moved && linking) cancelLinking();
-  else if (drag && !drag.moved && selected) select(null);
+  else if (drag && !drag.moved && (selected || highlight)) { highlight = null; select(null); }
   drag = null;
   svg.classList.remove('panning');
 });
@@ -1377,8 +1553,13 @@ window.addEventListener('keydown', e => {
     restoreHistory(key === 'y' || e.shiftKey);
     return;
   }
-  if (command || e.altKey || !byId(selected)) return;
-  if (key === 'escape') { e.preventDefault(); if (linking) cancelLinking(); else select(null); return; }
+  if (command || e.altKey || record !== 'chart') return;
+  if (key === 'escape' && (linking || highlight || selected)) {
+    e.preventDefault();
+    if (linking) cancelLinking(); else if (highlight) clearHighlight(); else select(null);
+    return;
+  }
+  if (!byId(selected)) return;
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
   const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
@@ -1390,7 +1571,7 @@ window.addEventListener('keydown', e => {
 
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
 window.addEventListener('keydown', e => {
-  if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey || record !== 'chart') return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
@@ -1401,6 +1582,12 @@ window.addEventListener('keydown', e => {
   select(next.id);
   scrollToNode(next.id);
 });
+
+function clearHighlight() {
+  highlight = null;
+  render();
+}
+$('clearHighlight').onclick = clearHighlight;
 
 function neighbour(from, key) {
   const boxes = [...layout.boxes.values()], cy = midY(from);
@@ -1471,7 +1658,14 @@ function normalizeProject(p) {
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
-  for (const sol of s.solutions) sol.causeIds = Array.isArray(sol.causeIds) ? sol.causeIds : [];
+  s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
+  s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));
+  s.ruledOut = s.ruledOut.filter(r => r?.id).map(r => ({cause: '', kind: '', test: '', status: 'ruled-out', ...r, evidenceIds: Array.isArray(r.evidenceIds) ? r.evidenceIds : []}));
+  s.solutions = s.solutions.filter(x => x?.id).map(x => ({title: '', decision: '', ...x, causeIds: Array.isArray(x.causeIds) ? x.causeIds : [],
+    criteria: Object.fromEntries(Object.keys(CRITERIA).map(k => [k, {v: '', c: '', ...x.criteria?.[k]}]))}));
+  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
+    effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.
   const previous = state;
   state = {...s, links: []};
@@ -1523,6 +1717,340 @@ $('loadExample').onclick = () => {
 };
 
 window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
+
+// The RCA record pages beside the chart: problem definition, team and dates, evidence log,
+// causes ruled out, solutions, and the action plan.
+//
+// Fields are bound by data attributes: data-list names the record (or "meta", "problem", "node"),
+// data-id the row, and data-field the dotted path of the value. Typing updates the state in
+// place without rebuilding the page, so the field keeps its focus; data-refresh rebuilds it.
+// Buttons and pickers carry data-act and are handled by one listener each.
+
+const optionList = (values, current, blank) =>
+  (blank !== undefined ? `<option value="">${blank}</option>` : '') +
+  Object.entries(values).map(([k, v]) => `<option value="${k}" ${k === current ? 'selected' : ''}>${v}</option>`).join('');
+const bind = (list, id, fieldPath) => `data-list="${list}"${id ? ` data-id="${id}"` : ''} data-field="${fieldPath}"`;
+const cell = (list, id, fieldPath, value, label, attrs = '') =>
+  `<input class="cell" ${bind(list, id, fieldPath)} value="${escapeHtml(value)}" aria-label="${escapeHtml(label)}" ${attrs}>`;
+const cellArea = (list, id, fieldPath, value, label, attrs = '') =>
+  `<textarea class="cell" rows="2" ${bind(list, id, fieldPath)} aria-label="${escapeHtml(label)}" ${attrs}>${escapeHtml(value)}</textarea>`;
+const formField = (label, list, id, fieldPath, value, attrs = '') =>
+  `<label class="field">${label}<input class="text" ${bind(list, id, fieldPath)} value="${escapeHtml(value)}" ${attrs}></label>`;
+const formArea = (label, list, id, fieldPath, value, attrs = '') =>
+  `<label class="field">${label}<textarea class="text" ${bind(list, id, fieldPath)} ${attrs}>${escapeHtml(value)}</textarea></label>`;
+const pageHead = (title, lede, button = '') =>
+  `<div class="page-head"><div><h1>${title}</h1><p class="lede">${lede}</p></div>${button}</div>`;
+const teamList = () => `<datalist id="teamNames">${state.meta.team.map(m => `<option value="${escapeHtml(m.name)}">`).join('')}</datalist>`;
+const nodeName = n => n.id === state.problem.primaryEffectId ? {kind: 'effect'} : n;
+const causeChip = (n, removeAct, ownerId) => `<span class="cause-chip">${swatch(nodeName(n))}<button class="link" data-act="goto-node" data-node="${n.id}" title="Show on the chart">${escapeHtml(shorten(n.title, 60))}</button>${removeAct
+  ? `<button class="unlink" data-act="${removeAct}" data-id="${ownerId}" data-node="${n.id}" aria-label="Remove ${escapeHtml(n.title)}">×</button>` : ''}</span>`;
+const evidenceChip = (e, removeAct, ownerId) => `<span class="ev-chip" title="${escapeHtml(e.description)}"><span class="code">${escapeHtml(e.code)}</span>${removeAct
+  ? `<button class="unlink" data-act="${removeAct}" data-id="${ownerId}" data-evidence="${e.id}" aria-label="Remove ${escapeHtml(e.code)}">×</button>` : ''}</span>`;
+const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${text}</td></tr>`;
+
+// Moves to a page: 'chart' or one of the records.
+function setRecord(name) {
+  record = name;
+  $('app').dataset.record = name;
+  document.querySelectorAll('.rail [data-record]').forEach(b => {
+    b.classList.toggle('active', b.dataset.record === name);
+    if (b.dataset.record === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+}
+function showRecord(name, focusId) {
+  if (linking) linking = null;
+  setRecord(name);
+  render();
+  if (name === 'chart') { if (selected) scrollToNode(selected); return; }
+  $('records').scrollTop = 0;
+  if (focusId) {
+    const target = document.querySelector(`#records [data-id="${focusId}"][data-field]`);
+    target?.scrollIntoView({block: 'center'});
+    target?.focus();
+  }
+}
+
+function renderRecord() {
+  const page = {problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
+  // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
+  const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
+  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.scrollTop = scroll;
+  if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
+}
+
+// ---- Pages ----
+
+function problemPage() {
+  const p = state.problem, s = p.significance, effect = primaryEffect();
+  return `${pageHead('Problem definition', 'What happened, when, where, and why it matters. The “what” is the primary effect: the first box of the chart.')}
+    <section class="card">
+      ${formArea('What <span class="muted">the primary effect</span>', 'node', effect.id, 'title', effect.title, 'rows="2"')}
+      <div class="form-grid">
+        ${formArea('When', 'problem', '', 'when', p.when, 'rows="2" placeholder="Date, time, and the circumstances"')}
+        ${formArea('Where', 'problem', '', 'where', p.where, 'rows="2" placeholder="Unit, equipment, and position"')}
+      </div>
+    </section>
+    <section class="card">
+      <h2>Significance</h2>
+      <p class="note">Why this RCA is worth the effort: the consequences, in each area.</p>
+      <div class="form-grid">
+        ${formArea('Safety', 'problem', '', 'significance.safety', s.safety, 'rows="3"')}
+        ${formArea('Environment', 'problem', '', 'significance.environment', s.environment, 'rows="3"')}
+        ${formArea('Production / cost', 'problem', '', 'significance.productionCost', s.productionCost, 'rows="3"')}
+        ${formArea('Reliability', 'problem', '', 'significance.reliability', s.reliability, 'rows="3"')}
+      </div>
+    </section>`;
+}
+
+function teamPage() {
+  const m = state.meta, d = m.dates;
+  return `${pageHead('Team and dates', 'Who carries out the RCA, and its dates.')}
+    <section class="card">
+      <h2>RCA</h2>
+      <div class="form-grid">
+        ${formField('RCA number', 'meta', '', 'rcaNumber', m.rcaNumber, 'placeholder="e.g. RCA-2026-014"')}
+        ${formField('Equipment / tag', 'meta', '', 'equipmentTag', m.equipmentTag, 'placeholder="e.g. P-101A"')}
+        ${formField('Seal type', 'meta', '', 'sealType', m.sealType, 'placeholder="e.g. Single cartridge seal, API Plan 11"')}
+      </div>
+    </section>
+    <section class="card">
+      <h2>Dates</h2>
+      <div class="form-grid dates">
+        ${formField('Event', 'meta', '', 'dates.eventDate', d.eventDate, 'type="date"')}
+        ${formField('RCA opened', 'meta', '', 'dates.opened', d.opened, 'type="date"')}
+        ${formField('RCA closed', 'meta', '', 'dates.closed', d.closed, 'type="date"')}
+      </div>
+    </section>
+    <section class="card">
+      <div class="card-head"><h2>Team</h2><button class="button" data-act="add-member">+ Add member</button></div>
+      <table class="log compact">
+        <thead><tr><th>Name</th><th>Role</th><th class="center">Lead</th><th><span class="sr">Remove</span></th></tr></thead>
+        <tbody>${m.team.length ? m.team.map(t => `<tr>
+          <td>${cell('team', t.id, 'name', t.name, 'Name', 'placeholder="Name"')}</td>
+          <td>${cell('team', t.id, 'role', t.role, 'Role', 'placeholder="Role or department"')}</td>
+          <td class="center"><input type="radio" name="lead" data-act="lead" data-id="${t.id}" ${m.leadId === t.id ? 'checked' : ''} aria-label="${escapeHtml(t.name || 'Member')} leads the RCA"></td>
+          <td class="row-actions"><button class="unlink" data-act="delete-member" data-id="${t.id}" aria-label="Remove ${escapeHtml(t.name || 'member')}">×</button></td>
+        </tr>`).join('') : empty(4, 'No team members yet.')}</tbody>
+      </table>
+      <p class="note">Names entered here are offered for “collected by” and “owner” in the other records.</p>
+    </section>`;
+}
+
+function evidencePage() {
+  return `${pageHead('Evidence log', 'What was seen, measured, or inferred. Every cause on the chart needs evidence. Codes are never reused.',
+    '<button class="button primary" data-act="add-evidence">+ Add evidence</button>')}
+    <div class="table-wrap"><table class="log">
+      <colgroup><col style="width:58px"><col style="width:30%"><col style="width:104px"><col style="width:18%"><col style="width:130px"><col style="width:136px"><col style="width:20%"><col style="width:76px"></colgroup>
+      <thead><tr><th>Code</th><th>Description</th><th>Type</th><th>Source / location</th><th>Collected by</th><th>Date</th><th>Cited by</th><th><span class="sr">Actions</span></th></tr></thead>
+      <tbody>${state.evidence.length ? state.evidence.map(e => {
+        const nodes = citingNodes(e.id), ruled = citingRuledOut(e.id);
+        return `<tr class="${highlight === e.id ? 'current' : ''}">
+          <td><span class="code">${escapeHtml(e.code)}</span></td>
+          <td>${cellArea('evidence', e.id, 'description', e.description, `Description of ${e.code}`, 'placeholder="What was seen or measured"')}</td>
+          <td><select class="cell" ${bind('evidence', e.id, 'type')} aria-label="Type of ${e.code}">${optionList(EVIDENCE_TYPES, e.type)}</select></td>
+          <td>${cellArea('evidence', e.id, 'source', e.source, `Source of ${e.code}`)}</td>
+          <td>${cell('evidence', e.id, 'collectedBy', e.collectedBy, `Collected by, ${e.code}`, 'list="teamNames"')}</td>
+          <td>${cell('evidence', e.id, 'date', e.date, `Date of ${e.code}`, 'type="date"')}</td>
+          <td><div class="cited">${nodes.map(n => causeChip(n)).join('')}${ruled.length ? `<span class="muted">${ruled.length} ruled-out cause${ruled.length > 1 ? 's' : ''}</span>` : ''}${nodes.length || ruled.length ? '' : '<span class="muted">Not cited</span>'}</div></td>
+          <td class="row-actions">${nodes.length ? `<button class="link" data-act="show-evidence" data-id="${e.id}" title="Highlight the nodes that cite ${e.code}">Show</button>` : ''}<button class="unlink" data-act="delete-evidence" data-id="${e.id}" aria-label="Delete ${e.code}">×</button></td>
+        </tr>`;
+      }).join('') : empty(8, 'No evidence yet. Add it here, or from a cause on the chart.')}</tbody>
+    </table></div>`;
+}
+
+function ruledOutPage() {
+  return `${pageHead('Causes ruled out', 'Possible causes that the evidence or a test ruled out, kept with the evidence that did it. On the chart, <b>Rule out</b> moves a candidate cause here.',
+    '<button class="button primary" data-act="add-ruled">+ Add possible cause</button>')}
+    <div class="table-wrap"><table class="log">
+      <colgroup><col style="width:24%"><col style="width:118px"><col style="width:30%"><col style="width:20%"><col style="width:130px"><col style="width:44px"></colgroup>
+      <thead><tr><th>Possible cause</th><th>Type</th><th>Evidence or test</th><th>Evidence</th><th>Status</th><th><span class="sr">Remove</span></th></tr></thead>
+      <tbody>${state.ruledOut.length ? state.ruledOut.map(r => {
+        const cited = r.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !r.evidenceIds.includes(e.id));
+        return `<tr>
+          <td>${cellArea('ruledOut', r.id, 'cause', r.cause, 'Possible cause', 'placeholder="The possible cause"')}</td>
+          <td><select class="cell" ${bind('ruledOut', r.id, 'kind')} aria-label="Type">${optionList({action: 'Action', condition: 'Condition'}, r.kind, '—')}</select></td>
+          <td>${cellArea('ruledOut', r.id, 'test', r.test, 'Evidence or test', 'placeholder="How it was ruled out"')}</td>
+          <td><div class="chips">${cited.map(e => evidenceChip(e, 'ruled-remove-evidence', r.id)).join('')}
+            ${rest.length ? `<select class="picker" data-act="ruled-add-evidence" data-id="${r.id}" aria-label="Cite evidence"><option value="">+ Cite…</option>${rest.map(e => `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div></td>
+          <td><select class="cell" ${bind('ruledOut', r.id, 'status')} aria-label="Status">${optionList(RULED_OUT_STATUS, r.status)}</select></td>
+          <td class="row-actions"><button class="unlink" data-act="delete-ruled" data-id="${r.id}" aria-label="Remove">×</button></td>
+        </tr>`;
+      }).join('') : empty(6, 'No causes ruled out yet.')}</tbody>
+    </table></div>`;
+}
+
+function solutionsPage() {
+  const causes = state.nodes.filter(n => n.id !== state.problem.primaryEffectId)
+    .sort((a, b) => (b.controllable - a.controllable) || a.title.localeCompare(b.title));
+  return `${pageHead('Solutions', 'Each solution attacks one or more causes, and is weighed against the four Apollo criteria. Controllable causes are the candidates.',
+    '<button class="button primary" data-act="add-solution">+ Add solution</button>')}
+    ${state.solutions.length ? state.solutions.map(s => {
+      const linked = s.causeIds.map(byId).filter(Boolean), actions = actionsOf(s.id);
+      const rest = causes.filter(n => !s.causeIds.includes(n.id));
+      return `<article class="card solution" id="solution-${s.id}">
+        <div class="card-head">
+          <input class="cell title" ${bind('solutions', s.id, 'title')} value="${escapeHtml(s.title)}" aria-label="Solution" placeholder="Describe the solution">
+          <span class="badge ${s.decision || 'none'}">${DECISIONS[s.decision] || 'Not decided'}</span>
+          <button class="unlink" data-act="delete-solution" data-id="${s.id}" aria-label="Delete solution">×</button>
+        </div>
+        <div class="sub">Attacks</div>
+        <div class="chips">${linked.map(n => causeChip(n, 'solution-remove-cause', s.id)).join('') || '<span class="muted">No cause linked yet</span>'}
+          ${rest.length ? `<select class="picker" data-act="solution-add-cause" data-id="${s.id}" aria-label="Link a cause"><option value="">+ Link a cause…</option>${rest.map(n => `<option value="${n.id}">${n.controllable ? '● ' : ''}${escapeHtml(shorten(n.title, 70))}</option>`).join('')}</select>` : ''}</div>
+        <table class="criteria"><tbody>${Object.entries(CRITERIA).map(([k, label]) => `<tr>
+          <th scope="row">${label}</th>
+          <td><div class="seg" role="group" aria-label="${label}">${Object.entries(CRITERION_VALUES).map(([v, text]) =>
+            `<button class="${v}" data-act="criterion" data-id="${s.id}" data-key="${k}" data-v="${v}" ${pressed(s.criteria[k].v === v)}>${text}</button>`).join('')}</div></td>
+          <td>${cell('solutions', s.id, `criteria.${k}.c`, s.criteria[k].c, `${label} comment`, 'placeholder="Comment"')}</td>
+        </tr>`).join('')}</tbody></table>
+        <div class="decision-row">
+          <span class="sub">Decision</span>
+          <div class="seg decision" role="group" aria-label="Decision">${Object.entries(DECISIONS).map(([v, text]) =>
+            `<button class="${v}" data-act="decision" data-id="${s.id}" data-v="${v}" ${pressed(s.decision === v)}>${text}</button>`).join('')}</div>
+          <span class="spacer"></span>
+          <span class="muted">${actions.length ? `${actions.length} action${actions.length > 1 ? 's' : ''} in the plan` : 'No actions yet'}</span>
+          <button class="button" data-act="add-action-for" data-id="${s.id}">+ Action</button>
+        </div>
+      </article>`;
+    }).join('') : '<p class="empty-card">No solutions yet. Add one here, or from a cause on the chart.</p>'}`;
+}
+
+function actionsPage() {
+  const solutions = Object.fromEntries(state.solutions.map(s => [s.id, shorten(s.title || 'Untitled solution', 60)]));
+  const overdue = state.actions.filter(isOverdue).length;
+  return `${pageHead('Action plan', `Who does what, by when, how it is verified, and whether it worked.${overdue ? ` <b class="overdue">${overdue} overdue.</b>` : ''}`,
+    '<button class="button primary" data-act="add-action">+ Add action</button>')}
+    <div class="table-wrap"><table class="log">
+      <colgroup><col style="width:24%"><col style="width:16%"><col style="width:120px"><col style="width:136px"><col style="width:18%"><col style="width:118px"><col style="width:20%"><col style="width:44px"></colgroup>
+      <thead><tr><th>Action</th><th>Solution</th><th>Owner</th><th>Due</th><th>Verification</th><th>Status</th><th>Effectiveness check</th><th><span class="sr">Remove</span></th></tr></thead>
+      <tbody>${state.actions.length ? state.actions.map(a => `<tr class="${a.status === 'done' ? 'done' : ''}">
+        <td>${cellArea('actions', a.id, 'action', a.action, 'Action', 'placeholder="What will be done"')}</td>
+        <td><select class="cell" ${bind('actions', a.id, 'solutionId')} aria-label="Solution">${optionList(solutions, a.solutionId, '—')}</select></td>
+        <td>${cell('actions', a.id, 'owner', a.owner, 'Owner', 'list="teamNames"')}</td>
+        <td class="${isOverdue(a) ? 'overdue' : ''}">${cell('actions', a.id, 'due', a.due, 'Due', 'type="date" data-refresh')}${isOverdue(a) ? '<small>Overdue</small>' : ''}</td>
+        <td>${cellArea('actions', a.id, 'verification', a.verification, 'Verification', 'placeholder="How it is checked"')}</td>
+        <td><select class="cell" ${bind('actions', a.id, 'status')} data-refresh aria-label="Status">${optionList(ACTION_STATUS, a.status)}</select></td>
+        <td>${cell('actions', a.id, 'effectiveness.date', a.effectiveness.date, 'Effectiveness check date', 'type="date"')}
+          ${cellArea('actions', a.id, 'effectiveness.result', a.effectiveness.result, 'Effectiveness check result', 'placeholder="Result: did it stop recurrence?"')}</td>
+        <td class="row-actions"><button class="unlink" data-act="delete-action" data-id="${a.id}" aria-label="Delete action">×</button></td>
+      </tr>`).join('') : empty(8, 'No actions yet. Add one here, or from a solution.')}</tbody>
+    </table></div>`;
+}
+
+// ---- Editing ----
+
+function boundObject(el) {
+  const {list, id} = el.dataset;
+  if (list === 'meta') return state.meta;
+  if (list === 'problem') return state.problem;
+  if (list === 'node') return byId(id);
+  return (list === 'team' ? state.meta.team : state[list]).find(r => r.id === id);
+}
+function setPath(obj, path, value) {
+  const keys = path.split('.'), last = keys.pop();
+  for (const k of keys) obj = obj[k];
+  obj[last] = value;
+}
+
+$('records').addEventListener('input', e => {
+  const el = e.target.closest('[data-field]');
+  if (!el) return;
+  const obj = boundObject(el);
+  if (!obj) return;
+  setPath(obj, el.dataset.field, el.value);
+  renderTitle();
+  if (el.hasAttribute('data-refresh') || el.tagName === 'SELECT') { render(); persist(); }
+  else persist(`${el.dataset.list}:${el.dataset.id}:${el.dataset.field}`);
+});
+
+// Pickers: choosing an item adds it.
+$('records').addEventListener('change', e => {
+  const el = e.target.closest('select[data-act]');
+  if (el && el.value) {
+    const value = el.value;
+    if (el.dataset.act === 'ruled-add-evidence') state.ruledOut.find(r => r.id === el.dataset.id).evidenceIds.push(value);
+    if (el.dataset.act === 'solution-add-cause') state.solutions.find(s => s.id === el.dataset.id).causeIds.push(value);
+    render(); persist();
+  }
+  const radio = e.target.closest('input[data-act="lead"]');
+  if (radio) { state.meta.leadId = radio.dataset.id; persist(); }
+});
+
+$('records').addEventListener('click', e => {
+  const el = e.target.closest('button[data-act]');
+  if (!el) return;
+  const {act, id} = el.dataset;
+  const row = list => state[list].find(r => r.id === id);
+  let focusId = null;
+  switch (act) {
+    case 'goto-node':
+      selected = el.dataset.node; highlight = null;
+      reveal(selected);
+      showRecord('chart');
+      return;
+    case 'show-evidence':
+      highlight = id; selected = null;
+      citingNodes(id).forEach(n => reveal(n.id));
+      showRecord('chart');
+      return;
+    case 'add-member': {
+      const m = {id: uuid(), name: '', role: ''};
+      state.meta.team.push(m); focusId = m.id;
+      break;
+    }
+    case 'delete-member':
+      state.meta.team = state.meta.team.filter(m => m.id !== id);
+      if (state.meta.leadId === id) state.meta.leadId = '';
+      break;
+    case 'add-evidence': focusId = addEvidence().id; break;
+    case 'delete-evidence': {
+      const ev = evidenceById(id), uses = citingNodes(id).length + citingRuledOut(id).length;
+      if (uses && !confirm(`${ev.code} is cited ${uses} time${uses > 1 ? 's' : ''}. Delete it and remove those citations? The code ${ev.code} will not be reused.`)) return;
+      deleteEvidence(id);
+      break;
+    }
+    case 'add-ruled': {
+      const r = {id: uuid(), cause: '', kind: '', test: '', evidenceIds: [], status: 'ruled-out'};
+      state.ruledOut.push(r); focusId = r.id;
+      break;
+    }
+    case 'delete-ruled': state.ruledOut = state.ruledOut.filter(r => r.id !== id); break;
+    case 'ruled-remove-evidence': row('ruledOut').evidenceIds = row('ruledOut').evidenceIds.filter(x => x !== el.dataset.evidence); break;
+    case 'add-solution': focusId = addSolution().id; break;
+    case 'delete-solution': {
+      const linked = actionsOf(id).length;
+      if (linked && !confirm(`${linked} action${linked > 1 ? 's are' : ' is'} linked to this solution. Delete the solution? The actions stay, without a solution.`)) return;
+      state.solutions = state.solutions.filter(s => s.id !== id);
+      for (const a of state.actions) if (a.solutionId === id) a.solutionId = '';
+      break;
+    }
+    case 'solution-remove-cause': row('solutions').causeIds = row('solutions').causeIds.filter(x => x !== el.dataset.node); break;
+    case 'criterion': {
+      const c = row('solutions').criteria[el.dataset.key];
+      c.v = c.v === el.dataset.v ? '' : el.dataset.v;
+      break;
+    }
+    case 'decision': row('solutions').decision = row('solutions').decision === el.dataset.v ? '' : el.dataset.v; break;
+    case 'add-action-for': {
+      const a = addAction(id);
+      render(); persist();
+      showRecord('actions', a.id);
+      return;
+    }
+    case 'add-action': focusId = addAction().id; break;
+    case 'delete-action': state.actions = state.actions.filter(a => a.id !== id); break;
+    default: return;
+  }
+  render(); persist();
+  if (focusId) {
+    const target = document.querySelector(`#records [data-id="${focusId}"][data-field]`);
+    target?.scrollIntoView({block: 'center'});
+    target?.focus();
+  }
+});
+
+document.querySelectorAll('.rail [data-record]').forEach(b => b.onclick = () => showRecord(b.dataset.record));
 
 // The built-in worked example: high leakage on the single cartridge seal of pump P-101A.
 // People and dates are invented. Fresh ids are made on every load, as for any new RCA.

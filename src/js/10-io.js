@@ -46,7 +46,14 @@ function normalizeProject(p) {
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
-  for (const sol of s.solutions) sol.causeIds = Array.isArray(sol.causeIds) ? sol.causeIds : [];
+  s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
+  s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));
+  s.ruledOut = s.ruledOut.filter(r => r?.id).map(r => ({cause: '', kind: '', test: '', status: 'ruled-out', ...r, evidenceIds: Array.isArray(r.evidenceIds) ? r.evidenceIds : []}));
+  s.solutions = s.solutions.filter(x => x?.id).map(x => ({title: '', decision: '', ...x, causeIds: Array.isArray(x.causeIds) ? x.causeIds : [],
+    criteria: Object.fromEntries(Object.keys(CRITERIA).map(k => [k, {v: '', c: '', ...x.criteria?.[k]}]))}));
+  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
+    effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.
   const previous = state;
   state = {...s, links: []};

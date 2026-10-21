@@ -2,7 +2,7 @@
 
 An offline, single-file HTML tool for root cause analyses with the Apollo method: build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it. No installation, server, account, or network connection is needed.
 
-> Status: milestones M1 and M2 of four. The RCA record panels (M3), export, printing, and the dark theme (M4) follow.
+> Status: milestones M1–M3 of four. Export, printing, and the dark theme (M4) follow.
 
 ## Run it
 
@@ -31,7 +31,7 @@ Open [`apollo-rca.html`](apollo-rca.html) in Chrome, Edge, or Firefox. Choose **
 ## Screen
 
 - **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the file commands.
-- **Records** on the left: the chart now; the problem definition, evidence log, ruled-out causes, solutions, and action plan arrive in M3. Below them, the legend.
+- **Records** on the left: the chart and the six RCA records, with their counts. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
 - **Status bar** at the bottom: the last file action, the counts, and the keys.
@@ -60,7 +60,28 @@ Select a cause. Its **Evidence** section lists the items it cites, each with its
 - To log something new, type what was seen or measured and choose **+ New**. It goes into the evidence log with the next free code and is cited by the cause. Its type, source, collector, and date are edited in the evidence log (M3); until then it is recorded as sensed, collected today.
 - **×** unlinks an item. It stays in the evidence log.
 
-The "?" marker goes away once a cause cites at least one item and is not marked unverified. Codes are never reused: after E11 is deleted, the next item is still E12. On the chart, codes show as pills under the title; when they do not fit, the last pill counts the rest (`+3`).
+The "?" marker goes away once a cause cites at least one item and is not marked unverified. Codes are never reused: after E11 is deleted, the next item is still E12. (Undoing the addition of E11 does free the code.) On the chart, codes show as pills under the title; when they do not fit, the last pill counts the rest (`+3`).
+
+## RCA records
+
+Choose a record in the left column; **Chart** returns to the chart. Every field saves as you type, and every change is an undo step, as on the chart. The chart keys do nothing on a record page.
+
+| Record | Content |
+|---|---|
+| **Problem definition** | What (the primary effect's title: editing either changes both), when, where, and the significance for safety, environment, production/cost, and reliability. |
+| **Team and dates** | RCA number, equipment/tag, seal type; event, opened, and closed dates; team members with their roles, and the lead. Team names are offered for "collected by" and "owner". |
+| **Evidence log** | One row per item: code, description, type (sensed or inferred), source, collected by, date, and the nodes and ruled-out causes that cite it. **Show** goes to the chart with those nodes outlined and the rest faded; **Esc** or **Clear** ends it. Deleting a cited item asks first and removes its citations. |
+| **Causes ruled out** | Possible cause, its type, the evidence or test that ruled it out, the evidence items it cites, and the status (being tested, ruled out). |
+| **Solutions** | The causes each solution attacks, the four Apollo criteria (prevents recurrence, within our control, meets our goals, no new problems) as Yes / Partly / No with a comment, and the decision (implement, study further, reject). Clicking a chosen value again clears it. Controllable causes are marked ● in the cause picker. |
+| **Action plan** | Action, solution, owner, due date, verification, status (open, in progress, done, cancelled), and the effectiveness check: its date and result. An action past its due date that is not done or cancelled is marked overdue. |
+
+From the chart, with a cause selected:
+
+- **Rule out** moves the cause to the causes ruled out, with its evidence, and takes it off the chart. Causes that only it supported go with it; you are asked first.
+- **+ Solution for this cause** starts a solution that attacks it. The cause's solutions are listed with their decisions; click one to open it.
+- Click an evidence code to outline every node that cites it.
+
+From a solution, **+ Action** adds an action for it to the action plan.
 
 ## Issues
 
@@ -121,9 +142,10 @@ The file is JSON with `"type": "apollo-rca"` and `"schemaVersion": 1`. Every ent
 | `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition`, `title`, `description`, `evidenceIds`, `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`} |
 | `links` | {`id`, `effectId`, `causeId`}: the cause supports the effect. Links form a directed acyclic graph rooted at the primary effect. |
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
-| `ruledOut` | {`id`, `cause`, `kind`, `test`, `evidenceIds`, `status`} |
-| `solutions` | {`id`, `title`, `causeIds`, `criteria` {`preventsRecurrence`, `withinControl`, `meetsGoals`, `noNewProblems`: {`v`: `yes` \| `no` \| `partly`, `c`: comment}}, `decision`: `implement` \| `reject` \| `study`} |
-| `actions` | {`id`, `action`, `solutionId`, `owner`, `due`, `verification`, `status`, `effectiveness` {`date`, `result`}} |
+| `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |
+| `solutions` | {`id`, `title`, `causeIds`, `criteria` {`preventsRecurrence`, `withinControl`, `meetsGoals`, `noNewProblems`: {`v`: `yes` \| `no` \| `partly`, `c`: comment}}, `decision`: `implement` \| `reject` \| `study` \| `""` (not decided)}; criterion `v` may be `""` too |
+| `actions` | {`id`, `action`, `solutionId`, `owner`, `due`, `verification`, `status`: `open` \| `in-progress` \| `done` \| `cancelled`, `effectiveness` {`date`, `result`}} |
+| `counters` | `evidence`: the number of the next evidence code, so deleted codes are not reused. Files without it start after the highest code. |
 | `view` | `collapsed`: ids of nodes whose causes are hidden |
 
 Stop point reasons are `outside-control`, `solution-found`, `no-evidence`, and `no-value`. Dates are `YYYY-MM-DD`. Opening a file drops links to missing nodes and links that would close a loop.
@@ -137,7 +159,7 @@ The page has no external references, and its Content Security Policy (`default-s
 `apollo-rca.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-example`, `12-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the record pages), `12-example`, `13-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `apollo-rca.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.
@@ -147,4 +169,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.

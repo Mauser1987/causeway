@@ -1,5 +1,16 @@
 # Changelog
 
+## M3 — 2026-10-21
+
+- RCA record pages, opened from the left column: problem definition, team and dates, evidence log, causes ruled out, solutions, action plan. Fields save as you type; every change is an undo step.
+- Problem definition: "what" is the primary effect's title, kept in sync.
+- Evidence log: full editing; cited-by list; Show outlines the citing nodes on the chart; delete asks when cited and removes citations. Codes are never reused (new `counters.evidence` in the file).
+- Causes ruled out: Rule out on the chart moves a cause here with its evidence; cite and uncite evidence; status.
+- Solutions: linked causes, the four Apollo criteria with comments, decision; started from a cause on the chart; actions added from a solution.
+- Action plan: solution, owner, due, verification, status, effectiveness check; overdue actions marked.
+- Properties panel: a cause's solutions, + Solution, Rule out, and evidence codes that highlight on the chart.
+- Files are filled in on opening where a record lacks fields.
+
 ## M2 — 2026-10-21
 
 - Shared causes: Link cause (L) links a node already on the chart as a further cause of the selected effect. Nodes that would make a loop or are already linked are faded; Esc cancels. The Properties panel lists the effects a cause supports and unlinks all but the last.

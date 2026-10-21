@@ -11,7 +11,8 @@ function nodeMarkup(b, opts) {
   const n = b.node, c = CHART_COLORS[n.kind], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
-  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) ? ' opacity="0.35"' : ''}>`;
+  let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) ? ' opacity="0.35"' : ''}>`;
+  if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${CHART_COLORS.highlight}" stroke-width="4"/>`;
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1})}/>`;
@@ -85,25 +86,35 @@ function renderCanvas() {
   const width = svg.clientWidth || 1, height = svg.clientHeight || 1;
   svg.setAttribute('viewBox', `${view.x} ${view.y} ${width / view.k} ${height / view.k}`);
   const dimmed = linking ? new Set(state.nodes.filter(n => linkProblem(linking.effectId, n.id)).map(n => n.id)) : null;
-  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, toggles: true});
+  const lit = highlight && !linking ? new Set(citingNodes(highlight).map(n => n.id)) : null;
+  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true});
   svg.classList.toggle('linking', !!linking);
   $('zoomReset').textContent = `${Math.round(view.k * 100)}%`;
 }
 function render() {
   layout = computeLayout();
   if (selected && !layout.boxes.has(selected)) selected = null;
-  renderCanvas();
+  if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length], ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
+  for (const [id, n] of [['railCauses', causes], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
+    ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
+  if (record !== 'chart') { renderRecord(); return; }
+  renderCanvas();
   const n = byId(selected);
   $('addAction').disabled = $('addCondition').disabled = !n;
   $('deleteNode').disabled = !n || n.id === state.problem.primaryEffectId;
   $('linkCause').disabled = !n;
   $('linkBanner').hidden = !linking;
   if (linking) $('linkTarget').textContent = byId(linking.effectId)?.title || '';
+  const ev = highlight && !linking ? evidenceById(highlight) : null;
+  $('evidenceBanner').hidden = !ev;
+  if (ev) {
+    const count = citingNodes(ev.id).length;
+    $('evidenceBannerText').innerHTML = `<b>${escapeHtml(ev.code)}</b> is cited by ${count} node${count === 1 ? '' : 's'}, outlined: ${escapeHtml(shorten(ev.description, 80))}`;
+  }
   renderProperties();
 }
 

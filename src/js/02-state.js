@@ -33,6 +33,7 @@ function blankState() {
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [],
+    counters: {evidence: 1},
   };
 }
 
@@ -42,13 +43,15 @@ let collapsed = new Set();     // node ids whose causes are hidden; view state, 
 let view = {x: 0, y: 0, k: 1}; // chart point at the top-left of the canvas, and pixels per unit
 let drag = null;               // the pointer gesture in progress
 let linking = null;            // {effectId} while picking an existing node to link as its cause
+let highlight = null;          // evidence id whose citing nodes are highlighted on the chart
+let record = 'chart';          // the page shown: the chart or one of the RCA records
 
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
 
 function resetInteraction() {
-  selected = null; drag = null; linking = null;
+  selected = null; drag = null; linking = null; highlight = null;
 }
 
 // The file and the autosave hold the RCA and the collapsed branches.
@@ -107,6 +110,7 @@ function replaceState(next, {saved = true, fit = true} = {}) {
   collapsed = new Set(saveView?.collapsed || []);
   resetInteraction();
   if (saved) markSaved(); else savedSnapshot = null;
+  setRecord('chart');
   render(); persist(); resetHistory();
   if (fit) zoomToFit();
 }

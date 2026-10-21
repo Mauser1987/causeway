@@ -63,6 +63,7 @@ function renderNodeProperties(box, n) {
   const causes = causesOf(n.id), effects = effectsOf(n.id);
   const issues = ruleIssues().filter(i => i.nodeId === n.id);
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
+  const solutions = solutionsOf(n.id);
   const kindName = isPrimary ? 'Primary effect' : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
@@ -84,7 +85,7 @@ function renderNodeProperties(box, n) {
     <div class="section">
       <div class="section-head"><div class="panel-title">Evidence · ${evidence.length} cited</div></div>
       ${evidence.length ? evidence.map(e => `<div class="evidence">
-        <span class="code">${escapeHtml(e.code)}</span>
+        <button class="code" data-highlight="${e.id}" title="Highlight every node that cites ${escapeHtml(e.code)}">${escapeHtml(e.code)}</button>
         <div class="body"><span>${escapeHtml(e.description)}</span><small>${escapeHtml([e.type === 'inferred' ? 'Inferred' : 'Sensed', e.collectedBy, e.date].filter(Boolean).join(' · '))}</small></div>
         <button class="unlink" data-unlink="${e.id}" title="Unlink ${escapeHtml(e.code)}; it stays in the evidence log" aria-label="Unlink ${escapeHtml(e.code)}">×</button>
       </div>`).join('') : isCause(n) ? '<p class="empty-note">No evidence linked yet. Every cause needs evidence.</p>' : ''}
@@ -112,11 +113,19 @@ function renderNodeProperties(box, n) {
       ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
     </div>`}
 
+    ${isPrimary ? '' : `<div class="section">
+      <div class="section-head"><div class="panel-title">Solutions · ${solutions.length}</div><button class="link" data-goto-record="solutions">All solutions</button></div>
+      ${solutions.length ? `<ul class="cause-list">${solutions.map(s => `<li><button data-solution="${s.id}"><span class="badge small ${s.decision || 'none'}">${DECISIONS[s.decision] || 'Not decided'}</span>${escapeHtml(s.title || 'Untitled solution')}</button></li>`).join('')}</ul>` : ''}
+      <button class="button block" id="inspAddSolution" style="margin-top:8px">+ Solution for this cause</button>
+    </div>`}
     <div class="section">
       ${area('Description', 'nodeDescription', n.description).replace('class="field"', 'class="field" style="margin-top:0"')}
       ${area('Notes', 'nodeNotes', n.notes)}
     </div>
-    ${isPrimary ? '' : '<button class="button danger block" id="inspDelete">Delete cause <kbd>Del</kbd></button>'}`;
+    ${isPrimary ? '' : `<div class="button-grid" style="margin-top:16px">
+      <button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>
+      <button class="button danger" id="inspDelete">Delete <kbd>Del</kbd></button>
+    </div>`}`;
 
   $('nodeTitle').oninput = e => { n.title = e.target.value; refreshChart(); persist('title:' + n.id); };
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
@@ -136,6 +145,11 @@ function renderNodeProperties(box, n) {
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
   box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
+  if ($('inspRuleOut')) $('inspRuleOut').onclick = ruleOutSelected;
+  box.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => { highlight = highlight === b.dataset.highlight ? null : b.dataset.highlight; render(); });
+  box.querySelectorAll('[data-goto-record]').forEach(b => b.onclick = () => showRecord(b.dataset.gotoRecord));
+  box.querySelectorAll('[data-solution]').forEach(b => b.onclick = () => showSolution(b.dataset.solution));
+  if ($('inspAddSolution')) $('inspAddSolution').onclick = () => { const s = addSolution([n.id]); render(); persist(); showSolution(s.id, true); };
 }
 
 // The evidence search box: matching items from the evidence log, and an option to log what was typed
@@ -184,6 +198,13 @@ function evidenceCombo(n) {
     e.preventDefault();
     pick(+li.dataset.option);
   };
+}
+
+function showSolution(id, focus = false) {
+  showRecord('solutions');
+  const card = $('solution-' + id);
+  card?.scrollIntoView({block: 'start'});
+  if (focus) card?.querySelector('[data-field="title"]').focus();
 }
 
 // Redraws the chart without rebuilding the panel, so a field being typed in keeps its focus.

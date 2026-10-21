@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app" data-record="chart">
   <header>
     <div class="mark" aria-hidden="true">A</div>
     <div class="brand"><small id="sheetMeta">Apollo RCA Builder</small><strong id="sheetTitle">Untitled RCA</strong></div>
@@ -38,13 +38,13 @@
 
   <nav class="rail" aria-label="RCA records">
     <div class="panel-title">Records</div>
-    <button class="record active" aria-current="page">Chart<span id="railCauses">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Problem definition</button>
-    <button class="record" disabled title="Arrives in milestone M3">Team and dates</button>
-    <button class="record" disabled title="Arrives in milestone M3">Evidence log<span id="railEvidence">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Causes ruled out<span id="railRuledOut">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Solutions<span id="railSolutions">0</span></button>
-    <button class="record" disabled title="Arrives in milestone M3">Action plan<span id="railActions">0</span></button>
+    <button class="record active" data-record="chart" aria-current="page">Chart<span id="railCauses">0</span></button>
+    <button class="record" data-record="problem">Problem definition</button>
+    <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
+    <button class="record" data-record="evidence">Evidence log<span id="railEvidence">0</span></button>
+    <button class="record" data-record="ruledOut">Causes ruled out<span id="railRuledOut">0</span></button>
+    <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>
+    <button class="record" data-record="actions">Action plan<span id="railActions">0</span></button>
     <div class="panel-title legend-title">Legend</div>
     <ul class="legend">
       <li><span class="sw effect"></span>Primary effect</li>
@@ -62,6 +62,7 @@
   <main>
     <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
     <div id="linkBanner" class="banner" role="status" hidden><span>Click the node to link as a cause of <b id="linkTarget"></b>. Faded nodes would make a loop or are already linked.</span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
+    <div id="evidenceBanner" class="banner" role="status" hidden><span id="evidenceBannerText"></span><button id="clearHighlight">Clear <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
       <button id="addAction" class="add-action" title="Add an action cause to the selected effect">+ Action <kbd>Ins</kbd></button>
@@ -77,6 +78,8 @@
   </main>
 
   <aside class="inspector" aria-label="Properties"><div id="properties"></div></aside>
+
+  <section class="records" id="records" aria-live="off"></section>
 
   <footer>
     <span id="status">Ready</span>

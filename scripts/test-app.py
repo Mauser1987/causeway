@@ -338,6 +338,153 @@ def run_tests(b):
     assert b.js("return document.getElementById('deleteNode').disabled"), 'the primary effect cannot be deleted'
     print('PASS: delete a cause and its branch, with confirmation', flush=True)
 
+    # ---- RCA records ----
+    def page(name):
+        b.js('document.querySelector(`.rail [data-record="${arguments[0]}"]`).click();return true', [name])
+
+    def set_field(lst, row, path, value):
+        b.js('''const el=document.querySelector(`#records [data-list="${arguments[0]}"]${arguments[1]?`[data-id="${arguments[1]}"]`:''}[data-field="${arguments[2]}"]`);
+            el.focus();el.value=arguments[3];el.dispatchEvent(new Event("input",{bubbles:true}));return true''', [lst, row, path, value])
+
+    def act(name, row=None, **data):
+        sel = f'#records button[data-act="{name}"]' + (f'[data-id="{row}"]' if row else '') + ''.join(f'[data-{k}="{v}"]' for k, v in data.items())
+        b.js('document.querySelector(arguments[0]).click();return true', [sel])
+
+    def pick(name, row, value):
+        b.js('''const el=document.querySelector(`#records select[data-act="${arguments[0]}"][data-id="${arguments[1]}"]`);
+            el.value=arguments[2];el.dispatchEvent(new Event("change",{bubbles:true}));return true''', [name, row, value])
+
+    def focused():
+        return b.js("const a=document.activeElement;return a?[a.dataset.list,a.dataset.id,a.dataset.field]:null")
+
+    before_records = rca()
+    primary = rca()['problem']['primaryEffectId']
+
+    # Problem definition: the "what" is the primary effect's title.
+    page('problem')
+    assert b.js("return getComputedStyle(document.getElementById('chart')).display") == 'none' or b.js("return getComputedStyle(document.querySelector('main')).display") == 'none'
+    set_field('node', primary, 'title', 'High seal leakage, 16 ml/min')
+    assert next(n for n in rca()['nodes'] if n['id'] == primary)['title'] == 'High seal leakage, 16 ml/min'
+    assert b.js("return document.getElementById('sheetTitle').textContent") == 'High seal leakage, 16 ml/min'
+    set_field('problem', None, 'significance.safety', 'Flammable leak')
+    assert rca()['problem']['significance']['safety'] == 'Flammable leak'
+    click('undo'); click('undo')
+    assert rca() == before_records, 'record edits undo'
+    print('PASS: problem definition, synced with the primary effect', flush=True)
+
+    # Team and dates.
+    page('team')
+    act('add-member')
+    member = rca()['meta']['team'][-1]['id']
+    assert focused() == ['team', member, 'name'], 'a new member is ready to be named'
+    set_field('team', member, 'name', 'A. Tester')
+    b.js('document.querySelector(`#records input[data-act="lead"][data-id="${arguments[0]}"]`).click();return true', [member])
+    assert rca()['meta']['leadId'] == member
+    set_field('meta', None, 'dates.closed', '2026-10-30')
+    assert rca()['meta']['dates']['closed'] == '2026-10-30'
+    act('delete-member', member)
+    assert rca()['meta']['leadId'] == '' and len(rca()['meta']['team']) == 4, 'removing the lead clears the lead'
+    page('evidence')
+    assert b.js("return [...document.querySelectorAll('#teamNames option')].map(o=>o.value).length") == 4, 'team names are offered'
+    print('PASS: team and dates', flush=True)
+
+    # Evidence log: codes are never reused; deleting removes citations; Show highlights on the chart.
+    act('add-evidence')
+    e11 = rca()['evidence'][-1]
+    assert e11['code'] == 'E11' and focused() == ['evidence', e11['id'], 'description']
+    set_field('evidence', e11['id'], 'type', 'inferred')
+    assert rca()['evidence'][-1]['type'] == 'inferred'
+    b.js('__dialogs.length=0;return true')
+    act('delete-evidence', e11['id'])
+    assert b.js('return __dialogs.length') == 0, 'an uncited item is deleted without asking'
+    act('add-evidence')
+    assert rca()['evidence'][-1]['code'] == 'E12', 'a deleted code is not reused'
+    e3 = next(e['id'] for e in rca()['evidence'] if e['code'] == 'E3')
+    act('delete-evidence', e3)
+    assert 'cited 2 times' in b.js('return __dialogs[0]')
+    assert not any(e3 in n['evidenceIds'] for n in rca()['nodes']) and not any(e['id'] == e3 for e in rca()['evidence'])
+    click('undo')
+    assert any(e3 in n['evidenceIds'] for n in rca()['nodes']), 'undo restores the evidence and its citations'
+    e4 = next(e['id'] for e in rca()['evidence'] if e['code'] == 'E4')
+    act('show-evidence', e4)
+    assert b.js("return getComputedStyle(document.querySelector('main')).display") != 'none', 'Show goes to the chart'
+    assert not b.js("return document.getElementById('evidenceBanner').hidden")
+    lit = b.js("return document.querySelectorAll('#chart rect[stroke=\"#e0a100\"]').length")
+    assert lit == 3, f'the three nodes citing E4 are outlined, got {lit}'
+    assert b.js("return document.querySelectorAll('#chart .node[opacity]').length") == len(boxes()) - 3, 'the others are faded'
+    key('Escape')
+    assert b.js("return document.getElementById('evidenceBanner').hidden") and b.js("return document.querySelectorAll('#chart .node[opacity]').length") == 0
+    select('Seal chamber temperature rose 18 °C')
+    b.js("document.querySelector('#properties [data-highlight]').click();return true")
+    assert not b.js("return document.getElementById('evidenceBanner').hidden"), 'a code in the Properties panel highlights too'
+    key('Escape')
+    print('PASS: evidence log, code numbering, deleting, and highlighting on the chart', flush=True)
+
+    # Causes ruled out: from the chart, and edited in the list.
+    heat = 'Heat input from face friction and pump'
+    ruled_before = len(rca()['ruledOut'])
+    select('Seal relies on a stable liquid film')
+    click('inspRuleOut')
+    moved = rca()['ruledOut'][-1]
+    assert len(rca()['ruledOut']) == ruled_before + 1 and moved['cause'] == 'Seal relies on a stable liquid film' and moved['kind'] == 'condition'
+    assert not any(n['title'] == 'Seal relies on a stable liquid film' for n in rca()['nodes']), 'the cause leaves the chart'
+    click('undo')
+    assert any(n['title'] == 'Seal relies on a stable liquid film' for n in rca()['nodes'])
+    page('ruledOut')
+    act('add-ruled')
+    r = rca()['ruledOut'][-1]['id']
+    set_field('ruledOut', r, 'cause', 'Wrong spring compression')
+    pick('ruled-add-evidence', r, e4)
+    assert rca()['ruledOut'][-1]['evidenceIds'] == [e4]
+    act('ruled-remove-evidence', r, evidence=e4)
+    assert rca()['ruledOut'][-1]['evidenceIds'] == []
+    print('PASS: causes ruled out', flush=True)
+
+    # Solutions: started from a cause, the four criteria, the decision, and an action from the solution.
+    page('chart')
+    select('Seal relies on a stable liquid film')
+    click('inspAddSolution')
+    sol = rca()['solutions'][-1]
+    assert sol['causeIds'] == [node_id('Seal relies on a stable liquid film')] and focused() == ['solutions', sol['id'], 'title']
+    set_field('solutions', sol['id'], 'title', 'Monitor film with a temperature probe')
+    act('criterion', sol['id'], key='preventsRecurrence', v='partly')
+    assert rca()['solutions'][-1]['criteria']['preventsRecurrence']['v'] == 'partly'
+    act('criterion', sol['id'], key='preventsRecurrence', v='partly')
+    assert rca()['solutions'][-1]['criteria']['preventsRecurrence']['v'] == '', 'clicking the chosen value clears it'
+    set_field('solutions', sol['id'], 'criteria.meetsGoals.c', 'Cheap')
+    act('decision', sol['id'], v='study')
+    assert rca()['solutions'][-1]['decision'] == 'study'
+    pick('solution-add-cause', sol['id'], node_id(heat))
+    assert len(rca()['solutions'][-1]['causeIds']) == 2
+    act('add-action-for', sol['id'])
+    action = rca()['actions'][-1]
+    assert action['solutionId'] == sol['id'] and focused() == ['actions', action['id'], 'action'], 'the action plan opens on the new action'
+    print('PASS: solutions and their criteria', flush=True)
+
+    # Action plan: overdue actions are marked until done.
+    set_field('actions', action['id'], 'due', '2020-01-01')
+    assert b.js("return document.querySelectorAll('#records td.overdue').length") == 1
+    set_field('actions', action['id'], 'status', 'done')
+    assert b.js("return document.querySelectorAll('#records td.overdue').length") == 0
+    key('Insert')
+    assert len(rca()['nodes']) == len(before_records['nodes']), 'chart keys do nothing on a record page'
+    page('solutions')
+    b.js('__dialogs.length=0;return true')
+    act('delete-solution', sol['id'])
+    assert len(b.js('return __dialogs')) == 1 and rca()['actions'][-1]['solutionId'] == '', 'deleting a solution keeps its actions'
+    page('chart')
+    print('PASS: action plan', flush=True)
+
+    # Every record edit is in the undo history.
+    for _ in range(60):
+        if b.js('return document.getElementById("undo").disabled'):
+            break
+        click('undo')
+        if rca() == before_records:
+            break
+    assert rca() == before_records, 'undo returns to the RCA before the record edits'
+    print('PASS: record edits undo', flush=True)
+
     # ---- Files ----
     b.js('__downloads.length=0;return true')
     click('saveProject')

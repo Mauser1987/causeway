@@ -33,7 +33,7 @@ svg.addEventListener('pointermove', e => {
 });
 svg.addEventListener('pointerup', () => {
   if (drag && !drag.moved && linking) cancelLinking();
-  else if (drag && !drag.moved && selected) select(null);
+  else if (drag && !drag.moved && (selected || highlight)) { highlight = null; select(null); }
   drag = null;
   svg.classList.remove('panning');
 });
@@ -75,8 +75,13 @@ window.addEventListener('keydown', e => {
     restoreHistory(key === 'y' || e.shiftKey);
     return;
   }
-  if (command || e.altKey || !byId(selected)) return;
-  if (key === 'escape') { e.preventDefault(); if (linking) cancelLinking(); else select(null); return; }
+  if (command || e.altKey || record !== 'chart') return;
+  if (key === 'escape' && (linking || highlight || selected)) {
+    e.preventDefault();
+    if (linking) cancelLinking(); else if (highlight) clearHighlight(); else select(null);
+    return;
+  }
+  if (!byId(selected)) return;
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
   const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
@@ -88,7 +93,7 @@ window.addEventListener('keydown', e => {
 
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
 window.addEventListener('keydown', e => {
-  if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey || record !== 'chart') return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
@@ -99,6 +104,12 @@ window.addEventListener('keydown', e => {
   select(next.id);
   scrollToNode(next.id);
 });
+
+function clearHighlight() {
+  highlight = null;
+  render();
+}
+$('clearHighlight').onclick = clearHighlight;
 
 function neighbour(from, key) {
   const boxes = [...layout.boxes.values()], cy = midY(from);

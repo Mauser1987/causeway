@@ -18,6 +18,17 @@ const STOP_REASONS = {
   'no-value': 'Going further adds nothing',
 };
 
+// Record values. Keys are what the file stores; values are what the page shows.
+const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
+const RULED_OUT_STATUS = {'testing': 'Being tested', 'ruled-out': 'Ruled out'};
+const CRITERIA = {
+  preventsRecurrence: 'Prevents recurrence?', withinControl: 'Within our control?',
+  meetsGoals: 'Meets our goals?', noNewProblems: 'No new problems?',
+};
+const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
+const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
+const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+
 // Chart geometry, in chart units (one unit is one CSS pixel at 100 %).
 const NODE_W = 200;
 const NODE_PAD_X = 12;
@@ -41,6 +52,7 @@ const CHART_COLORS = {
   junction: {fill: '#ffffff', text: '#3d4f60'},
   shared: '#7b5ab7',
   select: '#2563eb',
+  highlight: '#e0a100',
   issue: '#c2570c',
   unverified: {fill: '#c2570c', text: '#ffffff'},
   controllable: {fill: '#2f7a3a', text: '#ffffff'},

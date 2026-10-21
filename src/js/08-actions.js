@@ -27,6 +27,20 @@ function deleteSelected() {
   setStatus(`Deleted ${ids.length} node${ids.length > 1 ? 's' : ''}`);
 }
 
+// A candidate cause that the evidence rejects moves to the causes ruled out, with its evidence.
+function ruleOutSelected() {
+  const n = byId(selected);
+  if (!n || n.id === state.problem.primaryEffectId) return;
+  const ids = deletionSet(n.id), others = ids.length - 1;
+  if (others && !confirm(`Rule out "${n.title}"? The ${others} cause${others > 1 ? 's' : ''} that only it supports will be deleted.`)) return;
+  state.ruledOut.push({id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'});
+  const effect = effectsOf(n.id)[0];
+  deleteNodes(ids);
+  selected = effect?.id ?? null;
+  render(); persist();
+  setStatus(`Moved "${n.title}" to the causes ruled out`);
+}
+
 // Collapsing is a view setting: saved with the file, but not an undo step.
 function toggleCollapse(id = selected) {
   if (!causeLinks(id).length) return;
