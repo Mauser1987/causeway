@@ -33,7 +33,10 @@ function ruleOutSelected() {
   if (!n || n.id === state.problem.primaryEffectId) return;
   const ids = deletionSet(n.id), others = ids.length - 1;
   if (others && !confirm(`Rule out "${n.title}"? The ${others} cause${others > 1 ? 's' : ''} that only it supports will be deleted.`)) return;
-  state.ruledOut.push({id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'});
+  const r = {id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'};
+  state.ruledOut.push(r);
+  // A fishbone cause that was this node is now this ruled-out cause.
+  for (const c of fishCauses()) if (c.nodeId === n.id) Object.assign(c, {nodeId: null, ruledOutId: r.id});
   const effect = effectsOf(n.id)[0];
   deleteNodes(ids);
   selected = effect?.id ?? null;

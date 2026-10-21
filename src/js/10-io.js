@@ -56,6 +56,18 @@ function normalizeProject(p) {
     effectId: s.nodes.some(n => n.id === c.effectId) ? c.effectId : s.problem.primaryEffectId,
     steps: (Array.isArray(c.steps) ? c.steps : []).filter(x => x?.id).map(x => ({answer: '', kind: 'condition', ...x,
       evidenceIds: Array.isArray(x.evidenceIds) ? x.evidenceIds : [], nodeId: s.nodes.some(n => n.id === x.nodeId) ? x.nodeId : null}))}));
+  const nodeIds = new Set(s.nodes.map(n => n.id)), ruledIds = new Set(s.ruledOut.map(r => r.id));
+  s.fishbones = (Array.isArray(p.fishbones) ? p.fishbones : []).filter(f => f?.id).map(f => ({...f,
+    effectId: nodeIds.has(f.effectId) ? f.effectId : s.problem.primaryEffectId,
+    categories: (Array.isArray(f.categories) ? f.categories : []).filter(g => g?.id).map(g => {
+      const causes = (Array.isArray(g.causes) ? g.causes : []).filter(c => c?.id);
+      const top = new Set(causes.filter(c => !c.parentId).map(c => c.id));
+      return {name: '', ...g, causes: causes.map(c => ({text: '', kind: 'condition', ...c,
+        evidenceIds: Array.isArray(c.evidenceIds) ? c.evidenceIds : [],
+        nodeId: nodeIds.has(c.nodeId) ? c.nodeId : null,
+        ruledOutId: !nodeIds.has(c.nodeId) && ruledIds.has(c.ruledOutId) ? c.ruledOutId : null,
+        parentId: top.has(c.parentId) ? c.parentId : null}))};
+    })}));
   s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
     effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.

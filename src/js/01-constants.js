@@ -30,6 +30,12 @@ const CRITERIA = {
 const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
 const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
 const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+// Starting categories for a fishbone diagram; each can be renamed, added, or removed.
+const FISHBONE_PRESETS = {
+  seal: {name: 'Seal failure', categories: ['Seal and materials', 'Installation', 'Operation', 'Process fluid', 'Support system', 'Pump and equipment']},
+  '6m': {name: '6M', categories: ['People', 'Method', 'Machine', 'Material', 'Measurement', 'Environment']},
+  blank: {name: 'Four blank categories', categories: ['Category 1', 'Category 2', 'Category 3', 'Category 4']},
+};
 
 // Chart geometry, in chart units (one unit is one CSS pixel at 100 %).
 const NODE_W = 200;

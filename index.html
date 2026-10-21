@@ -504,10 +504,46 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
 .why-num small { display: block; margin-top: 2px; font-weight: 600; font-size: 10.5px; color: var(--warn-ink); }
 .why-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .why-q { font-size: 12px; color: var(--muted); }
-.answer { font-size: 14px; font-weight: 600; min-height: 32px; }
+textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: none; overflow: hidden; }
 .why-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .why-meta .spacer { flex: 1; }
 .seg .kind[aria-pressed=true] { background: var(--accent); color: #fff; font-weight: 600; }
+
+/* ---- Fishbone ---- */
+.head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.button.small { padding: 3px 9px; font-size: 12px; }
+.fish-figure { margin: 12px 0 6px; overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--panel); text-align: center; }
+.fish-figure svg { display: inline-block; vertical-align: top; }
+.fish-figure .fish-row, .fish-figure .fish-cat { cursor: pointer; }
+.fish-figure .fish-row:hover rect:first-child { fill: var(--line-soft); }
+.fish-tally { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+.tally { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.tally.chart i { width: 14px; height: 8px; border-radius: 2px; background: var(--accent); }
+.tally.ruled { text-decoration: line-through; color: var(--muted); }
+.tally.open { font-weight: 600; }
+.fish-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; align-items: start; }
+.fish-cat { padding: 10px 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--rail); }
+.fish-cat-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.fish-cat-head .title { font-weight: 700; color: var(--accent-ink); }
+.fish-causes { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fish-cause { padding: 6px 4px 6px 8px; border: 1px solid var(--line); border-left: 3px solid var(--field-line); border-radius: 6px; background: var(--panel); }
+.fish-cause.child { margin-left: 22px; }
+.fish-cause.chart { border-left-color: var(--accent-2); }
+.fish-cause.ruled { border-left-color: var(--faint); }
+.fish-cause.ruled .answer { color: var(--muted); text-decoration: line-through; }
+.fish-line { display: flex; align-items: flex-start; gap: 4px; }
+.fish-cause textarea.answer { font-size: 13px; min-height: 30px; }
+.fish-cause.child textarea.answer { font-weight: 500; }
+.fish-cause .why-meta { gap: 6px; margin-top: 2px; }
+.fish-cause .seg button { padding: 3px 8px; font-size: 11px; }
+.fish-cause .picker { max-width: 120px; }
+.fish-foot { margin-top: 4px; min-height: 26px; }
+.fish-foot .link { font-size: 12px; }
+.fish-add-cat { min-height: 64px; border: 1px dashed var(--field-line); border-radius: 8px; background: none; color: var(--accent-ink); font-weight: 600; }
+.fish-add-cat:hover { border-color: var(--accent-2); background: var(--accent-faint); }
+@media print {
+  #report .r-fish { margin-bottom: 4mm; }
+}
 </style>
 </head>
 <body>
@@ -547,6 +583,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
     <div class="panel-title">Analysis</div>
     <button class="record active" data-record="chart" aria-current="page" title="Cause-and-effect chart">Cause &amp; effect<span id="railCauses">0</span></button>
     <button class="record" data-record="whys">5 Whys<span id="railWhys">0</span></button>
+    <button class="record" data-record="fishbone">Fishbone<span id="railFish">0</span></button>
     <div class="panel-title group-title">Records</div>
     <button class="record" data-record="problem">Problem definition</button>
     <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
@@ -632,6 +669,12 @@ const CRITERIA = {
 const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
 const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
 const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+// Starting categories for a fishbone diagram; each can be renamed, added, or removed.
+const FISHBONE_PRESETS = {
+  seal: {name: 'Seal failure', categories: ['Seal and materials', 'Installation', 'Operation', 'Process fluid', 'Support system', 'Pump and equipment']},
+  '6m': {name: '6M', categories: ['People', 'Method', 'Machine', 'Material', 'Measurement', 'Environment']},
+  blank: {name: 'Four blank categories', categories: ['Category 1', 'Category 2', 'Category 3', 'Category 4']},
+};
 
 // Chart geometry, in chart units (one unit is one CSS pixel at 100 %).
 const NODE_W = 200;
@@ -716,7 +759,7 @@ function blankState() {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [],
+    nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [],
     counters: {evidence: 1},
   };
 }
@@ -860,7 +903,7 @@ const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
 const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
 function deleteEvidence(id) {
   state.evidence = state.evidence.filter(e => e.id !== id);
-  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps)]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses()]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
   if (highlight === id) highlight = null;
 }
 // ---- 5 Whys ----
@@ -903,6 +946,77 @@ function chainToChart(chain) {
     added++;
   }
   return added;
+}
+
+// ---- Fishbone ----
+// A fishbone (Ishikawa) diagram sorts the possible causes of an effect into categories, so that no
+// area is forgotten. Each possible cause is then tested: added to the chart, where it needs evidence,
+// or ruled out. One on the chart is that node, and one ruled out is that record: its words, type, and
+// evidence are kept there. A cause can have sub-causes (parentId), one level down.
+
+const blankFishCause = (parentId = null) => ({id: uuid(), text: '', kind: 'condition', evidenceIds: [], nodeId: null, ruledOutId: null, parentId});
+function addFishbone(preset = 'seal', effectId = state.problem.primaryEffectId) {
+  const f = {id: uuid(), effectId, categories: FISHBONE_PRESETS[preset].categories.map(name => ({id: uuid(), name, causes: []}))};
+  state.fishbones.push(f);
+  return f;
+}
+const fishCauses = () => state.fishbones.flatMap(f => f.categories.flatMap(g => g.causes));
+const fishNode = c => c.nodeId ? byId(c.nodeId) : null;
+const fishRuled = c => c.ruledOutId ? state.ruledOut.find(r => r.id === c.ruledOutId) : null;
+const fishSource = c => fishNode(c) ?? fishRuled(c) ?? c;
+const fishText = c => fishNode(c)?.title ?? fishRuled(c)?.cause ?? c.text;
+const fishKind = c => fishSource(c).kind || c.kind;
+const fishStatus = c => fishNode(c) ? 'chart' : fishRuled(c) ? 'ruled' : 'open';
+const fishCategory = id => state.fishbones.flatMap(f => f.categories).find(g => g.id === id);
+function fishFind(id) {
+  for (const fishbone of state.fishbones) for (const category of fishbone.categories) {
+    const cause = category.causes.find(c => c.id === id);
+    if (cause) return {fishbone, category, cause};
+  }
+  return null;
+}
+// Top-level causes in order, each followed by its sub-causes.
+const fishRows = g => g.causes.filter(c => !c.parentId).flatMap(c => [c, ...g.causes.filter(x => x.parentId === c.id)]);
+
+// A cause goes under the diagram's effect; a sub-cause under its cause, which must be on the chart.
+function fishToChart(id) {
+  const {fishbone, category, cause} = fishFind(id);
+  if (fishStatus(cause) !== 'open') return null;
+  const parent = cause.parentId ? fishNode(category.causes.find(c => c.id === cause.parentId) || {}) : byId(fishbone.effectId);
+  if (!parent) return 'Add the cause above it to the chart first.';
+  const n = addCause(parent.id, cause.kind, cause.text.trim() || 'Untitled cause');
+  n.evidenceIds = [...cause.evidenceIds];
+  cause.nodeId = n.id;
+  return null;
+}
+function fishRuleOut(id) {
+  const {cause} = fishFind(id);
+  if (fishStatus(cause) !== 'open') return null;
+  const r = {id: uuid(), cause: cause.text, kind: cause.kind, test: '', evidenceIds: [...cause.evidenceIds], status: 'ruled-out'};
+  state.ruledOut.push(r);
+  cause.ruledOutId = r.id;
+  return r;
+}
+// A cause that leaves the chart or the causes ruled out takes its words, type, and evidence back.
+function releaseFish(c) {
+  const src = fishSource(c);
+  Object.assign(c, {text: fishText(c), kind: ['action', 'condition'].includes(src.kind) ? src.kind : c.kind, evidenceIds: [...src.evidenceIds], nodeId: null, ruledOutId: null});
+}
+// Restoring a ruled-out cause takes it back from the causes ruled out.
+function fishRestore(id) {
+  const {cause} = fishFind(id), r = fishRuled(cause);
+  if (!r) return;
+  releaseFish(cause);
+  state.ruledOut = state.ruledOut.filter(x => x !== r);
+}
+function deleteRuledOut(id) {
+  for (const c of fishCauses()) if (c.ruledOutId === id) releaseFish(c);
+  state.ruledOut = state.ruledOut.filter(r => r.id !== id);
+}
+// Deleting a cause deletes its sub-causes; on the chart and in the causes ruled out, they stay.
+function deleteFishCause(id) {
+  const {category} = fishFind(id);
+  category.causes = category.causes.filter(c => c.id !== id && c.parentId !== id);
 }
 
 const solutionsOf = id => state.solutions.filter(s => s.causeIds.includes(id));
@@ -949,6 +1063,10 @@ function deleteNodes(ids) {
       const n = gone.has(step.nodeId) && stepNode(step);
       if (n) Object.assign(step, {answer: n.title, kind: n.kind === 'effect' ? 'condition' : n.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
     }
+  }
+  for (const f of state.fishbones) {
+    if (gone.has(f.effectId)) f.effectId = state.problem.primaryEffectId;
+    for (const c of f.categories.flatMap(g => g.causes)) if (gone.has(c.nodeId)) releaseFish(c);
   }
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));
@@ -1365,7 +1483,7 @@ function render() {
   if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
+  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
     ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
@@ -1691,7 +1809,10 @@ function ruleOutSelected() {
   if (!n || n.id === state.problem.primaryEffectId) return;
   const ids = deletionSet(n.id), others = ids.length - 1;
   if (others && !confirm(`Rule out "${n.title}"? The ${others} cause${others > 1 ? 's' : ''} that only it supports will be deleted.`)) return;
-  state.ruledOut.push({id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'});
+  const r = {id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'};
+  state.ruledOut.push(r);
+  // A fishbone cause that was this node is now this ruled-out cause.
+  for (const c of fishCauses()) if (c.nodeId === n.id) Object.assign(c, {nodeId: null, ruledOutId: r.id});
   const effect = effectsOf(n.id)[0];
   deleteNodes(ids);
   selected = effect?.id ?? null;
@@ -2028,6 +2149,18 @@ function normalizeProject(p) {
     effectId: s.nodes.some(n => n.id === c.effectId) ? c.effectId : s.problem.primaryEffectId,
     steps: (Array.isArray(c.steps) ? c.steps : []).filter(x => x?.id).map(x => ({answer: '', kind: 'condition', ...x,
       evidenceIds: Array.isArray(x.evidenceIds) ? x.evidenceIds : [], nodeId: s.nodes.some(n => n.id === x.nodeId) ? x.nodeId : null}))}));
+  const nodeIds = new Set(s.nodes.map(n => n.id)), ruledIds = new Set(s.ruledOut.map(r => r.id));
+  s.fishbones = (Array.isArray(p.fishbones) ? p.fishbones : []).filter(f => f?.id).map(f => ({...f,
+    effectId: nodeIds.has(f.effectId) ? f.effectId : s.problem.primaryEffectId,
+    categories: (Array.isArray(f.categories) ? f.categories : []).filter(g => g?.id).map(g => {
+      const causes = (Array.isArray(g.causes) ? g.causes : []).filter(c => c?.id);
+      const top = new Set(causes.filter(c => !c.parentId).map(c => c.id));
+      return {name: '', ...g, causes: causes.map(c => ({text: '', kind: 'condition', ...c,
+        evidenceIds: Array.isArray(c.evidenceIds) ? c.evidenceIds : [],
+        nodeId: nodeIds.has(c.nodeId) ? c.nodeId : null,
+        ruledOutId: !nodeIds.has(c.nodeId) && ruledIds.has(c.ruledOutId) ? c.ruledOutId : null,
+        parentId: top.has(c.parentId) ? c.parentId : null}))};
+    })}));
   s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
     effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.
@@ -2082,7 +2215,7 @@ $('loadExample').onclick = () => {
 
 window.addEventListener('beforeunload', e => { if (isDirty()) { e.preventDefault(); e.returnValue = ''; } });
 
-// The pages beside the chart: the 5 Whys, and the RCA records (problem definition, team and dates,
+// The pages beside the chart: the 5 Whys, the fishbone, and the RCA records (problem definition, team and dates,
 // evidence log, causes ruled out, solutions, and the action plan).
 //
 // Fields are bound by data attributes: data-list names the record (or "meta", "problem", "node"),
@@ -2114,20 +2247,9 @@ const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${tex
 
 // Moves to a page: 'chart' or one of the records.
 function setRecord(name) {
-  record = name;
+  record = name; fishOn = null;
   $('app').dataset.record = name;
-  // Enter in a why's answer goes to the next why, adding one after the last.
-$('records').addEventListener('keydown', e => {
-  const field = e.target.closest('textarea.answer');
-  if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
-  e.preventDefault();
-  const chain = chainOf(field.dataset.step), i = chain.steps.findIndex(s => s.id === field.dataset.step);
-  let next = chain.steps[i + 1];
-  if (!next) { next = blankStep(); chain.steps.push(next); render(); persist(); }
-  document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
-});
-
-document.querySelectorAll('.rail [data-record]').forEach(b => {
+  document.querySelectorAll('.rail [data-record]').forEach(b => {
     b.classList.toggle('active', b.dataset.record === name);
     if (b.dataset.record === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
@@ -2145,12 +2267,19 @@ function showRecord(name, focusId) {
   }
 }
 
+// An answer grows with its words, so a long one is never cut off.
+function fitArea(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
+}
+
 function renderRecord() {
-  const page = {whys: whysPage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {whys: whysPage, fishbone: fishbonePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
-  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.querySelectorAll('textarea.answer').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
 }
@@ -2207,6 +2336,87 @@ function stepRow(c, s, i) {
     </div>
     <button class="unlink" data-act="delete-step" data-id="${s.id}" aria-label="Remove ${label}${n ? '; it stays on the chart' : ''}">×</button>
   </li>`;
+}
+
+// The categories a new diagram starts with: the last ones chosen.
+let fishPreset = 'seal';
+let fishOn = null;           // the possible cause being edited, lit in its diagram
+const pageColors = () => darkTheme() ? CHART_COLORS_DARK : CHART_COLORS;
+
+function fishbonePage() {
+  return `${pageHead('Fishbone', 'Sort the possible causes of an effect into categories, so that no area is forgotten. Then test each one: add it to the cause-and-effect chart, where it needs evidence, or rule it out.',
+    `<div class="head-actions"><label class="starts">Categories <select class="picker" id="fishPreset">${Object.entries(FISHBONE_PRESETS).map(([k, p]) =>
+      `<option value="${k}" ${k === fishPreset ? 'selected' : ''}>${p.name}</option>`).join('')}</select></label><button class="button primary" data-act="add-fishbone">+ New diagram</button></div>`)}
+    ${state.fishbones.length ? state.fishbones.map(fishCard).join('') : '<p class="empty-card">No diagrams yet. Choose the categories, then <b>+ New diagram</b>.</p>'}
+    <p class="note">Click a cause or a category in the diagram to edit it. In a cause, <kbd>Enter</kbd> adds the next one; <kbd>Shift+Enter</kbd> starts a new line.</p>`;
+}
+
+function fishCard(f) {
+  const causes = f.categories.flatMap(g => g.causes), count = k => causes.filter(c => fishStatus(c) === k).length;
+  return `<article class="card fishbone">
+    <div class="card-head">
+      <h2>Possible causes of “${escapeHtml(shorten(byId(f.effectId)?.title || '', 90))}”</h2>
+      <button class="button small" data-act="fish-export" data-id="${f.id}" data-v="svg" title="Save the diagram as an SVG image">SVG</button>
+      <button class="button small" data-act="fish-export" data-id="${f.id}" data-v="png" title="Save the diagram as a PNG image">PNG</button>
+      <button class="unlink" data-act="delete-fishbone" data-id="${f.id}" aria-label="Delete this diagram">×</button>
+    </div>
+    <label class="starts">Effect <select class="picker" data-act="fish-effect" data-id="${f.id}" aria-label="The effect at the head of the diagram">${state.nodes.map(n =>
+      `<option value="${n.id}" ${n.id === f.effectId ? 'selected' : ''}>${escapeHtml(shorten(n.title, 70))}</option>`).join('')}</select></label>
+    <div class="fish-figure" data-fishbone="${f.id}">${fishboneSvg(f, {colors: pageColors(), on: fishOn})}</div>
+    <p class="fish-tally">${causes.length ? `${causes.length} possible cause${causes.length > 1 ? 's' : ''}:
+      <span class="tally chart"><i></i>${count('chart')} on the chart</span><span class="tally ruled">${count('ruled')} ruled out</span><span class="tally open">${count('open')} to test</span>`
+      : 'No possible causes yet: add them under the categories below.'}</p>
+    <div class="fish-cats">${f.categories.map(g => fishCategoryCard(g)).join('')}
+      <button class="fish-add-cat" data-act="add-fish-category" data-id="${f.id}">+ Category</button></div>
+  </article>`;
+}
+
+function fishCategoryCard(g) {
+  const name = g.name.trim() || 'category';
+  return `<section class="fish-cat">
+    <div class="fish-cat-head">
+      <input class="cell title" ${bind('fishCats', g.id, 'name')} value="${escapeHtml(g.name)}" aria-label="Category" placeholder="Category">
+      <button class="unlink" data-act="delete-fish-category" data-id="${g.id}" aria-label="Remove the ${escapeHtml(name)} category">×</button>
+    </div>
+    <ul class="fish-causes">${fishRows(g).map(c => fishCauseRow(g, c)).join('')}</ul>
+    <button class="button small" data-act="add-fish-cause" data-id="${g.id}">+ Cause</button>
+  </section>`;
+}
+
+function fishCauseRow(g, c) {
+  const status = fishStatus(c), src = fishSource(c), n = fishNode(c), r = fishRuled(c), kind = fishKind(c);
+  const label = c.parentId ? 'Sub-cause' : 'Possible cause';
+  const field = n ? bind('node', n.id, 'title') : r ? bind('ruledOut', r.id, 'cause') : bind('fishCauses', c.id, 'text');
+  const cited = src.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !src.evidenceIds.includes(e.id));
+  const parent = c.parentId && g.causes.find(x => x.id === c.parentId), waits = parent && !fishNode(parent);
+  return `<li class="fish-cause ${status}${c.parentId ? ' child' : ''}">
+    <div class="fish-line">
+      <textarea class="cell answer" rows="1" ${field} data-fish="${c.id}" aria-label="${label}" placeholder="${c.parentId ? 'A cause of the cause above' : 'A possible cause'}">${escapeHtml(fishText(c))}</textarea>
+      <button class="unlink" data-act="delete-fish-cause" data-id="${c.id}" aria-label="Remove this ${label.toLowerCase()}${status === 'open' ? '' : status === 'chart' ? '; it stays on the chart' : '; it stays in the causes ruled out'}">×</button>
+    </div>
+    <div class="why-meta">
+      <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+      <div class="chips">${cited.map(e => evidenceChip(e, 'fish-remove-evidence', c.id)).join('')}
+        ${rest.length ? `<select class="picker" data-act="fish-add-evidence" data-id="${c.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
+          `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
+    </div>
+    <div class="why-meta fish-foot">
+      ${status === 'chart' ? `<button class="link" data-act="goto-node" data-node="${n.id}" title="Show it on the chart">On the chart</button>`
+        : status === 'ruled' ? `<button class="link" data-act="show-ruled" data-id="${r.id}" title="Show it in the causes ruled out">Ruled out</button><button class="button small" data-act="fish-restore" data-id="${c.id}" title="Take it back from the causes ruled out, to test again">Restore</button>`
+        : `<button class="button small" data-act="fish-to-chart" data-id="${c.id}" ${waits ? 'disabled title="Add the cause above it to the chart first"' : ''}>Add to chart</button><button class="button small" data-act="fish-rule-out" data-id="${c.id}" title="Move it to the causes ruled out">Rule out</button>`}
+      <span class="spacer"></span>
+      ${c.parentId ? '' : `<button class="link" data-act="add-fish-sub" data-id="${c.id}">+ Sub-cause</button>`}
+    </div>
+  </li>`;
+}
+
+// Redraws the diagrams alone, so typing keeps its place.
+function refreshFishFigures() {
+  for (const el of document.querySelectorAll('#records .fish-figure')) {
+    const f = state.fishbones.find(x => x.id === el.dataset.fishbone);
+    if (f) el.innerHTML = fishboneSvg(f, {colors: pageColors(), on: fishOn});
+  }
 }
 
 function problemPage() {
@@ -2373,6 +2583,8 @@ function boundObject(el) {
   if (list === 'problem') return state.problem;
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
+  if (list === 'fishCauses') return fishFind(id)?.cause;
+  if (list === 'fishCats') return fishCategory(id);
   return (list === 'team' ? state.meta.team : state[list]).find(r => r.id === id);
 }
 function setPath(obj, path, value) {
@@ -2387,7 +2599,9 @@ $('records').addEventListener('input', e => {
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
+  if (el.matches('textarea.answer')) fitArea(el);
   renderTitle();
+  if (record === 'fishbone') refreshFishFigures();
   if (el.hasAttribute('data-refresh') || el.tagName === 'SELECT') { render(); persist(); }
   else persist(`${el.dataset.list}:${el.dataset.id}:${el.dataset.field}`);
 });
@@ -2401,8 +2615,11 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'solution-add-cause') state.solutions.find(s => s.id === el.dataset.id).causeIds.push(value);
     if (el.dataset.act === 'step-add-evidence') stepSource(stepById(el.dataset.id)).evidenceIds.push(value);
     if (el.dataset.act === 'chain-effect') state.fiveWhys.find(c => c.id === el.dataset.id).effectId = value;
+    if (el.dataset.act === 'fish-add-evidence') fishSource(fishFind(el.dataset.id).cause).evidenceIds.push(value);
+    if (el.dataset.act === 'fish-effect') state.fishbones.find(f => f.id === el.dataset.id).effectId = value;
     render(); persist();
   }
+  if (e.target.id === 'fishPreset') fishPreset = e.target.value;
   const radio = e.target.closest('input[data-act="lead"]');
   if (radio) { state.meta.leadId = radio.dataset.id; persist(); }
 });
@@ -2463,6 +2680,69 @@ $('records').addEventListener('click', e => {
       setStatus(`Added ${added} step${added === 1 ? '' : 's'} to the chart`);
       break;
     }
+    case 'add-fishbone': focusId = addFishbone(fishPreset, state.problem.primaryEffectId).categories[0]?.id; break;
+    case 'delete-fishbone': {
+      const f = state.fishbones.find(x => x.id === id), n = f.categories.flatMap(g => g.causes).length;
+      if (n && !confirm(`Delete this diagram and its ${n} possible cause${n > 1 ? 's' : ''}? Causes on the chart or ruled out stay there.`)) return;
+      state.fishbones = state.fishbones.filter(x => x !== f);
+      break;
+    }
+    case 'fish-export': exportFishbone(state.fishbones.find(f => f.id === id), el.dataset.v); return;
+    case 'add-fish-category': {
+      const g = {id: uuid(), name: '', causes: []};
+      state.fishbones.find(f => f.id === id).categories.push(g); focusId = g.id;
+      break;
+    }
+    case 'delete-fish-category': {
+      const g = fishCategory(id), f = state.fishbones.find(x => x.categories.includes(g));
+      if (g.causes.length && !confirm(`Remove the ${g.name.trim() || 'unnamed'} category and its ${g.causes.length} possible cause${g.causes.length > 1 ? 's' : ''}? Causes on the chart or ruled out stay there.`)) return;
+      f.categories = f.categories.filter(x => x !== g);
+      break;
+    }
+    case 'add-fish-cause': {
+      const c = blankFishCause();
+      fishCategory(id).causes.push(c); focusId = c.id;
+      break;
+    }
+    case 'add-fish-sub': {
+      const c = blankFishCause(id);
+      fishFind(id).category.causes.push(c); focusId = c.id;
+      break;
+    }
+    case 'delete-fish-cause': {
+      const subs = fishFind(id).category.causes.filter(c => c.parentId === id).length;
+      if (subs && !confirm(`Remove this possible cause and its ${subs} sub-cause${subs > 1 ? 's' : ''}?`)) return;
+      deleteFishCause(id);
+      break;
+    }
+    case 'fish-kind': {
+      const c = fishFind(id).cause;
+      fishSource(c).kind = el.dataset.v;
+      c.kind = el.dataset.v;
+      break;
+    }
+    case 'fish-remove-evidence': {
+      const src = fishSource(fishFind(id).cause);
+      src.evidenceIds = src.evidenceIds.filter(x => x !== el.dataset.evidence);
+      break;
+    }
+    case 'fish-to-chart': {
+      const problem = fishToChart(id);
+      if (problem) { setStatus(problem); return; }
+      setStatus(`Added "${fishText(fishFind(id).cause)}" to the chart`);
+      break;
+    }
+    case 'fish-rule-out':
+      fishRuleOut(id);
+      setStatus(`Moved "${fishText(fishFind(id).cause)}" to the causes ruled out`);
+      break;
+    case 'fish-restore': {
+      const r = fishRuled(fishFind(id).cause);
+      if (r?.test.trim() && !confirm('Restore this cause to test again? It leaves the causes ruled out, with the test written there.')) return;
+      fishRestore(id);
+      break;
+    }
+    case 'show-ruled': showRecord('ruledOut', id); return;
     case 'add-member': {
       const m = {id: uuid(), name: '', role: ''};
       state.meta.team.push(m); focusId = m.id;
@@ -2484,7 +2764,7 @@ $('records').addEventListener('click', e => {
       state.ruledOut.push(r); focusId = r.id;
       break;
     }
-    case 'delete-ruled': state.ruledOut = state.ruledOut.filter(r => r.id !== id); break;
+    case 'delete-ruled': deleteRuledOut(id); break;
     case 'ruled-remove-evidence': row('ruledOut').evidenceIds = row('ruledOut').evidenceIds.filter(x => x !== el.dataset.evidence); break;
     case 'add-solution': focusId = addSolution().id; break;
     case 'delete-solution': {
@@ -2519,9 +2799,165 @@ $('records').addEventListener('click', e => {
   }
 });
 
+// Enter in a why's answer goes to the next why, adding one after the last. In a fishbone, it adds
+// the next possible cause beside this one.
+$('records').addEventListener('keydown', e => {
+  const field = e.target.closest('textarea.answer');
+  if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  if (field.dataset.fish) {
+    const {category, cause} = fishFind(field.dataset.fish), next = blankFishCause(cause.parentId);
+    category.causes.splice(category.causes.indexOf(cause) + 1, 0, next);
+    render(); persist();
+    document.querySelector(`#records textarea[data-fish="${next.id}"]`)?.focus();
+    return;
+  }
+  const chain = chainOf(field.dataset.step), i = chain.steps.findIndex(s => s.id === field.dataset.step);
+  let next = chain.steps[i + 1];
+  if (!next) { next = blankStep(); chain.steps.push(next); render(); persist(); }
+  document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
+});
+
+// The diagram: clicking a cause or a category goes to its field; the cause being edited is lit.
+$('records').addEventListener('click', e => {
+  const row = e.target.closest('.fish-row'), cat = e.target.closest('.fish-cat[data-fish-cat]');
+  const target = row ? `textarea[data-fish="${row.dataset.fish}"]` : cat ? `[data-list="fishCats"][data-id="${cat.dataset.fishCat}"]` : null;
+  const field = target && document.querySelector(`#records ${target}`);
+  if (!field) return;
+  field.scrollIntoView({block: 'nearest'});
+  field.focus();
+});
+$('records').addEventListener('focusin', e => {
+  const id = e.target.dataset?.fish ?? null;
+  if (id !== fishOn) { fishOn = id; refreshFishFigures(); }
+});
+$('records').addEventListener('focusout', e => {
+  if (fishOn && !e.relatedTarget?.dataset?.fish) { fishOn = null; refreshFishFigures(); }
+});
+
 document.querySelectorAll('.rail [data-record]').forEach(b => b.onclick = () => showRecord(b.dataset.record));
 
-// Output: chart export as SVG and PNG, the printed report, and the light and dark themes.
+// Fishbone diagram: layout and drawing.
+//
+// The effect is the head, on the right, at the end of the spine. The categories are bones, from left
+// to right, alternately above and below the spine. Each possible cause is a horizontal line that
+// meets its bone, with its words above the line; its sub-causes hang from a twig parallel to the
+// bone. Rows run downwards in both halves: above the spine from the category label, below it from
+// the spine. Coordinates put the spine at y = 0.
+
+const FISH = {
+  text: 12, subText: 11, line: 15, subLine: 14, width: 170, subWidth: 150, rowGap: 9,
+  slope: .45,          // horizontal run of a bone for each unit it falls
+  label: 26, labelGap: 12, twig: 22, head: 190, slotGap: 26, minHalf: 110,
+};
+
+// One possible cause: its wrapped words, evidence codes, and size.
+function fishRowBox(c) {
+  const sub = !!c.parentId, size = sub ? FISH.subText : FISH.text, weight = sub ? 400 : 600;
+  const text = fishText(c).trim(), width = sub ? FISH.subWidth : FISH.width;
+  const lines = wrapText(text || 'New cause', width, size, weight);
+  const codes = fishSource(c).evidenceIds.map(evidenceById).filter(Boolean).map(e => e.code).join(' ');
+  const cw = codes ? textWidth(codes, 10, 700, MONO_FONT) + 6 : 0;
+  if (cw && textWidth(lines.at(-1), size, weight) + cw > width) lines.push('');   // codes on a line of their own
+  const lineW = lines.map(l => textWidth(l, size, weight));
+  const swatch = fishStatus(c) === 'chart' ? 19 : 0;
+  const w = Math.max(24, ...lineW.slice(0, -1), lineW.at(-1) + cw) + swatch;
+  return {c, sub, size, weight, lines, lineW, codes, cw, swatch, w, empty: !text,
+    h: lines.length * (sub ? FISH.subLine : FISH.line) + 4};
+}
+
+// Above the spine a bone leans left as it rises, so a cause's words clear it at their top line.
+const fishTextY = (k, r) => k.top ? r.y - r.h : r.y;
+
+function fishLayout(f) {
+  const cats = f.categories.map((g, i) => {
+    const rows = fishRows(g).map(fishRowBox);
+    let y = 0;
+    for (const r of rows) { y += r.h; r.dy = y; y += FISH.rowGap; }
+    const labelW = textWidth(g.name.trim() || 'Category', 12, 700) + 22;
+    return {g, rows, top: i % 2 === 0, labelW, need: FISH.label + FISH.labelGap + y + 14};
+  });
+  const half = top => Math.max(FISH.minHalf, ...cats.filter(k => k.top === top).map(k => k.need));
+  const H = {top: half(true), bottom: half(false)};
+  // Rows start below the label above the spine, and just below the spine under it.
+  for (const k of cats) {
+    const start = k.top ? -H.top + FISH.label + FISH.labelGap : 16;
+    for (const r of k.rows) r.y = start + r.dy;
+    k.reach = (k.top ? H.top : H.bottom) - FISH.label;     // how far the bone runs from the spine
+  }
+  // Each pair of bones, one above and one below, shares a slot; a slot ends where they meet the spine.
+  const left = (k, r) => Math.abs(fishTextY(k, r)) * FISH.slope + (r.sub ? FISH.twig : 0) + 10 + r.w;
+  let x = 0;
+  for (let s = 0; s < cats.length; s += 2) {
+    const pair = cats.slice(s, s + 2);
+    const need = Math.max(...pair.map(k => Math.max(k.reach * FISH.slope + k.labelW / 2, ...k.rows.map(r => left(k, r)))));
+    const over = Math.max(0, ...pair.map(k => k.labelW / 2 - k.reach * FISH.slope));
+    for (const k of pair) k.x = x + need;
+    x += need + over + FISH.slotGap;
+  }
+  const effect = byId(f.effectId);
+  const headLines = wrapText(effect?.title.trim() || 'Effect', FISH.head - 24, 13, 700);
+  const hh = Math.max(56, headLines.length * 17 + 22);
+  const head = {x: Math.max(x + 4, 60), y: -hh / 2, w: FISH.head, h: hh, lines: headLines};
+  return {f, cats, H, head, bounds: {l: -16, t: -H.top - 4, r: head.x + head.w + 12, b: H.bottom + 4}};
+}
+
+// The diagram's markup, in chart units; `on` is the cause whose row is lit.
+function fishMarkup(L, C, on = null) {
+  const boneX = (k, y) => k.x - Math.abs(y) * FISH.slope;
+  const twigX = (k, y) => boneX(k, y) - FISH.twig;
+  const font = (size, weight) => `font-size="${size}" font-weight="${weight}"`;
+  let s = `<line x1="-6" y1="0" x2="${L.head.x}" y2="0" stroke="${C.stop}" stroke-width="3" stroke-linecap="round"/>`;
+  for (const k of L.cats) {
+    const endY = k.top ? -k.reach : k.reach, ex = boneX(k, endY);
+    s += `<line x1="${k.x}" y1="0" x2="${ex}" y2="${endY}" stroke="${C.junctionText}" stroke-width="2" stroke-linecap="round"/>`;
+    // A twig from each cause with sub-causes down to its last sub-cause.
+    for (const r of k.rows) {
+      const subs = k.rows.filter(x => x.c.parentId === r.c.id);
+      if (subs.length) s += `<line x1="${twigX(k, r.y)}" y1="${r.y}" x2="${twigX(k, subs.at(-1).y)}" y2="${subs.at(-1).y}" stroke="${C.wire}" stroke-width="1.2"/>`;
+    }
+    for (const r of k.rows) {
+      const status = fishStatus(r.c), meet = r.sub ? twigX(k, r.y) : boneX(k, r.y);
+      const end = (r.sub ? twigX(k, fishTextY(k, r)) : boneX(k, fishTextY(k, r))) - 8;
+      const ink = status === 'ruled' || r.empty ? C.wire : C.stop, lh = r.sub ? FISH.subLine : FISH.line;
+      const lit = on === r.c.id;
+      s += `<g class="fish-row" data-fish="${r.c.id}">`;
+      s += `<rect x="${end - r.w - 4}" y="${r.y - r.h - 1}" width="${meet - end + r.w + 4}" height="${r.h + 4}" rx="3" fill="${lit ? C.highlight : 'transparent'}" fill-opacity="${lit ? .28 : 1}"/>`;
+      s += `<line x1="${end - r.w - 2}" y1="${r.y}" x2="${meet}" y2="${r.y}" stroke="${status === 'ruled' ? C.wire : C.junctionText}" stroke-width="1.3"${status === 'ruled' ? ' stroke-dasharray="4 3"' : ''}/>`;
+      r.lines.forEach((line, i) => {
+        const base = r.y - 5 - (r.lines.length - 1 - i) * lh, x = end - (i === r.lines.length - 1 ? r.cw : 0);
+        if (!line) return;
+        s += `<text x="${x}" y="${base}" text-anchor="end" ${font(r.size, r.weight)} fill="${ink}"${r.empty ? ' font-style="italic"' : ''}>${escapeHtml(line)}</text>`;
+        if (status === 'ruled') s += `<line x1="${x - r.lineW[i]}" y1="${base - r.size * .32}" x2="${x}" y2="${base - r.size * .32}" stroke="${C.wire}" stroke-width="1"/>`;
+      });
+      if (r.codes) s += `<text x="${end}" y="${r.y - 5}" text-anchor="end" font-family="${escapeHtml(MONO_FONT)}" ${font(10, 700)} fill="${C.condition.code.text}">${escapeHtml(r.codes)}</text>`;
+      if (r.swatch) {
+        const kind = C[fishKind(r.c)] || C.condition, top = r.y - 5 - (r.lines.length - 1) * lh - 9;
+        s += `<rect x="${end - r.w}" y="${top + 1}" width="14" height="8" rx="2" fill="${kind.fill}" stroke="${kind.stroke}" stroke-width="1.2"/>`;
+      }
+      s += '</g>';
+    }
+    const ly = k.top ? -L.H.top : L.H.bottom - FISH.label;
+    s += `<g class="fish-cat" data-fish-cat="${k.g.id}"><rect x="${ex - k.labelW / 2}" y="${ly}" width="${k.labelW}" height="${FISH.label}" rx="6" fill="${C.action.fill}"/>`;
+    s += `<text x="${ex}" y="${ly + 17}" text-anchor="middle" ${font(12, 700)} fill="${C.action.text}">${escapeHtml(k.g.name.trim() || 'Category')}</text></g>`;
+  }
+  const h = L.head;
+  s += `<g class="fish-head"><rect x="${h.x}" y="${h.y}" width="${h.w}" height="${h.h}" rx="8" fill="${C.effect.fill}" stroke="${C.effect.stroke}" stroke-width="1.5"/>`;
+  h.lines.forEach((line, i) => {
+    s += `<text x="${h.x + 12}" y="${h.y + (h.h - h.lines.length * 17) / 2 + 13 + i * 17}" ${font(13, 700)} fill="${C.effect.text}">${escapeHtml(line)}</text>`;
+  });
+  return s + '</g>';
+}
+
+// A self-contained SVG of the diagram, light unless `colors` says otherwise.
+function fishboneSvg(f, {colors = CHART_COLORS, scale = 1, on = null} = {}) {
+  const L = fishLayout(f), b = L.bounds, w = b.r - b.l, h = b.b - b.t;
+  return `<svg xmlns="${NS}" width="${w * scale}" height="${h * scale}" viewBox="${b.l} ${b.t} ${w} ${h}" font-family="${escapeHtml(CHART_FONT)}">`
+    + `<title>Fishbone: ${escapeHtml(byId(f.effectId)?.title || '')}</title>`
+    + `<rect x="${b.l}" y="${b.t}" width="${w}" height="${h}" fill="${colors.panel}"/>${fishMarkup(L, colors, on)}</svg>`;
+}
+
+// Output: chart and fishbone export as SVG and PNG, the printed report, and the light and dark themes.
 
 // ---- Chart images ----
 // Exports and print show the whole chart, with every branch expanded, in the light palette.
@@ -2559,10 +2995,13 @@ function exportSvg() {
   setStatus(`Exported ${baseName()}-chart.svg`);
 }
 
-// The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
 async function exportPng() {
   showMenu(false);
-  const svgText = chartSvg(fullLayout());
+  await savePng(chartSvg(fullLayout()), baseName() + '-chart.png');
+}
+
+// The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
+async function savePng(svgText, name) {
   const [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svgText).map(Number);
   const scale = Math.min(2, 16000 / Math.max(w, h), Math.sqrt(120e6 / (w * h)));
   const url = URL.createObjectURL(new Blob([svgText], {type: 'image/svg+xml'}));
@@ -2575,13 +3014,21 @@ async function exportPng() {
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(done => canvas.toBlob(done, 'image/png'));
     if (!blob) throw Error('the browser could not encode the image');
-    download(baseName() + '-chart.png', blob);
-    setStatus(`Exported ${baseName()}-chart.png`);
+    download(name, blob);
+    setStatus(`Exported ${name}`);
   } catch (err) {
     alert('Could not export the PNG: ' + err.message);
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+// Each fishbone is exported on its own; a second one is numbered.
+function exportFishbone(f, format) {
+  const i = state.fishbones.indexOf(f), name = `${baseName()}-fishbone${i ? '-' + (i + 1) : ''}.${format}`;
+  if (format === 'png') { savePng(fishboneSvg(f), name); return; }
+  download(name, new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + fishboneSvg(f)], {type: 'image/svg+xml'}));
+  setStatus(`Exported ${name}`);
 }
 
 function showMenu(open) {
@@ -2666,6 +3113,17 @@ function buildReport() {
       ${state.fiveWhys.map(c => `<h3>Why did “${escapeHtml(byId(c.effectId)?.title || '')}” happen?</h3>
         <ol class="r-whys">${c.steps.map(s => `<li>${text(whyAnswer(s))} <span class="r-none">${[KINDS[stepNode(s)?.kind ?? s.kind]?.name, codes(stepSource(s).evidenceIds).replace(/^—$/, ''), stepNode(s) ? 'on the chart' : ''].filter(Boolean).join(' · ')}</span></li>`).join('')}</ol>`).join('')}
     </section>` : ''}
+    ${state.fishbones.length ? `<section class="r-page">
+      <h2>Fishbone</h2>
+      ${state.fishbones.map(f => {
+        const svg = fishboneSvg(f), [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svg).map(Number);
+        const rows = f.categories.flatMap(g => fishRows(g).map(c => `<tr><td>${escapeHtml(g.name)}</td><td>${c.parentId ? '↳ ' : ''}${text(fishText(c))}</td>
+          <td>${KINDS[fishKind(c)]?.name || ''}</td><td>${codes(fishSource(c).evidenceIds)}</td><td>${{chart: 'On the chart', ruled: 'Ruled out', open: '<b>To test</b>'}[fishStatus(c)]}</td></tr>`));
+        return `<h3>Possible causes of “${escapeHtml(byId(f.effectId)?.title || '')}”</h3>
+          <figure class="r-fish">${fishboneSvg(f, {scale: Math.min(1, PRINT_W / w, PRINT_H / h)})}</figure>
+          ${table(['Category', 'Possible cause', 'Type', 'Evidence', 'Status'], rows, 'No possible causes recorded.')}`;
+      }).join('')}
+    </section>` : ''}
     <section class="r-page">
       <h2>Evidence log</h2>
       ${table(['Code', 'Description', 'Type', 'Source / location', 'Collected by', 'Date', 'Cited by'], state.evidence.map(e => `<tr>
@@ -2722,6 +3180,7 @@ function applyTheme() {
   $('themeButton').title = `Theme: ${THEMES[theme]}. Click for ${THEMES[next]}.`;
   $('themeButton').setAttribute('aria-label', `Theme: ${THEMES[theme]}`);
   if (layout && record === 'chart') renderCanvas();
+  if (record === 'fishbone') refreshFishFigures();
 }
 $('themeButton').onclick = () => {
   theme = {system: 'light', light: 'dark', dark: 'system'}[theme];
@@ -2852,6 +3311,23 @@ function exampleRca() {
       step('OP-212 was last revised before the Plan 11 seals were fitted', 'condition'),
     ]},
   ];
+  // A fishbone of the possible causes, each on the chart, ruled out, or still to test.
+  const ruled = s.ruledOut;
+  const fish = (parentId, text, kind, {key, ruledOut, codes = []} = {}) =>
+    ({id: uuid(), text: key || ruledOut ? '' : text, kind, evidenceIds: key || ruledOut ? [] : codes.map(c => ev[c]),
+      nodeId: key ? ids[key] : null, ruledOutId: ruledOut?.id ?? null, parentId});
+  const category = (name, ...causes) => ({id: uuid(), name, causes});
+  const flush = fish(null, '', 'action', {key: 'flow'}), solids = fish(null, '', 'action', {key: 'solids'});
+  s.fishbones = [{id: uuid(), effectId: ids.leak, categories: [
+    category('Seal and materials', fish(null, '', 'condition', {key: 'dryrun'}), fish(null, '', 'condition', {ruledOut: ruled[4]}),
+      fish(null, '', 'condition', {ruledOut: ruled[3]}), fish(null, '', 'condition', {key: 'selection'})),
+    category('Installation', fish(null, '', 'action', {ruledOut: ruled[2]}), fish(null, '', 'condition', {ruledOut: ruled[0]})),
+    category('Operation', fish(null, '', 'action', {key: 'bypass'}), fish(null, 'Pump run away from its best efficiency point', 'action')),
+    category('Process fluid', fish(null, '', 'condition', {key: 'vapour'}), solids,
+      fish(solids.id, 'Catalyst fines carried over from the reactor during the upset', 'action', {codes: ['E5']})),
+    category('Support system', flush, fish(flush.id, '', 'condition', {key: 'orifice'}), fish(flush.id, 'Flush line not checked after the upset', 'condition', {codes: ['E8']})),
+    category('Pump and equipment', fish(null, '', 'condition', {ruledOut: ruled[1]}), fish(null, 'Worn bearings letting the shaft move', 'condition')),
+  ]}];
   return {...s, view: {collapsed: []}};
 }
 

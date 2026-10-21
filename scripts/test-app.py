@@ -595,8 +595,92 @@ def run_tests(b):
     assert len(b.js('return __dialogs')) == 1 and len(rca()['fiveWhys']) == 2 and len(rca()['nodes']) == nodes_before + 2, 'deleting a chain keeps its nodes on the chart'
     print('PASS: 5 Whys, and adding the steps to the chart', flush=True)
 
+    # Fishbone: possible causes sorted into categories, each added to the chart or ruled out.
+    def fish_causes(f=-1):
+        return [c for g in rca()['fishbones'][f]['categories'] for c in g['causes']]
+
+    def fish_cause(cid):
+        return next(c for f in rca()['fishbones'] for g in f['categories'] for c in g['causes'] if c['id'] == cid)
+
+    page('fishbone')
+    fb = rca()['fishbones']
+    assert len(fb) == 1 and [g['name'] for g in fb[0]['categories']][:2] == ['Seal and materials', 'Installation']
+    example = fish_causes(0)
+    assert len(example) == 16 and sum(bool(c['nodeId']) for c in example) == 7 and sum(bool(c['ruledOutId']) for c in example) == 5, 'the example has causes on the chart, ruled out, and to test'
+    assert b.js("return document.querySelectorAll('#records .fish-figure .fish-row').length") == 16
+    assert b.js("return document.querySelectorAll('#records .fish-figure .fish-cat').length") == 6
+    to_test = next(c for c in example if not c['nodeId'] and not c['ruledOutId'])
+    b.js('document.querySelector(`#records .fish-row[data-fish="${arguments[0]}"] rect`).dispatchEvent(new MouseEvent("click",{bubbles:true}));return true', [to_test['id']])
+    assert focused() == ['fishCauses', to_test['id'], 'text'], 'clicking a cause in the diagram edits it'
+    assert b.js('return document.querySelector(`#records .fish-row[data-fish="${arguments[0]}"] rect`).getAttribute("fill-opacity")', [to_test['id']]) == '0.28', 'the cause being edited is lit'
+
+    b.js('__downloads.length=0;return true')
+    act('fish-export', fb[0]['id'], v='svg')
+    fish_svg = b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)')
+    assert b.js('return new DOMParser().parseFromString(arguments[0],"image/svg+xml").querySelectorAll(".fish-row").length', [fish_svg]) == 16
+    assert not re.search(r'href|url\(|<style|https?:', fish_svg.replace('xmlns="http://www.w3.org/2000/svg"', '')), 'the fishbone SVG references nothing outside itself'
+    b.js('const s=document.getElementById("fishPreset");s.value="6m";s.dispatchEvent(new Event("change",{bubbles:true}));return true')
+    act('add-fishbone')
+    f = rca()['fishbones'][-1]
+    assert f['effectId'] == primary and [g['name'] for g in f['categories']] == ['People', 'Method', 'Machine', 'Material', 'Measurement', 'Environment']
+    people = f['categories'][0]['id']
+    act('add-fish-cause', people)
+    first = fish_causes()[0]['id']
+    assert focused() == ['fishCauses', first, 'text'], 'a new cause is ready to type'
+    set_field('fishCauses', first, 'text', 'Operator not trained on Plan 11')
+    assert 'Operator not trained' in b.js('return document.querySelectorAll("#records .fish-figure")[1].textContent'), 'the diagram follows the typing'
+    b.js('document.activeElement.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));return true')
+    second = fish_causes()[1]['id']
+    assert focused() == ['fishCauses', second, 'text'], 'Enter adds the next cause'
+    set_field('fishCauses', second, 'text', 'Shift handover missed the upset')
+    act('add-fish-sub', first)
+    sub = next(c for c in fish_causes() if c['parentId'] == first)['id']
+    set_field('fishCauses', sub, 'text', 'No training plan for new seal types')
+    assert b.js('return document.querySelector(`#records button[data-act="fish-to-chart"][data-id="${arguments[0]}"]`).disabled', [sub]), 'a sub-cause waits for its cause'
+    act('fish-kind', first, v='action')
+    pick('fish-add-evidence', first, e4)
+    nodes_before = len(rca()['nodes'])
+    act('fish-to-chart', first)
+    act('fish-to-chart', sub)
+    one, two = (next(n for n in rca()['nodes'] if n['id'] == fish_cause(x)['nodeId']) for x in (first, sub))
+    assert len(rca()['nodes']) == nodes_before + 2 and one['title'] == 'Operator not trained on Plan 11' and one['kind'] == 'action' and one['evidenceIds'] == [e4]
+    links = {(l['effectId'], l['causeId']) for l in rca()['links']}
+    assert (primary, one['id']) in links and (one['id'], two['id']) in links, 'a cause goes under the effect, a sub-cause under its cause'
+    set_field('node', one['id'], 'title', 'Operator not trained on API Plan 11')
+    assert next(n for n in rca()['nodes'] if n['id'] == one['id'])['title'] == 'Operator not trained on API Plan 11', 'a cause on the chart is its node'
+
+    ruled_before = len(rca()['ruledOut'])
+    act('fish-rule-out', second)
+    r = rca()['ruledOut'][-1]
+    assert len(rca()['ruledOut']) == ruled_before + 1 and r['cause'] == 'Shift handover missed the upset' and fish_cause(second)['ruledOutId'] == r['id']
+    assert 'ruled out' in b.js('return document.querySelectorAll("#records .fish-tally")[1].textContent')
+    act('fish-restore', second)
+    assert len(rca()['ruledOut']) == ruled_before and fish_cause(second)['ruledOutId'] is None and fish_cause(second)['text'] == 'Shift handover missed the upset', 'restore takes it back'
+    act('fish-rule-out', second)
+    r = rca()['ruledOut'][-1]
+    page('ruledOut')
+    act('delete-ruled', r['id'])
+    assert fish_cause(second)['ruledOutId'] is None and fish_cause(second)['text'] == 'Shift handover missed the upset', 'deleting the ruled-out record keeps the cause'
+
+    page('chart')
+    select('Operator not trained on API Plan 11')
+    b.js('__dialogs.length=0;return true')
+    click('deleteNode')
+    assert fish_cause(first)['nodeId'] is None and fish_cause(first)['text'] == 'Operator not trained on API Plan 11' and fish_cause(first)['evidenceIds'] == [e4]
+    assert fish_cause(sub)['nodeId'] is None and fish_cause(sub)['text'] == 'No training plan for new seal types', 'causes keep their words when their nodes are deleted'
+    bypass = next(c for c in example if c['nodeId'] == node_id('Filter bypass opened during process upset'))['id']
+    select('Filter bypass opened during process upset')
+    click('inspRuleOut')
+    assert fish_cause(bypass)['nodeId'] is None and fish_cause(bypass)['ruledOutId'] == rca()['ruledOut'][-1]['id'], 'ruling out on the chart rules out the fishbone cause'
+
+    page('fishbone')
+    b.js('__dialogs.length=0;return true')
+    act('delete-fishbone', rca()['fishbones'][-1]['id'])
+    assert len(b.js('return __dialogs')) == 1 and len(rca()['fishbones']) == 1
+    print('PASS: fishbone, and testing its causes', flush=True)
+
     # Every record edit is in the undo history.
-    for _ in range(60):
+    for _ in range(100):
         if b.js('return document.getElementById("undo").disabled'):
             break
         click('undo')
@@ -658,6 +742,15 @@ def run_tests(b):
     assert b.js("return [localStorage.getItem('apollo-rca-v1'), localStorage.getItem('apollo-rca-theme'), localStorage.getItem('causeway-theme'), document.documentElement.dataset.theme]") == [None, None, 'light', 'light']
     b.js("localStorage.removeItem('causeway-theme');return true")
     open_app()
+    # A fishbone that points at missing nodes, records, or causes opens with those references cleared.
+    broken = json.loads(json.dumps(saved_file))
+    first_causes = broken['fishbones'][0]['categories'][0]['causes']
+    broken['fishbones'][0]['effectId'] = 'missing'
+    first_causes[0]['nodeId'] = 'missing'; first_causes[1]['ruledOutId'] = 'missing'; first_causes[2]['parentId'] = 'missing'
+    load(broken)
+    fixed = rca()['fishbones'][0]['categories'][0]['causes']
+    assert rca()['fishbones'][0]['effectId'] == rca()['problem']['primaryEffectId']
+    assert fixed[0]['nodeId'] is None and fixed[1]['ruledOutId'] is None and fixed[2]['parentId'] is None
     load(saved_file)
     print('PASS: files and storage from the earlier name', flush=True)
 
@@ -687,13 +780,15 @@ def run_tests(b):
 
     b.js('window.dispatchEvent(new Event("beforeprint"));return true')
     report = b.js('''const r=document.getElementById("report");return {h2:[...r.querySelectorAll("h2")].map(h=>h.textContent),
-        figures:r.querySelectorAll("figure").length,nodes:[...r.querySelectorAll("figure svg")].map(s=>s.querySelectorAll(".node").length),
+        figures:r.querySelectorAll("figure:not(.r-fish)").length,nodes:[...r.querySelectorAll("figure:not(.r-fish) svg")].map(s=>s.querySelectorAll(".node").length),
+        fish:[...r.querySelectorAll("figure.r-fish svg")].map(s=>s.querySelectorAll(".fish-row").length),
         evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
         whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'
+    assert report['fish'] == [len(fish_causes(i)) for i in range(len(rca()['fishbones']))], 'the report draws every fishbone'
     assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Revise upset procedure OP-212' in report['text']
     pdf = base64.b64decode(b.call('WebDriver:Print', {'orientation': 'landscape', 'background': True})['value'])
     assert pdf.startswith(b'%PDF') and pdf.count(b'/Type /Page') - pdf.count(b'/Type /Pages') >= 5, 'the report prints over several pages'

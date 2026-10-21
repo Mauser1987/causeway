@@ -32,7 +32,7 @@ function blankState() {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [],
+    nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [],
     counters: {evidence: 1},
   };
 }

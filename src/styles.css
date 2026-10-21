@@ -492,7 +492,43 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
 .why-num small { display: block; margin-top: 2px; font-weight: 600; font-size: 10.5px; color: var(--warn-ink); }
 .why-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .why-q { font-size: 12px; color: var(--muted); }
-.answer { font-size: 14px; font-weight: 600; min-height: 32px; }
+textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: none; overflow: hidden; }
 .why-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .why-meta .spacer { flex: 1; }
 .seg .kind[aria-pressed=true] { background: var(--accent); color: #fff; font-weight: 600; }
+
+/* ---- Fishbone ---- */
+.head-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.button.small { padding: 3px 9px; font-size: 12px; }
+.fish-figure { margin: 12px 0 6px; overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 8px; background: var(--panel); text-align: center; }
+.fish-figure svg { display: inline-block; vertical-align: top; }
+.fish-figure .fish-row, .fish-figure .fish-cat { cursor: pointer; }
+.fish-figure .fish-row:hover rect:first-child { fill: var(--line-soft); }
+.fish-tally { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; margin: 0 0 14px; font-size: 12px; color: var(--muted); }
+.tally { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-2); }
+.tally.chart i { width: 14px; height: 8px; border-radius: 2px; background: var(--accent); }
+.tally.ruled { text-decoration: line-through; color: var(--muted); }
+.tally.open { font-weight: 600; }
+.fish-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; align-items: start; }
+.fish-cat { padding: 10px 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--rail); }
+.fish-cat-head { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.fish-cat-head .title { font-weight: 700; color: var(--accent-ink); }
+.fish-causes { list-style: none; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fish-cause { padding: 6px 4px 6px 8px; border: 1px solid var(--line); border-left: 3px solid var(--field-line); border-radius: 6px; background: var(--panel); }
+.fish-cause.child { margin-left: 22px; }
+.fish-cause.chart { border-left-color: var(--accent-2); }
+.fish-cause.ruled { border-left-color: var(--faint); }
+.fish-cause.ruled .answer { color: var(--muted); text-decoration: line-through; }
+.fish-line { display: flex; align-items: flex-start; gap: 4px; }
+.fish-cause textarea.answer { font-size: 13px; min-height: 30px; }
+.fish-cause.child textarea.answer { font-weight: 500; }
+.fish-cause .why-meta { gap: 6px; margin-top: 2px; }
+.fish-cause .seg button { padding: 3px 8px; font-size: 11px; }
+.fish-cause .picker { max-width: 120px; }
+.fish-foot { margin-top: 4px; min-height: 26px; }
+.fish-foot .link { font-size: 12px; }
+.fish-add-cat { min-height: 64px; border: 1px dashed var(--field-line); border-radius: 8px; background: none; color: var(--accent-ink); font-weight: 600; }
+.fish-add-cat:hover { border-color: var(--accent-2); background: var(--accent-faint); }
+@media print {
+  #report .r-fish { margin-bottom: 4mm; }
+}

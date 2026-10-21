@@ -118,5 +118,22 @@ function exampleRca() {
       step('OP-212 was last revised before the Plan 11 seals were fitted', 'condition'),
     ]},
   ];
+  // A fishbone of the possible causes, each on the chart, ruled out, or still to test.
+  const ruled = s.ruledOut;
+  const fish = (parentId, text, kind, {key, ruledOut, codes = []} = {}) =>
+    ({id: uuid(), text: key || ruledOut ? '' : text, kind, evidenceIds: key || ruledOut ? [] : codes.map(c => ev[c]),
+      nodeId: key ? ids[key] : null, ruledOutId: ruledOut?.id ?? null, parentId});
+  const category = (name, ...causes) => ({id: uuid(), name, causes});
+  const flush = fish(null, '', 'action', {key: 'flow'}), solids = fish(null, '', 'action', {key: 'solids'});
+  s.fishbones = [{id: uuid(), effectId: ids.leak, categories: [
+    category('Seal and materials', fish(null, '', 'condition', {key: 'dryrun'}), fish(null, '', 'condition', {ruledOut: ruled[4]}),
+      fish(null, '', 'condition', {ruledOut: ruled[3]}), fish(null, '', 'condition', {key: 'selection'})),
+    category('Installation', fish(null, '', 'action', {ruledOut: ruled[2]}), fish(null, '', 'condition', {ruledOut: ruled[0]})),
+    category('Operation', fish(null, '', 'action', {key: 'bypass'}), fish(null, 'Pump run away from its best efficiency point', 'action')),
+    category('Process fluid', fish(null, '', 'condition', {key: 'vapour'}), solids,
+      fish(solids.id, 'Catalyst fines carried over from the reactor during the upset', 'action', {codes: ['E5']})),
+    category('Support system', flush, fish(flush.id, '', 'condition', {key: 'orifice'}), fish(flush.id, 'Flush line not checked after the upset', 'condition', {codes: ['E8']})),
+    category('Pump and equipment', fish(null, '', 'condition', {ruledOut: ruled[1]}), fish(null, 'Worn bearings letting the shaft move', 'condition')),
+  ]}];
   return {...s, view: {collapsed: []}};
 }

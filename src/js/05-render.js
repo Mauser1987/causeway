@@ -125,7 +125,7 @@ function render() {
   if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
+  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
     ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();

@@ -58,7 +58,7 @@ const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
 const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
 function deleteEvidence(id) {
   state.evidence = state.evidence.filter(e => e.id !== id);
-  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps)]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses()]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
   if (highlight === id) highlight = null;
 }
 // ---- 5 Whys ----
@@ -101,6 +101,77 @@ function chainToChart(chain) {
     added++;
   }
   return added;
+}
+
+// ---- Fishbone ----
+// A fishbone (Ishikawa) diagram sorts the possible causes of an effect into categories, so that no
+// area is forgotten. Each possible cause is then tested: added to the chart, where it needs evidence,
+// or ruled out. One on the chart is that node, and one ruled out is that record: its words, type, and
+// evidence are kept there. A cause can have sub-causes (parentId), one level down.
+
+const blankFishCause = (parentId = null) => ({id: uuid(), text: '', kind: 'condition', evidenceIds: [], nodeId: null, ruledOutId: null, parentId});
+function addFishbone(preset = 'seal', effectId = state.problem.primaryEffectId) {
+  const f = {id: uuid(), effectId, categories: FISHBONE_PRESETS[preset].categories.map(name => ({id: uuid(), name, causes: []}))};
+  state.fishbones.push(f);
+  return f;
+}
+const fishCauses = () => state.fishbones.flatMap(f => f.categories.flatMap(g => g.causes));
+const fishNode = c => c.nodeId ? byId(c.nodeId) : null;
+const fishRuled = c => c.ruledOutId ? state.ruledOut.find(r => r.id === c.ruledOutId) : null;
+const fishSource = c => fishNode(c) ?? fishRuled(c) ?? c;
+const fishText = c => fishNode(c)?.title ?? fishRuled(c)?.cause ?? c.text;
+const fishKind = c => fishSource(c).kind || c.kind;
+const fishStatus = c => fishNode(c) ? 'chart' : fishRuled(c) ? 'ruled' : 'open';
+const fishCategory = id => state.fishbones.flatMap(f => f.categories).find(g => g.id === id);
+function fishFind(id) {
+  for (const fishbone of state.fishbones) for (const category of fishbone.categories) {
+    const cause = category.causes.find(c => c.id === id);
+    if (cause) return {fishbone, category, cause};
+  }
+  return null;
+}
+// Top-level causes in order, each followed by its sub-causes.
+const fishRows = g => g.causes.filter(c => !c.parentId).flatMap(c => [c, ...g.causes.filter(x => x.parentId === c.id)]);
+
+// A cause goes under the diagram's effect; a sub-cause under its cause, which must be on the chart.
+function fishToChart(id) {
+  const {fishbone, category, cause} = fishFind(id);
+  if (fishStatus(cause) !== 'open') return null;
+  const parent = cause.parentId ? fishNode(category.causes.find(c => c.id === cause.parentId) || {}) : byId(fishbone.effectId);
+  if (!parent) return 'Add the cause above it to the chart first.';
+  const n = addCause(parent.id, cause.kind, cause.text.trim() || 'Untitled cause');
+  n.evidenceIds = [...cause.evidenceIds];
+  cause.nodeId = n.id;
+  return null;
+}
+function fishRuleOut(id) {
+  const {cause} = fishFind(id);
+  if (fishStatus(cause) !== 'open') return null;
+  const r = {id: uuid(), cause: cause.text, kind: cause.kind, test: '', evidenceIds: [...cause.evidenceIds], status: 'ruled-out'};
+  state.ruledOut.push(r);
+  cause.ruledOutId = r.id;
+  return r;
+}
+// A cause that leaves the chart or the causes ruled out takes its words, type, and evidence back.
+function releaseFish(c) {
+  const src = fishSource(c);
+  Object.assign(c, {text: fishText(c), kind: ['action', 'condition'].includes(src.kind) ? src.kind : c.kind, evidenceIds: [...src.evidenceIds], nodeId: null, ruledOutId: null});
+}
+// Restoring a ruled-out cause takes it back from the causes ruled out.
+function fishRestore(id) {
+  const {cause} = fishFind(id), r = fishRuled(cause);
+  if (!r) return;
+  releaseFish(cause);
+  state.ruledOut = state.ruledOut.filter(x => x !== r);
+}
+function deleteRuledOut(id) {
+  for (const c of fishCauses()) if (c.ruledOutId === id) releaseFish(c);
+  state.ruledOut = state.ruledOut.filter(r => r.id !== id);
+}
+// Deleting a cause deletes its sub-causes; on the chart and in the causes ruled out, they stay.
+function deleteFishCause(id) {
+  const {category} = fishFind(id);
+  category.causes = category.causes.filter(c => c.id !== id && c.parentId !== id);
 }
 
 const solutionsOf = id => state.solutions.filter(s => s.causeIds.includes(id));
@@ -147,6 +218,10 @@ function deleteNodes(ids) {
       const n = gone.has(step.nodeId) && stepNode(step);
       if (n) Object.assign(step, {answer: n.title, kind: n.kind === 'effect' ? 'condition' : n.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
     }
+  }
+  for (const f of state.fishbones) {
+    if (gone.has(f.effectId)) f.effectId = state.problem.primaryEffectId;
+    for (const c of f.categories.flatMap(g => g.causes)) if (gone.has(c.nodeId)) releaseFish(c);
   }
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));

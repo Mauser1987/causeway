@@ -1,4 +1,4 @@
-// Output: chart export as SVG and PNG, the printed report, and the light and dark themes.
+// Output: chart and fishbone export as SVG and PNG, the printed report, and the light and dark themes.
 
 // ---- Chart images ----
 // Exports and print show the whole chart, with every branch expanded, in the light palette.
@@ -36,10 +36,13 @@ function exportSvg() {
   setStatus(`Exported ${baseName()}-chart.svg`);
 }
 
-// The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
 async function exportPng() {
   showMenu(false);
-  const svgText = chartSvg(fullLayout());
+  await savePng(chartSvg(fullLayout()), baseName() + '-chart.png');
+}
+
+// The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
+async function savePng(svgText, name) {
   const [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svgText).map(Number);
   const scale = Math.min(2, 16000 / Math.max(w, h), Math.sqrt(120e6 / (w * h)));
   const url = URL.createObjectURL(new Blob([svgText], {type: 'image/svg+xml'}));
@@ -52,13 +55,21 @@ async function exportPng() {
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(done => canvas.toBlob(done, 'image/png'));
     if (!blob) throw Error('the browser could not encode the image');
-    download(baseName() + '-chart.png', blob);
-    setStatus(`Exported ${baseName()}-chart.png`);
+    download(name, blob);
+    setStatus(`Exported ${name}`);
   } catch (err) {
     alert('Could not export the PNG: ' + err.message);
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+// Each fishbone is exported on its own; a second one is numbered.
+function exportFishbone(f, format) {
+  const i = state.fishbones.indexOf(f), name = `${baseName()}-fishbone${i ? '-' + (i + 1) : ''}.${format}`;
+  if (format === 'png') { savePng(fishboneSvg(f), name); return; }
+  download(name, new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + fishboneSvg(f)], {type: 'image/svg+xml'}));
+  setStatus(`Exported ${name}`);
 }
 
 function showMenu(open) {
@@ -143,6 +154,17 @@ function buildReport() {
       ${state.fiveWhys.map(c => `<h3>Why did “${escapeHtml(byId(c.effectId)?.title || '')}” happen?</h3>
         <ol class="r-whys">${c.steps.map(s => `<li>${text(whyAnswer(s))} <span class="r-none">${[KINDS[stepNode(s)?.kind ?? s.kind]?.name, codes(stepSource(s).evidenceIds).replace(/^—$/, ''), stepNode(s) ? 'on the chart' : ''].filter(Boolean).join(' · ')}</span></li>`).join('')}</ol>`).join('')}
     </section>` : ''}
+    ${state.fishbones.length ? `<section class="r-page">
+      <h2>Fishbone</h2>
+      ${state.fishbones.map(f => {
+        const svg = fishboneSvg(f), [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svg).map(Number);
+        const rows = f.categories.flatMap(g => fishRows(g).map(c => `<tr><td>${escapeHtml(g.name)}</td><td>${c.parentId ? '↳ ' : ''}${text(fishText(c))}</td>
+          <td>${KINDS[fishKind(c)]?.name || ''}</td><td>${codes(fishSource(c).evidenceIds)}</td><td>${{chart: 'On the chart', ruled: 'Ruled out', open: '<b>To test</b>'}[fishStatus(c)]}</td></tr>`));
+        return `<h3>Possible causes of “${escapeHtml(byId(f.effectId)?.title || '')}”</h3>
+          <figure class="r-fish">${fishboneSvg(f, {scale: Math.min(1, PRINT_W / w, PRINT_H / h)})}</figure>
+          ${table(['Category', 'Possible cause', 'Type', 'Evidence', 'Status'], rows, 'No possible causes recorded.')}`;
+      }).join('')}
+    </section>` : ''}
     <section class="r-page">
       <h2>Evidence log</h2>
       ${table(['Code', 'Description', 'Type', 'Source / location', 'Collected by', 'Date', 'Cited by'], state.evidence.map(e => `<tr>
@@ -199,6 +221,7 @@ function applyTheme() {
   $('themeButton').title = `Theme: ${THEMES[theme]}. Click for ${THEMES[next]}.`;
   $('themeButton').setAttribute('aria-label', `Theme: ${THEMES[theme]}`);
   if (layout && record === 'chart') renderCanvas();
+  if (record === 'fishbone') refreshFishFigures();
 }
 $('themeButton').onclick = () => {
   theme = {system: 'light', light: 'dark', dark: 'system'}[theme];

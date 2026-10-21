@@ -1,4 +1,4 @@
-// The pages beside the chart: the 5 Whys, and the RCA records (problem definition, team and dates,
+// The pages beside the chart: the 5 Whys, the fishbone, and the RCA records (problem definition, team and dates,
 // evidence log, causes ruled out, solutions, and the action plan).
 //
 // Fields are bound by data attributes: data-list names the record (or "meta", "problem", "node"),
@@ -30,20 +30,9 @@ const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${tex
 
 // Moves to a page: 'chart' or one of the records.
 function setRecord(name) {
-  record = name;
+  record = name; fishOn = null;
   $('app').dataset.record = name;
-  // Enter in a why's answer goes to the next why, adding one after the last.
-$('records').addEventListener('keydown', e => {
-  const field = e.target.closest('textarea.answer');
-  if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
-  e.preventDefault();
-  const chain = chainOf(field.dataset.step), i = chain.steps.findIndex(s => s.id === field.dataset.step);
-  let next = chain.steps[i + 1];
-  if (!next) { next = blankStep(); chain.steps.push(next); render(); persist(); }
-  document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
-});
-
-document.querySelectorAll('.rail [data-record]').forEach(b => {
+  document.querySelectorAll('.rail [data-record]').forEach(b => {
     b.classList.toggle('active', b.dataset.record === name);
     if (b.dataset.record === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
@@ -61,12 +50,19 @@ function showRecord(name, focusId) {
   }
 }
 
+// An answer grows with its words, so a long one is never cut off.
+function fitArea(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 2 + 'px';
+}
+
 function renderRecord() {
-  const page = {whys: whysPage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {whys: whysPage, fishbone: fishbonePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
-  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.querySelectorAll('textarea.answer').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
 }
@@ -123,6 +119,87 @@ function stepRow(c, s, i) {
     </div>
     <button class="unlink" data-act="delete-step" data-id="${s.id}" aria-label="Remove ${label}${n ? '; it stays on the chart' : ''}">×</button>
   </li>`;
+}
+
+// The categories a new diagram starts with: the last ones chosen.
+let fishPreset = 'seal';
+let fishOn = null;           // the possible cause being edited, lit in its diagram
+const pageColors = () => darkTheme() ? CHART_COLORS_DARK : CHART_COLORS;
+
+function fishbonePage() {
+  return `${pageHead('Fishbone', 'Sort the possible causes of an effect into categories, so that no area is forgotten. Then test each one: add it to the cause-and-effect chart, where it needs evidence, or rule it out.',
+    `<div class="head-actions"><label class="starts">Categories <select class="picker" id="fishPreset">${Object.entries(FISHBONE_PRESETS).map(([k, p]) =>
+      `<option value="${k}" ${k === fishPreset ? 'selected' : ''}>${p.name}</option>`).join('')}</select></label><button class="button primary" data-act="add-fishbone">+ New diagram</button></div>`)}
+    ${state.fishbones.length ? state.fishbones.map(fishCard).join('') : '<p class="empty-card">No diagrams yet. Choose the categories, then <b>+ New diagram</b>.</p>'}
+    <p class="note">Click a cause or a category in the diagram to edit it. In a cause, <kbd>Enter</kbd> adds the next one; <kbd>Shift+Enter</kbd> starts a new line.</p>`;
+}
+
+function fishCard(f) {
+  const causes = f.categories.flatMap(g => g.causes), count = k => causes.filter(c => fishStatus(c) === k).length;
+  return `<article class="card fishbone">
+    <div class="card-head">
+      <h2>Possible causes of “${escapeHtml(shorten(byId(f.effectId)?.title || '', 90))}”</h2>
+      <button class="button small" data-act="fish-export" data-id="${f.id}" data-v="svg" title="Save the diagram as an SVG image">SVG</button>
+      <button class="button small" data-act="fish-export" data-id="${f.id}" data-v="png" title="Save the diagram as a PNG image">PNG</button>
+      <button class="unlink" data-act="delete-fishbone" data-id="${f.id}" aria-label="Delete this diagram">×</button>
+    </div>
+    <label class="starts">Effect <select class="picker" data-act="fish-effect" data-id="${f.id}" aria-label="The effect at the head of the diagram">${state.nodes.map(n =>
+      `<option value="${n.id}" ${n.id === f.effectId ? 'selected' : ''}>${escapeHtml(shorten(n.title, 70))}</option>`).join('')}</select></label>
+    <div class="fish-figure" data-fishbone="${f.id}">${fishboneSvg(f, {colors: pageColors(), on: fishOn})}</div>
+    <p class="fish-tally">${causes.length ? `${causes.length} possible cause${causes.length > 1 ? 's' : ''}:
+      <span class="tally chart"><i></i>${count('chart')} on the chart</span><span class="tally ruled">${count('ruled')} ruled out</span><span class="tally open">${count('open')} to test</span>`
+      : 'No possible causes yet: add them under the categories below.'}</p>
+    <div class="fish-cats">${f.categories.map(g => fishCategoryCard(g)).join('')}
+      <button class="fish-add-cat" data-act="add-fish-category" data-id="${f.id}">+ Category</button></div>
+  </article>`;
+}
+
+function fishCategoryCard(g) {
+  const name = g.name.trim() || 'category';
+  return `<section class="fish-cat">
+    <div class="fish-cat-head">
+      <input class="cell title" ${bind('fishCats', g.id, 'name')} value="${escapeHtml(g.name)}" aria-label="Category" placeholder="Category">
+      <button class="unlink" data-act="delete-fish-category" data-id="${g.id}" aria-label="Remove the ${escapeHtml(name)} category">×</button>
+    </div>
+    <ul class="fish-causes">${fishRows(g).map(c => fishCauseRow(g, c)).join('')}</ul>
+    <button class="button small" data-act="add-fish-cause" data-id="${g.id}">+ Cause</button>
+  </section>`;
+}
+
+function fishCauseRow(g, c) {
+  const status = fishStatus(c), src = fishSource(c), n = fishNode(c), r = fishRuled(c), kind = fishKind(c);
+  const label = c.parentId ? 'Sub-cause' : 'Possible cause';
+  const field = n ? bind('node', n.id, 'title') : r ? bind('ruledOut', r.id, 'cause') : bind('fishCauses', c.id, 'text');
+  const cited = src.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !src.evidenceIds.includes(e.id));
+  const parent = c.parentId && g.causes.find(x => x.id === c.parentId), waits = parent && !fishNode(parent);
+  return `<li class="fish-cause ${status}${c.parentId ? ' child' : ''}">
+    <div class="fish-line">
+      <textarea class="cell answer" rows="1" ${field} data-fish="${c.id}" aria-label="${label}" placeholder="${c.parentId ? 'A cause of the cause above' : 'A possible cause'}">${escapeHtml(fishText(c))}</textarea>
+      <button class="unlink" data-act="delete-fish-cause" data-id="${c.id}" aria-label="Remove this ${label.toLowerCase()}${status === 'open' ? '' : status === 'chart' ? '; it stays on the chart' : '; it stays in the causes ruled out'}">×</button>
+    </div>
+    <div class="why-meta">
+      <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+      <div class="chips">${cited.map(e => evidenceChip(e, 'fish-remove-evidence', c.id)).join('')}
+        ${rest.length ? `<select class="picker" data-act="fish-add-evidence" data-id="${c.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
+          `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
+    </div>
+    <div class="why-meta fish-foot">
+      ${status === 'chart' ? `<button class="link" data-act="goto-node" data-node="${n.id}" title="Show it on the chart">On the chart</button>`
+        : status === 'ruled' ? `<button class="link" data-act="show-ruled" data-id="${r.id}" title="Show it in the causes ruled out">Ruled out</button><button class="button small" data-act="fish-restore" data-id="${c.id}" title="Take it back from the causes ruled out, to test again">Restore</button>`
+        : `<button class="button small" data-act="fish-to-chart" data-id="${c.id}" ${waits ? 'disabled title="Add the cause above it to the chart first"' : ''}>Add to chart</button><button class="button small" data-act="fish-rule-out" data-id="${c.id}" title="Move it to the causes ruled out">Rule out</button>`}
+      <span class="spacer"></span>
+      ${c.parentId ? '' : `<button class="link" data-act="add-fish-sub" data-id="${c.id}">+ Sub-cause</button>`}
+    </div>
+  </li>`;
+}
+
+// Redraws the diagrams alone, so typing keeps its place.
+function refreshFishFigures() {
+  for (const el of document.querySelectorAll('#records .fish-figure')) {
+    const f = state.fishbones.find(x => x.id === el.dataset.fishbone);
+    if (f) el.innerHTML = fishboneSvg(f, {colors: pageColors(), on: fishOn});
+  }
 }
 
 function problemPage() {
@@ -289,6 +366,8 @@ function boundObject(el) {
   if (list === 'problem') return state.problem;
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
+  if (list === 'fishCauses') return fishFind(id)?.cause;
+  if (list === 'fishCats') return fishCategory(id);
   return (list === 'team' ? state.meta.team : state[list]).find(r => r.id === id);
 }
 function setPath(obj, path, value) {
@@ -303,7 +382,9 @@ $('records').addEventListener('input', e => {
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
+  if (el.matches('textarea.answer')) fitArea(el);
   renderTitle();
+  if (record === 'fishbone') refreshFishFigures();
   if (el.hasAttribute('data-refresh') || el.tagName === 'SELECT') { render(); persist(); }
   else persist(`${el.dataset.list}:${el.dataset.id}:${el.dataset.field}`);
 });
@@ -317,8 +398,11 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'solution-add-cause') state.solutions.find(s => s.id === el.dataset.id).causeIds.push(value);
     if (el.dataset.act === 'step-add-evidence') stepSource(stepById(el.dataset.id)).evidenceIds.push(value);
     if (el.dataset.act === 'chain-effect') state.fiveWhys.find(c => c.id === el.dataset.id).effectId = value;
+    if (el.dataset.act === 'fish-add-evidence') fishSource(fishFind(el.dataset.id).cause).evidenceIds.push(value);
+    if (el.dataset.act === 'fish-effect') state.fishbones.find(f => f.id === el.dataset.id).effectId = value;
     render(); persist();
   }
+  if (e.target.id === 'fishPreset') fishPreset = e.target.value;
   const radio = e.target.closest('input[data-act="lead"]');
   if (radio) { state.meta.leadId = radio.dataset.id; persist(); }
 });
@@ -379,6 +463,69 @@ $('records').addEventListener('click', e => {
       setStatus(`Added ${added} step${added === 1 ? '' : 's'} to the chart`);
       break;
     }
+    case 'add-fishbone': focusId = addFishbone(fishPreset, state.problem.primaryEffectId).categories[0]?.id; break;
+    case 'delete-fishbone': {
+      const f = state.fishbones.find(x => x.id === id), n = f.categories.flatMap(g => g.causes).length;
+      if (n && !confirm(`Delete this diagram and its ${n} possible cause${n > 1 ? 's' : ''}? Causes on the chart or ruled out stay there.`)) return;
+      state.fishbones = state.fishbones.filter(x => x !== f);
+      break;
+    }
+    case 'fish-export': exportFishbone(state.fishbones.find(f => f.id === id), el.dataset.v); return;
+    case 'add-fish-category': {
+      const g = {id: uuid(), name: '', causes: []};
+      state.fishbones.find(f => f.id === id).categories.push(g); focusId = g.id;
+      break;
+    }
+    case 'delete-fish-category': {
+      const g = fishCategory(id), f = state.fishbones.find(x => x.categories.includes(g));
+      if (g.causes.length && !confirm(`Remove the ${g.name.trim() || 'unnamed'} category and its ${g.causes.length} possible cause${g.causes.length > 1 ? 's' : ''}? Causes on the chart or ruled out stay there.`)) return;
+      f.categories = f.categories.filter(x => x !== g);
+      break;
+    }
+    case 'add-fish-cause': {
+      const c = blankFishCause();
+      fishCategory(id).causes.push(c); focusId = c.id;
+      break;
+    }
+    case 'add-fish-sub': {
+      const c = blankFishCause(id);
+      fishFind(id).category.causes.push(c); focusId = c.id;
+      break;
+    }
+    case 'delete-fish-cause': {
+      const subs = fishFind(id).category.causes.filter(c => c.parentId === id).length;
+      if (subs && !confirm(`Remove this possible cause and its ${subs} sub-cause${subs > 1 ? 's' : ''}?`)) return;
+      deleteFishCause(id);
+      break;
+    }
+    case 'fish-kind': {
+      const c = fishFind(id).cause;
+      fishSource(c).kind = el.dataset.v;
+      c.kind = el.dataset.v;
+      break;
+    }
+    case 'fish-remove-evidence': {
+      const src = fishSource(fishFind(id).cause);
+      src.evidenceIds = src.evidenceIds.filter(x => x !== el.dataset.evidence);
+      break;
+    }
+    case 'fish-to-chart': {
+      const problem = fishToChart(id);
+      if (problem) { setStatus(problem); return; }
+      setStatus(`Added "${fishText(fishFind(id).cause)}" to the chart`);
+      break;
+    }
+    case 'fish-rule-out':
+      fishRuleOut(id);
+      setStatus(`Moved "${fishText(fishFind(id).cause)}" to the causes ruled out`);
+      break;
+    case 'fish-restore': {
+      const r = fishRuled(fishFind(id).cause);
+      if (r?.test.trim() && !confirm('Restore this cause to test again? It leaves the causes ruled out, with the test written there.')) return;
+      fishRestore(id);
+      break;
+    }
+    case 'show-ruled': showRecord('ruledOut', id); return;
     case 'add-member': {
       const m = {id: uuid(), name: '', role: ''};
       state.meta.team.push(m); focusId = m.id;
@@ -400,7 +547,7 @@ $('records').addEventListener('click', e => {
       state.ruledOut.push(r); focusId = r.id;
       break;
     }
-    case 'delete-ruled': state.ruledOut = state.ruledOut.filter(r => r.id !== id); break;
+    case 'delete-ruled': deleteRuledOut(id); break;
     case 'ruled-remove-evidence': row('ruledOut').evidenceIds = row('ruledOut').evidenceIds.filter(x => x !== el.dataset.evidence); break;
     case 'add-solution': focusId = addSolution().id; break;
     case 'delete-solution': {
@@ -433,6 +580,42 @@ $('records').addEventListener('click', e => {
     target?.scrollIntoView({block: 'center'});
     target?.focus();
   }
+});
+
+// Enter in a why's answer goes to the next why, adding one after the last. In a fishbone, it adds
+// the next possible cause beside this one.
+$('records').addEventListener('keydown', e => {
+  const field = e.target.closest('textarea.answer');
+  if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+  e.preventDefault();
+  if (field.dataset.fish) {
+    const {category, cause} = fishFind(field.dataset.fish), next = blankFishCause(cause.parentId);
+    category.causes.splice(category.causes.indexOf(cause) + 1, 0, next);
+    render(); persist();
+    document.querySelector(`#records textarea[data-fish="${next.id}"]`)?.focus();
+    return;
+  }
+  const chain = chainOf(field.dataset.step), i = chain.steps.findIndex(s => s.id === field.dataset.step);
+  let next = chain.steps[i + 1];
+  if (!next) { next = blankStep(); chain.steps.push(next); render(); persist(); }
+  document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
+});
+
+// The diagram: clicking a cause or a category goes to its field; the cause being edited is lit.
+$('records').addEventListener('click', e => {
+  const row = e.target.closest('.fish-row'), cat = e.target.closest('.fish-cat[data-fish-cat]');
+  const target = row ? `textarea[data-fish="${row.dataset.fish}"]` : cat ? `[data-list="fishCats"][data-id="${cat.dataset.fishCat}"]` : null;
+  const field = target && document.querySelector(`#records ${target}`);
+  if (!field) return;
+  field.scrollIntoView({block: 'nearest'});
+  field.focus();
+});
+$('records').addEventListener('focusin', e => {
+  const id = e.target.dataset?.fish ?? null;
+  if (id !== fishOn) { fishOn = id; refreshFishFigures(); }
+});
+$('records').addEventListener('focusout', e => {
+  if (fishOn && !e.relatedTarget?.dataset?.fish) { fishOn = null; refreshFishFigures(); }
 });
 
 document.querySelectorAll('.rail [data-record]').forEach(b => b.onclick = () => showRecord(b.dataset.record));
