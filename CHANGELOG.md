@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## v1.2 — 2026-10-21
+
+Two chart styles per RCA, Apollo or cause tree, with guided switching between them.
 
 - Two chart styles, chosen with **New**: **Apollo** (actions and conditions, AND) or **Cause tree** (possible causes, each possible, confirmed, or ruled out, like an organisation chart lying on its side). In a cause tree the confirmed path is drawn bold and ruled-out causes stay on the tree, struck through; keys 1, 2, and 3 set the status.
 - Switching an RCA to the other style first lists what that style still needs (causes without a type, effects missing an action or a condition, ruled-out causes to move, untested causes), then flags each in the issues list. Nothing is lost; the switch is one undo step.
