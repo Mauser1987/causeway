@@ -13,7 +13,7 @@ function fillIssues(issues = ruleIssues()) {
   const sorted = [...issues].sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level]);
   $('issuesList').innerHTML = sorted.length
     ? sorted.map(i => `<button role="menuitem" data-node="${i.nodeId}"><b>${escapeHtml(byId(i.nodeId)?.title || 'Untitled')}</b><small class="${i.level}">${escapeHtml(i.text)}</small></button>`).join('')
-    : '<div class="empty">No issues: every effect has an action and a condition, and every cause has evidence.</div>';
+    : `<div class="empty">No issues: ${treeStyle() ? 'every cause is tested, and every confirmed cause has evidence' : 'every effect has an action and a condition, and every cause has evidence'}.</div>`;
   $('issuesList').querySelectorAll('[data-node]').forEach(b => b.onclick = () => {
     showIssues(false);
     select(b.dataset.node);

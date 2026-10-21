@@ -14,7 +14,7 @@
 </style>
 </head>
 <body>
-<div class="app" id="app" data-record="chart">
+<div class="app" id="app" data-record="chart" data-style="apollo">
   <header>
     <div class="mark" aria-hidden="true">C</div>
     <div class="brand"><small id="sheetMeta">Causeway</small><strong id="sheetTitle">Untitled RCA</strong></div>
@@ -48,7 +48,7 @@
 
   <nav class="rail" aria-label="RCA records">
     <div class="panel-title">Analysis</div>
-    <button class="record active" data-record="chart" aria-current="page" title="Cause-and-effect chart">Cause &amp; effect<span id="railCauses">0</span></button>
+    <button class="record active" data-record="chart" aria-current="page" id="railChart"><b id="railChartName">Cause &amp; effect</b><span id="railCauses">0</span></button>
     <button class="record" data-record="whys">5 Whys<span id="railWhys">0</span></button>
     <button class="record" data-record="fishbone">Fishbone<span id="railFish">0</span></button>
     <div class="panel-title group-title">Records</div>
@@ -59,7 +59,18 @@
     <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>
     <button class="record" data-record="actions">Action plan<span id="railActions">0</span></button>
     <div class="panel-title legend-title">Legend</div>
-    <ul class="legend">
+    <ul class="legend tree">
+      <li><span class="sw effect"></span>Primary effect</li>
+      <li><span class="sw confirmed"></span>Confirmed</li>
+      <li><span class="sw possible"></span>Possible, to test</li>
+      <li><span class="sw ruled"></span><s>Ruled out</s></li>
+      <li><span class="sw q">?</span>No evidence yet</li>
+      <li><span class="sw code">E3</span>Cited evidence</li>
+      <li><span class="sw shared"></span>Shared cause link</li>
+      <li><span class="sw stop">STOP</span>Stop point: root cause</li>
+      <li><span class="sw ctrl">CONTROLLABLE</span>We can change it</li>
+    </ul>
+    <ul class="legend apollo">
       <li><span class="sw effect"></span>Primary effect</li>
       <li><span class="sw action"></span>Action</li>
       <li><span class="sw condition"></span>Condition</li>
@@ -73,12 +84,12 @@
   </nav>
 
   <main>
-    <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
+    <p class="hint" id="chartHint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
     <div id="linkBanner" class="banner" role="status" hidden><span id="linkText"></span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
     <div id="evidenceBanner" class="banner" role="status" hidden><span id="evidenceBannerText"></span><button id="clearHighlight">Clear <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
-      <button id="addAction" class="add-action" title="Add an action cause to the selected effect">+ Action <kbd>Ins</kbd></button>
+      <button id="addAction" class="add-action" title="Add an action cause to the selected effect"><span id="addActionName">+ Action</span> <kbd>Ins</kbd></button>
       <button id="addCondition" class="add-condition" title="Add a condition cause to the selected effect">+ Condition <kbd>Shift+Ins</kbd></button>
       <button id="linkCause" title="Link a node already on the chart as a further cause of the selected effect">Link cause <kbd>L</kbd></button>
       <button id="deleteNode" class="danger" title="Delete the selected cause">Delete <kbd>Del</kbd></button>
@@ -97,9 +108,10 @@
   <footer>
     <span id="status">Ready</span>
     <span id="count">0 causes · 0 evidence items</span>
-    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete</span>
+    <span class="keyhints" id="keyHints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
+<dialog id="dialog" class="dialog"></dialog>
 <div id="report" aria-hidden="true"></div>
 <script>
 (() => {

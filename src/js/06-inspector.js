@@ -8,7 +8,7 @@ const area = (label, id, value, attrs = '') =>
   `<label class="field" for="${id}">${label}</label><textarea class="text" id="${id}" ${attrs}>${escapeHtml(value)}</textarea>`;
 const flagBox = (id, on, label, title) =>
   `<label class="flag" title="${title}"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${label}</label>`;
-const swatch = n => `<span class="sw ${n.kind}" aria-hidden="true"></span>`;
+const swatch = n => `<span class="sw ${nodeLook(n)}" aria-hidden="true"></span>`;
 
 function renderProperties() {
   const box = $('properties');
@@ -16,31 +16,43 @@ function renderProperties() {
   if (n) renderNodeProperties(box, n); else renderRcaProperties(box);
 }
 
+// The style cards: one for each chart style, the RCA's own checked.
+const styleCards = () => `<div class="style-cards" role="radiogroup" aria-label="Chart style">${Object.entries(CHART_STYLES).map(([k, st]) =>
+  `<label class="style-card${state.meta.style === k ? ' on' : ''}"><input type="radio" name="chartStyle" value="${k}" ${state.meta.style === k ? 'checked' : ''}><span><b>${st.name}</b><small>${st.about}</small></span></label>`).join('')}</div>`;
+
 function renderRcaProperties(box) {
-  const issues = ruleIssues();
+  const issues = ruleIssues(), tree = treeStyle();
   box.innerHTML = `
     <div class="panel-title">RCA</div>
     ${field('RCA number', 'rcaNumber', state.meta.rcaNumber, 'placeholder="e.g. RCA-2026-014"')}
     ${field('Equipment / tag', 'equipmentTag', state.meta.equipmentTag, 'placeholder="e.g. P-101A"')}
     ${area('Primary effect', 'primaryTitle', primaryEffect()?.title || '', 'rows="2" style="min-height:44px"')}
+    <div class="field">Chart style</div>
+    ${styleCards()}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
     ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
-      <ol class="steps">
+      <ol class="steps">${tree ? `
+        <li>Select the primary effect and add its possible causes with <b>+ Cause</b>.</li>
+        <li>Select a cause and add its own possible causes the same way.</li>
+        <li>Test each cause: link its evidence, and set its status to <b>Possible</b>, <b>Confirmed</b>, or <b>Ruled out</b>.</li>
+        <li>Follow the confirmed causes down to the root causes, and mark each with a stop point.</li>` : `
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
-        <li>Each effect needs at least one action and one condition.</li>
-        <li>When one cause supports several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
+        <li>Each effect needs at least one action and one condition.</li>`}
+        <li>When one cause ${tree ? 'may explain' : 'supports'} several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
         <li>Back each cause with evidence: select it and search or type under <b>Evidence</b>.</li>
         <li>Save the RCA as a JSON file with <b>Save</b>.</li>
       </ol>
     </div>
     <div class="section">
       <div class="panel-title">Keys</div>
-      <dl class="keys">
+      <dl class="keys">${tree ? `
+        <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add a cause to the selected effect</dd>
+        <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
         <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add an action to the selected effect</dd>
-        <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>
+        <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>`}
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
         <dt><kbd>←↑↓→</kbd></dt><dd>Select the neighbouring node</dd>
         <dt><kbd>M</kbd></dt><dd>Move the cause under another effect</dd>
@@ -56,6 +68,7 @@ function renderRcaProperties(box) {
       </dl>
     </div>`;
   if ($('expandAll')) $('expandAll').onclick = expandAll;
+  box.querySelectorAll('input[name=chartStyle]').forEach(r => r.onchange = () => { render(); askSwitchStyle(r.value); });
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
   $('primaryTitle').oninput = e => { primaryEffect().title = e.target.value; refreshChart(); persist('title:' + state.problem.primaryEffectId); };
@@ -67,19 +80,23 @@ function renderNodeProperties(box, n) {
   const issues = ruleIssues().filter(i => i.nodeId === n.id);
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
   const solutions = solutionsOf(n.id);
-  const kindName = isPrimary ? 'Primary effect' : KINDS[n.kind].name;
+  const tree = treeStyle();
+  const kindName = isPrimary ? 'Primary effect' : tree ? (n.status === 'ruled-out' ? 'Ruled out' : `${STATUSES[n.status].name} cause`) : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
   box.innerHTML = `
-    <div class="kind-row"><span class="kind-chip ${isPrimary ? 'effect' : n.kind}">${kindName.toUpperCase()}</span><span class="muted">${about}</span></div>
+    <div class="kind-row"><span class="kind-chip ${nodeLook(n)}">${kindName.toUpperCase()}</span><span class="muted">${about}</span></div>
     ${issues.map(i => `<div class="info ${i.level === 'info' ? '' : i.level === 'error' ? 'error' : 'warn'}">${escapeHtml(i.text)}</div>`).join('')}
-    ${isPrimary ? '' : `<div class="segmented" role="group" aria-label="Cause type">
+    ${isPrimary ? '' : tree ? `<div class="segmented status" role="group" aria-label="Status">${Object.entries(STATUSES).map(([k, st], i) =>
+      `<button data-status="${k}" class="${k}" ${pressed(n.status === k)} title="${st.name} (${i + 1})">${st.mark} ${st.name}</button>`).join('')}</div>`
+      : `<div class="segmented" role="group" aria-label="Cause type">
       <button data-kind="action" ${pressed(n.kind === 'action')} title="A momentary cause that happened at a point in time">Action</button>
       <button data-kind="condition" ${pressed(n.kind === 'condition')} title="A cause that existed over time">Condition</button>
     </div>`}
     ${area('Title <span class="muted">required</span>', 'nodeTitle', n.title, 'rows="2" style="min-height:44px"')}
+    ${isPrimary ? '' : area('How it is tested', 'nodeTest', n.test, `rows="2" style="min-height:44px" placeholder="${!tree ? 'The check or test that confirmed it' : {possible: 'The check or test that will confirm it or rule it out', confirmed: 'The check or test that confirmed it', 'ruled-out': 'The check or test that ruled it out'}[n.status]}"`)}
     <div class="flags">
-      ${isPrimary ? '' : flagBox('nodeUnverified', n.unverified, 'Unverified (?)', 'A candidate cause that evidence has not confirmed yet')
+      ${isPrimary ? '' : (tree ? '' : flagBox('nodeUnverified', n.unverified, 'Unverified (?)', 'A candidate cause that evidence has not confirmed yet'))
         + flagBox('nodeControllable', n.controllable, 'Controllable', 'The organisation can change this cause: a candidate for a solution')}
       ${flagBox('nodeStop', !!n.stopPoint, 'Stop point', 'The branch ends here')}
     </div>
@@ -91,7 +108,7 @@ function renderNodeProperties(box, n) {
         <button class="code" data-highlight="${e.id}" title="Highlight every node that cites ${escapeHtml(e.code)}">${escapeHtml(e.code)}</button>
         <div class="body"><span>${escapeHtml(e.description)}</span><small>${escapeHtml([e.type === 'inferred' ? 'Inferred' : 'Sensed', e.collectedBy, e.date].filter(Boolean).join(' · '))}</small></div>
         <button class="unlink" data-unlink="${e.id}" title="Unlink ${escapeHtml(e.code)}; it stays in the evidence log" aria-label="Unlink ${escapeHtml(e.code)}">×</button>
-      </div>`).join('') : isCause(n) ? '<p class="empty-note">No evidence linked yet. Every cause needs evidence.</p>' : ''}
+      </div>`).join('') : isCause(n) ? `<p class="empty-note">No evidence linked yet. ${tree ? 'A confirmed cause needs evidence.' : 'Every cause needs evidence.'}</p>` : ''}
       <div class="combo">
         <label class="field" for="evidenceSearch" style="margin-top:4px">Link or add evidence</label>
         <input class="text" id="evidenceSearch" role="combobox" aria-expanded="false" aria-controls="evidenceOptions" aria-autocomplete="list" autocomplete="off" placeholder="Type a code, a word, or new evidence">
@@ -103,8 +120,8 @@ function renderNodeProperties(box, n) {
       <div class="panel-title">${isPrimary ? 'Causes' : 'Causes of this effect'}</div>
       ${causes.length ? `<ul class="cause-list">${causes.map(c => `<li><button data-goto="${c.id}">${swatch(c)}${escapeHtml(c.title)}</button></li>`).join('')}</ul>` : '<p class="note" style="margin-top:0">No causes yet.</p>'}
       <div class="button-grid">
-        <button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
-        <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>
+        ${tree ? '<button class="button" id="inspAddAction" title="Insert or A">+ Cause</button>' : `<button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
+        <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>`}
         <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (L)">Link existing</button>
         ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
       </div>
@@ -113,7 +130,7 @@ function renderNodeProperties(box, n) {
       <div class="panel-title">Supports</div>
       <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
-      ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
+      ${effects.length > 1 ? `<p class="note">A shared cause: it ${tree ? 'may explain' : 'is needed for'} each of these effects.</p>` : ''}
       <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (M), or drag the node onto it">Move to another effect</button>
       <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
     </div>`}
@@ -128,11 +145,14 @@ function renderNodeProperties(box, n) {
       ${area('Notes', 'nodeNotes', n.notes)}
     </div>
     ${isPrimary ? '' : `<div class="button-grid" style="margin-top:16px">
-      <button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>
+      ${tree ? (n.status === 'ruled-out' ? '' : '<button class="button" id="inspRuleOut" title="Mark it ruled out; it stays on the tree, faded (3)">Rule out</button>')
+        : '<button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>'}
       <button class="button danger" id="inspDelete">Delete <kbd>Del</kbd></button>
     </div>`}`;
 
   $('nodeTitle').oninput = e => { n.title = e.target.value; refreshChart(); persist('title:' + n.id); };
+  if ($('nodeTest')) $('nodeTest').oninput = e => { n.test = e.target.value; persist('test:' + n.id); };
+  box.querySelectorAll('[data-status]').forEach(b => b.onclick = () => setNodeStatus(b.dataset.status));
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
   $('nodeNotes').oninput = e => { n.notes = e.target.value; persist('notes:' + n.id); };
   box.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { n.kind = b.dataset.kind; render(); persist(); });
@@ -145,7 +165,7 @@ function renderNodeProperties(box, n) {
   box.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { select(b.dataset.goto); scrollToNode(b.dataset.goto); });
   evidenceCombo(n);
   $('inspAddAction').onclick = () => addCauseToSelected('action');
-  $('inspAddCondition').onclick = () => addCauseToSelected('condition');
+  if ($('inspAddCondition')) $('inspAddCondition').onclick = () => addCauseToSelected('condition');
   $('inspLink').onclick = startLinking;
   if ($('inspMove')) $('inspMove').onclick = startMoving;
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
@@ -204,6 +224,45 @@ function evidenceCombo(n) {
     e.preventDefault();
     pick(+li.dataset.option);
   };
+}
+
+// ---- Chart style ----
+// Labels for what the other style still needs, by rule issue code.
+const NEEDS = {
+  type: n => `${plural(n, 'cause')} without a type: choose action or condition`,
+  'causal-set': n => `${plural(n, 'effect')} missing an action or a condition`,
+  ruled: n => `${plural(n, 'ruled-out cause')} to move to the causes ruled out`,
+  evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
+  untested: n => `${plural(n, 'possible cause')} still to test`,
+  'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
+};
+
+// Asks before moving the RCA to the other style, with what that style will still need.
+function askSwitchStyle(style) {
+  if (style === state.meta.style) return;
+  const issues = issuesAfterSwitch(style), groups = new Map();
+  for (const i of [...issues].sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level])) {
+    if (!groups.has(i.code)) groups.set(i.code, {level: i.level, n: 0});
+    groups.get(i.code).n++;
+  }
+  const name = CHART_STYLES[style].name;
+  openDialog(`<h2>Switch to ${style === 'tree' ? 'a cause tree' : 'Apollo'}?</h2>
+    <p>${style === 'tree'
+      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes <b>possible</b>. Actions and conditions keep their type, for a move back.'
+      : 'Nothing is lost. <b>Possible</b> causes become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
+    <div class="sub">Still needed after the switch</div>
+    ${groups.size ? `<ul class="needs">${[...groups].map(([code, g]) => `<li class="need-${g.level}">${NEEDS[code]?.(g.n, style) ?? plural(g.n, 'issue')}</li>`).join('')}</ul>
+      <p class="note">Each one shows in the issues list, and is outlined on the chart, so you can work through them.</p>`
+      : '<p class="note">Nothing: the chart already meets the rules of the new style.</p>'}
+    <div class="dialog-foot"><button class="button" data-choice="">Cancel</button><button class="button primary" data-choice="${style}" autofocus>Switch to ${name}</button></div>`,
+  () => switchStyle(style));
+}
+function switchStyle(style) {
+  convertStyle(style);
+  render(); persist();
+  const open = ruleIssues().filter(i => i.level !== 'info').length;
+  setStatus(`Chart style: ${CHART_STYLES[style].name}${open ? `; ${plural(open, 'issue')} to correct` : ''}`);
+  if (open && record === 'chart') showIssues(true);
 }
 
 function showSolution(id, focus = false) {

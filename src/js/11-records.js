@@ -107,8 +107,8 @@ function stepRow(c, s, i) {
       ${n ? `<textarea class="cell answer" rows="1" ${bind('node', n.id, 'title')} data-step="${s.id}" aria-label="${label}">${escapeHtml(n.title)}</textarea>`
         : `<textarea class="cell answer" rows="1" ${bind('whySteps', s.id, 'answer')} data-step="${s.id}" aria-label="${label}" placeholder="Because…">${escapeHtml(s.answer)}</textarea>`}
       <div class="why-meta">
-        <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
-          `<button class="kind" data-act="step-kind" data-id="${s.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+        ${treeStyle() ? '' : `<div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+          `<button class="kind" data-act="step-kind" data-id="${s.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>`}
         <div class="chips">${cited.map(e => evidenceChip(e, 'step-remove-evidence', s.id)).join('')}
           ${rest.length ? `<select class="picker" data-act="step-add-evidence" data-id="${s.id}" aria-label="Cite evidence for ${label}"><option value="">+ Evidence…</option>${rest.map(e =>
             `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
@@ -178,8 +178,8 @@ function fishCauseRow(g, c) {
       <button class="unlink" data-act="delete-fish-cause" data-id="${c.id}" aria-label="Remove this ${label.toLowerCase()}${status === 'open' ? '' : status === 'chart' ? '; it stays on the chart' : '; it stays in the causes ruled out'}">×</button>
     </div>
     <div class="why-meta">
-      <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
-        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+      ${treeStyle() ? '' : `<div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>`}
       <div class="chips">${cited.map(e => evidenceChip(e, 'fish-remove-evidence', c.id)).join('')}
         ${rest.length ? `<select class="picker" data-act="fish-add-evidence" data-id="${c.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
           `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
@@ -298,7 +298,19 @@ function ruledOutPage() {
           <td class="row-actions"><button class="unlink" data-act="delete-ruled" data-id="${r.id}" aria-label="Remove">×</button></td>
         </tr>`;
       }).join('') : empty(6, 'No causes ruled out yet.')}</tbody>
-    </table></div>`;
+    </table></div>
+    ${treeStyle() ? `<h2 class="page-sub">Ruled out on the cause tree</h2>
+    <p class="note">These stay on the tree, faded and struck through. Write how each was ruled out here or in its properties.</p>
+    <div class="table-wrap"><table class="log">
+      <colgroup><col style="width:30%"><col style="width:40%"><col style="width:20%"><col style="width:80px"></colgroup>
+      <thead><tr><th>Cause</th><th>Evidence or test</th><th>Evidence</th><th><span class="sr">Show</span></th></tr></thead>
+      <tbody>${treeRuledOut().length ? treeRuledOut().map(n => `<tr>
+        <td>${cellArea('node', n.id, 'title', n.title, 'Cause')}</td>
+        <td>${cellArea('node', n.id, 'test', n.test, 'Evidence or test', 'placeholder="How it was ruled out"')}</td>
+        <td><div class="chips">${n.evidenceIds.map(evidenceById).filter(Boolean).map(e => evidenceChip(e)).join('') || '<span class="muted">None</span>'}</div></td>
+        <td class="row-actions"><button class="link" data-act="goto-node" data-node="${n.id}">Show</button></td>
+      </tr>`).join('') : empty(4, 'No causes on the tree are ruled out.')}</tbody>
+    </table></div>` : ''}`;
 }
 
 function solutionsPage() {

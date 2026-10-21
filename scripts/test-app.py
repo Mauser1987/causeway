@@ -703,7 +703,9 @@ def run_tests(b):
             input.onchange({target:input}).then(()=>done(true));''', [project])
 
     click('newProject')
-    assert len(rca()['nodes']) == 1
+    assert b.js('return document.getElementById("dialog").open'), 'New asks for the chart style'
+    b.js('document.querySelector("#dialog [data-choice=apollo]").click();return true')
+    assert len(rca()['nodes']) == 1 and rca()['meta']['style'] == 'apollo'
     load(saved_file)
     reopened = rca()
     reopened.pop('view', None)
@@ -811,6 +813,72 @@ def run_tests(b):
     assert b.js('return document.documentElement.dataset.theme ?? null') is None and node_fill('Plan 11 flush flow dropped to near zero') == '#0b5f66'
     key(' ')
     print('PASS: light, dark, and system themes', flush=True)
+
+    # ---- Cause tree ----
+    def set_title(title):
+        type_into('nodeTitle', title)
+
+    def node(title):
+        return next(n for n in rca()['nodes'] if n['title'] == title)
+
+    click('newProject')
+    b.js('document.querySelector("#dialog [data-choice=tree]").click();return true')
+    assert rca()['meta']['style'] == 'tree' and b.js('return document.getElementById("railChartName").textContent') == 'Cause tree'
+    assert b.js('return getComputedStyle(document.getElementById("addCondition")).display') == 'none', 'a cause tree has one kind of cause'
+    set_title('Seal leaks')
+    key('Insert'); set_title('Faces damaged')
+    assert node('Faces damaged')['kind'] == 'cause' and node('Faces damaged')['status'] == 'possible', 'a new cause has no type and is possible'
+    select('Seal leaks'); key('a'); set_title('O-ring attacked')
+    select('Seal leaks'); key('Insert', shift=True); set_title('Shaft moves')
+    assert all(n['kind'] == 'cause' for n in rca()['nodes'][1:]), 'Shift+Insert and A add causes too'
+    assert b.js("return document.querySelectorAll('#chart .junction').length") == 0, 'no AND in a cause tree'
+    assert b.js('return document.querySelectorAll("#chart .node").length') == 4
+    select('Faces damaged'); key('2')
+    assert node('Faces damaged')['status'] == 'confirmed'
+    assert b.js(f"return document.querySelectorAll('#chart path[stroke=\"{'#0b5f66'}\"][stroke-width=\"2.6\"]').length") == 1, 'the confirmed branch is bold'
+    click('issuesButton')
+    texts = b.js('return [...document.querySelectorAll("#issuesList small")].map(s=>s.textContent)')
+    assert 'Confirmed without evidence' in texts and texts.count('Not tested yet: no evidence') == 2, texts
+    click('issuesButton')
+    select('O-ring attacked'); click('inspRuleOut')
+    assert node('O-ring attacked')['status'] == 'ruled-out' and len(rca()['ruledOut']) == 0, 'ruled out in a tree stays on the tree'
+    assert b.js("return document.getElementById('railRuledOut').textContent") == '1'
+    type_into('nodeTest', 'Teardown: O-rings intact')
+    page('ruledOut')
+    assert b.js('return document.querySelector("#records [data-list=node][data-field=test]").value') == 'Teardown: O-rings intact', 'the tree\'s ruled-out causes are listed'
+    page('chart')
+    b.js('window.dispatchEvent(new Event("beforeprint"));return true')
+    assert 'Ruled out, on the tree' in b.js('return document.getElementById("report").textContent')
+    assert b.js('return [...document.querySelectorAll("#report h2")].map(h=>h.textContent)')[1] == 'Cause tree'
+
+    # Moving to Apollo shows what is still needed, then flags it.
+    key('Escape')
+    b.js('document.querySelector("input[name=chartStyle][value=apollo]").click();return true')
+    needs = b.js('return [...document.querySelectorAll("#dialog .needs li")].map(l=>l.textContent)')
+    assert any('3 causes without a type' in t for t in needs) and any('1 ruled-out cause to move' in t for t in needs), needs
+    assert rca()['meta']['style'] == 'tree', 'nothing changes before the switch is confirmed'
+    b.js('document.querySelector("#dialog [data-choice=apollo]").click();return true')
+    assert rca()['meta']['style'] == 'apollo' and not b.js('return document.getElementById("issuesList").hidden'), 'the issues to correct are listed'
+    assert node('Shaft moves')['unverified'] is True and node('Faces damaged')['unverified'] is False, 'possible causes become unverified'
+    select('Shaft moves')
+    b.js('document.querySelector("#properties [data-kind=condition]").click();return true')
+    assert node('Shaft moves')['kind'] == 'condition'
+    select('O-ring attacked'); click('inspRuleOut')
+    assert rca()['ruledOut'][-1]['cause'] == 'O-ring attacked' and rca()['ruledOut'][-1]['test'] == 'Teardown: O-rings intact', 'Rule out takes the test along'
+    click('undo'); click('undo'); click('undo')
+    assert rca()['meta']['style'] == 'tree', 'the switch is one undo step'
+
+    # The example as a cause tree: causes with evidence are confirmed.
+    click('loadExample')
+    b.js('document.querySelector("input[name=chartStyle][value=tree]").click();document.querySelector("#dialog [data-choice=tree]").click();return true')
+    causes = [n for n in rca()['nodes'] if n['kind'] != 'effect']
+    assert all(n['status'] == ('confirmed' if n['evidenceIds'] and not n['unverified'] else 'possible') for n in causes)
+    assert sum(n['status'] == 'possible' for n in causes) == 2
+    tree_file = rca()
+    tree_file['meta']['style'] = 'nonsense'
+    load(tree_file)
+    assert rca()['meta']['style'] == 'apollo', 'an unknown style opens as Apollo'
+    print('PASS: cause tree, statuses, and switching between the chart styles', flush=True)
 
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')

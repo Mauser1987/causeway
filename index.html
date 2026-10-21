@@ -544,10 +544,50 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
 @media print {
   #report .r-fish { margin-bottom: 4mm; }
 }
+
+/* ---- Chart style: Apollo or cause tree ---- */
+.record b { font-weight: inherit; }
+.app[data-style=tree] .legend.apollo, .app[data-style=apollo] .legend.tree { display: none; }
+.app[data-style=tree] .add-condition { display: none; }
+.sw.confirmed { background: var(--accent); }
+.sw.possible, .sw.cause { background: var(--panel); border: 1.5px dashed var(--muted); }
+.sw.ruled { background: var(--line-soft); border: 1px solid var(--field-line); }
+.legend s { color: var(--muted); }
+.kind-chip.cause, .kind-chip.possible { background: var(--warn-soft); color: var(--warn-ink); border: 1px dashed var(--warn-line); }
+.kind-chip.confirmed { background: var(--accent); color: #fff; }
+.kind-chip.ruled { background: var(--line-soft); color: var(--muted); text-decoration: line-through; }
+.segmented.status .possible[aria-pressed=true] { background: #b45309; }
+.segmented.status .ruled-out[aria-pressed=true] { background: #52606d; }
+.style-cards { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.style-card { display: flex; gap: 9px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.style-card.on { border: 2px solid var(--accent); padding: 7px 9px; background: var(--accent-faint); }
+.style-card input { margin: 2px 0 0; accent-color: var(--accent); }
+.style-card span { display: flex; flex-direction: column; gap: 2px; }
+.style-card small { font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+.page-sub { margin: 26px 0 4px !important; }
+.page-sub + .note { margin-bottom: 10px; }
+
+/* ---- Dialogs ---- */
+.dialog { width: min(520px, calc(100vw - 32px)); padding: 22px 24px; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); color: var(--ink); box-shadow: 0 18px 50px var(--shadow); }
+.dialog::backdrop { background: rgba(14, 21, 28, .45); }
+.dialog h2 { margin: 0 0 8px; font-size: 17px; }
+.dialog p { margin: 0 0 12px; line-height: 1.5; color: var(--ink-2); }
+.dialog .sub { margin-top: 4px; }
+.dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.style-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.style-choice { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); text-align: left; font-size: 12.5px; line-height: 1.45; }
+.style-choice b { font-size: 15px; }
+.style-choice span { color: var(--muted); }
+.style-choice:hover, .style-choice:focus-visible { border-color: var(--accent-2); background: var(--accent-faint); }
+.needs { margin: 0 0 10px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.needs li { padding: 7px 10px; border-radius: 6px; background: var(--info-soft); color: var(--info-ink); font-size: 12.5px; }
+.needs li.need-error { background: var(--danger-soft); color: var(--danger); }
+.needs li.need-warning { background: var(--warn-soft); color: var(--warn-ink); }
+@media (max-width: 560px) { .style-choices { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
-<div class="app" id="app" data-record="chart">
+<div class="app" id="app" data-record="chart" data-style="apollo">
   <header>
     <div class="mark" aria-hidden="true">C</div>
     <div class="brand"><small id="sheetMeta">Causeway</small><strong id="sheetTitle">Untitled RCA</strong></div>
@@ -581,7 +621,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
 
   <nav class="rail" aria-label="RCA records">
     <div class="panel-title">Analysis</div>
-    <button class="record active" data-record="chart" aria-current="page" title="Cause-and-effect chart">Cause &amp; effect<span id="railCauses">0</span></button>
+    <button class="record active" data-record="chart" aria-current="page" id="railChart"><b id="railChartName">Cause &amp; effect</b><span id="railCauses">0</span></button>
     <button class="record" data-record="whys">5 Whys<span id="railWhys">0</span></button>
     <button class="record" data-record="fishbone">Fishbone<span id="railFish">0</span></button>
     <div class="panel-title group-title">Records</div>
@@ -592,7 +632,18 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
     <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>
     <button class="record" data-record="actions">Action plan<span id="railActions">0</span></button>
     <div class="panel-title legend-title">Legend</div>
-    <ul class="legend">
+    <ul class="legend tree">
+      <li><span class="sw effect"></span>Primary effect</li>
+      <li><span class="sw confirmed"></span>Confirmed</li>
+      <li><span class="sw possible"></span>Possible, to test</li>
+      <li><span class="sw ruled"></span><s>Ruled out</s></li>
+      <li><span class="sw q">?</span>No evidence yet</li>
+      <li><span class="sw code">E3</span>Cited evidence</li>
+      <li><span class="sw shared"></span>Shared cause link</li>
+      <li><span class="sw stop">STOP</span>Stop point: root cause</li>
+      <li><span class="sw ctrl">CONTROLLABLE</span>We can change it</li>
+    </ul>
+    <ul class="legend apollo">
       <li><span class="sw effect"></span>Primary effect</li>
       <li><span class="sw action"></span>Action</li>
       <li><span class="sw condition"></span>Condition</li>
@@ -606,12 +657,12 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
   </nav>
 
   <main>
-    <p class="hint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
+    <p class="hint" id="chartHint">Read left to right: each effect, then the causes that were all needed for it (AND).</p>
     <div id="linkBanner" class="banner" role="status" hidden><span id="linkText"></span><button id="cancelLink">Cancel <kbd>Esc</kbd></button></div>
     <div id="evidenceBanner" class="banner" role="status" hidden><span id="evidenceBannerText"></span><button id="clearHighlight">Clear <kbd>Esc</kbd></button></div>
     <svg id="chart" xmlns="http://www.w3.org/2000/svg" aria-label="Cause and effect chart"></svg>
     <div class="editbar" role="toolbar" aria-label="Edit chart">
-      <button id="addAction" class="add-action" title="Add an action cause to the selected effect">+ Action <kbd>Ins</kbd></button>
+      <button id="addAction" class="add-action" title="Add an action cause to the selected effect"><span id="addActionName">+ Action</span> <kbd>Ins</kbd></button>
       <button id="addCondition" class="add-condition" title="Add a condition cause to the selected effect">+ Condition <kbd>Shift+Ins</kbd></button>
       <button id="linkCause" title="Link a node already on the chart as a further cause of the selected effect">Link cause <kbd>L</kbd></button>
       <button id="deleteNode" class="danger" title="Delete the selected cause">Delete <kbd>Del</kbd></button>
@@ -630,9 +681,10 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
   <footer>
     <span id="status">Ready</span>
     <span id="count">0 causes · 0 evidence items</span>
-    <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete</span>
+    <span class="keyhints" id="keyHints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
+<dialog id="dialog" class="dialog"></dialog>
 <div id="report" aria-hidden="true"></div>
 <script>
 (() => {
@@ -651,6 +703,19 @@ const KINDS = {
   effect: {name: 'Primary effect', label: 'PRIMARY EFFECT'},
   action: {name: 'Action', label: 'ACTION'},
   condition: {name: 'Condition', label: 'CONDITION'},
+  cause: {name: 'Cause', label: 'CAUSE'},          // a cause without a type: made in a cause tree
+};
+// The two chart styles an RCA can have. Apollo: each effect has its actions and conditions, all
+// needed (AND). Cause tree: each effect has its possible causes, any of which may explain it.
+const CHART_STYLES = {
+  apollo: {name: 'Apollo', about: 'Each effect has at least one action and one condition, all needed (AND).'},
+  tree: {name: 'Cause tree', about: 'Each effect has its possible causes, any of which may explain it. Test each: possible, confirmed, or ruled out.'},
+};
+// A cause's status in a cause tree.
+const STATUSES = {
+  possible: {name: 'Possible', label: 'POSSIBLE · TO TEST', mark: '?'},
+  confirmed: {name: 'Confirmed', label: '✓ CONFIRMED', mark: '✓'},
+  'ruled-out': {name: 'Ruled out', label: '✕ RULED OUT', mark: '✕'},
 };
 const STOP_REASONS = {
   'outside-control': 'Outside our control',
@@ -696,6 +761,13 @@ const CHART_COLORS = {
   effect: {fill: '#b3261e', stroke: '#8f1c16', text: '#ffffff', sub: '#ffd9d6', code: {fill: 'rgba(255,255,255,.18)', text: '#ffffff'}},
   action: {fill: '#0b5f66', stroke: '#084a50', text: '#ffffff', sub: '#bfe6e8', code: {fill: 'rgba(255,255,255,.16)', text: '#ffffff'}},
   condition: {fill: '#eef7f7', stroke: '#0d858f', text: '#16232f', sub: '#0b6e75', code: {fill: '#ffffff', stroke: '#b9dfe2', text: '#084f54'}},
+  cause: {fill: '#ffffff', stroke: '#5b6b7a', text: '#16232f', sub: '#5b6b7a', dash: '5 3', code: {fill: '#e3f2f3', text: '#084f54'}},
+  // Cause tree: a cause is drawn by its status.
+  possible: {fill: '#ffffff', stroke: '#5b6b7a', text: '#16232f', sub: '#8a3f00', dash: '5 3', code: {fill: '#e3f2f3', text: '#084f54'}},
+  confirmed: {fill: '#0b5f66', stroke: '#084a50', text: '#ffffff', sub: '#bfe6e8', code: {fill: 'rgba(255,255,255,.16)', text: '#ffffff'}},
+  ruled: {fill: '#eef1f4', stroke: '#cbd5de', text: '#6a7884', sub: '#6a7884', code: {fill: '#ffffff', stroke: '#dde3e8', text: '#6a7884'}},
+  confirmedWire: '#0b5f66',
+  ruledWire: '#a9b5c0',
   wire: '#8796a4',
   junctionText: '#3d4f60',
   shared: '#7b5ab7',
@@ -712,6 +784,12 @@ const CHART_COLORS_DARK = {
   effect: {fill: '#b8312a', stroke: '#e0574f', text: '#ffffff', sub: '#ffd9d6', code: {fill: 'rgba(255,255,255,.2)', text: '#ffffff'}},
   action: {fill: '#0d6e76', stroke: '#2a9aa2', text: '#ffffff', sub: '#c5ecee', code: {fill: 'rgba(255,255,255,.18)', text: '#ffffff'}},
   condition: {fill: '#13272c', stroke: '#3fb5bd', text: '#e3eef0', sub: '#7fd0d6', code: {fill: '#0e1c20', stroke: '#2f6e74', text: '#9fe2e6'}},
+  cause: {fill: '#161f28', stroke: '#93a3b2', text: '#e3eaf0', sub: '#93a3b2', dash: '5 3', code: {fill: '#123238', text: '#8fdde2'}},
+  possible: {fill: '#161f28', stroke: '#93a3b2', text: '#e3eaf0', sub: '#f3b27a', dash: '5 3', code: {fill: '#123238', text: '#8fdde2'}},
+  confirmed: {fill: '#0d6e76', stroke: '#2a9aa2', text: '#ffffff', sub: '#c5ecee', code: {fill: 'rgba(255,255,255,.18)', text: '#ffffff'}},
+  ruled: {fill: '#1b252f', stroke: '#2b3844', text: '#7d8b97', sub: '#7d8b97', code: {fill: '#161f28', stroke: '#2b3844', text: '#7d8b97'}},
+  confirmedWire: '#3fb5bd',
+  ruledWire: '#3a4955',
   wire: '#6f8294',
   junctionText: '#c9d5df',
   shared: '#a58be0',
@@ -748,16 +826,17 @@ function uuid() {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
+// status is used in a cause tree; test, how the cause is or was tested, in both styles.
 const blankNode = (kind, title) => ({
-  id: uuid(), kind, title, description: '', evidenceIds: [],
+  id: uuid(), kind, title, description: '', evidenceIds: [], status: 'possible', test: '',
   unverified: false, controllable: false, stopPoint: null, notes: '',
 });
 
-function blankState() {
+function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
-    meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
+    meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [],
     counters: {evidence: 1},
@@ -777,6 +856,7 @@ let record = 'chart';          // the page shown: the chart or one of the RCA re
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
+const treeStyle = () => state.meta.style === 'tree';
 
 function resetInteraction() {
   selected = null; drag = null; nodeDrag = null; linking = null; highlight = null;
@@ -880,8 +960,10 @@ function addLink(effectId, causeId) {
   return link;
 }
 
-function addCause(effectId, kind, title = kind === 'action' ? 'New action' : 'New condition') {
-  const n = blankNode(kind, title);
+// In a cause tree a new cause has no type; it is given one if the RCA moves to Apollo.
+function addCause(effectId, kind, title) {
+  if (treeStyle()) kind = 'cause';
+  const n = blankNode(kind, title ?? `New ${KINDS[kind].name.toLowerCase()}`);
   state.nodes.push(n);
   addLink(effectId, n.id);
   collapsed.delete(effectId);
@@ -1111,18 +1193,68 @@ function reveal(id) {
   return hiding.length > 0;
 }
 
+// Causes reorder among the siblings of their group: in Apollo, the same kind; in a cause tree, all.
+const sameGroup = (a, b) => treeStyle() || a.kind === b.kind;
+
+// ---- Chart style ----
+// Moving an RCA to the other style keeps everything. A cause's status and Apollo's unverified flag
+// are carried across; what the new style still needs shows up as rule issues.
+function convertStyle(style) {
+  for (const n of state.nodes) {
+    if (!isCause(n)) continue;
+    if (style === 'tree') { if (n.status !== 'ruled-out') n.status = n.unverified || !hasEvidence(n) ? 'possible' : 'confirmed'; }
+    else n.unverified = n.status === 'possible';
+  }
+  state.meta.style = style;
+}
+// The rule issues the RCA would have in the other style, without changing it.
+function issuesAfterSwitch(style) {
+  const current = state;
+  state = JSON.parse(JSON.stringify(state));
+  try { convertStyle(style); return ruleIssues(); } finally { state = current; }
+}
+
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one
 // action and one condition; each cause needs evidence; each branch ends in a stop point.
 
 const isCause = n => n.kind !== 'effect';
-const needsEvidence = n => n.unverified || !n.evidenceIds.some(evidenceById);
+const hasEvidence = n => n.evidenceIds.some(evidenceById);
+// The "?" on a cause: in Apollo, unverified or without evidence; in a cause tree, not yet ruled out and without evidence.
+const needsEvidence = n => treeStyle() ? n.status !== 'ruled-out' && !hasEvidence(n) : n.unverified || !hasEvidence(n);
+const isRuledOut = n => treeStyle() && isCause(n) && n.status === 'ruled-out';
+// In a cause tree, the ruled-out causes on the tree; they are listed with the causes ruled out.
+const treeRuledOut = () => state.nodes.filter(isRuledOut);
+// The palette entry a node is drawn with.
+const nodeLook = n => n.id === state.problem.primaryEffectId || n.kind === 'effect' ? 'effect'
+  : treeStyle() ? (n.status === 'ruled-out' ? 'ruled' : n.status) : n.kind;
 
 function ruleIssues() {
+  return treeStyle() ? treeIssues() : apolloIssues();
+}
+
+// A cause tree: each confirmed cause needs evidence, each possible cause a test, and each confirmed
+// branch a stop point. Ruled-out causes need nothing more.
+function treeIssues() {
+  const issues = [], live = reachable();
+  for (const n of state.nodes) {
+    if (!live.has(n.id) || !isCause(n)) continue;
+    if (n.status === 'confirmed' && !hasEvidence(n)) issues.push({nodeId: n.id, level: 'error', code: 'evidence', text: 'Confirmed without evidence'});
+    if (n.status === 'possible') issues.push({nodeId: n.id, level: 'warning', code: 'untested', text: hasEvidence(n) ? 'Not confirmed or ruled out yet' : 'Not tested yet: no evidence'});
+    if (n.status === 'confirmed' && !causesOf(n.id).some(c => c.status !== 'ruled-out') && !n.stopPoint) issues.push({nodeId: n.id, level: 'info', code: 'open-branch',
+      text: 'Confirmed branch ends without a stop point'});
+  }
+  return issues;
+}
+
+function apolloIssues() {
   const issues = [];
   const live = reachable();
   for (const n of state.nodes) {
     if (!live.has(n.id)) continue;
+    if (n.kind === 'cause') issues.push({nodeId: n.id, level: 'error', code: 'type', text: 'Choose a type: action or condition'});
+    if (isCause(n) && n.status === 'ruled-out') issues.push({nodeId: n.id, level: 'error', code: 'ruled',
+      text: 'Ruled out in the cause tree: move it to the causes ruled out (Rule out)'});
     const causes = causesOf(n.id);
     const isEffect = causes.length > 0 || n.kind === 'effect';
     if (isEffect) {
@@ -1226,9 +1358,10 @@ function computeLayout() {
     if (!children.has(l.effectId)) children.set(l.effectId, []);
     children.get(l.effectId).push(byId(l.causeId));
   }
-  // Within an effect, its actions come above its conditions.
-  const order = {action: 0, condition: 1, effect: 2};
-  for (const list of children.values()) list.sort((a, b) => order[a.kind] - order[b.kind]);
+  // Within an effect, its actions come above its conditions, and causes without a type below them.
+  // In a cause tree, causes keep their order.
+  const order = {action: 0, condition: 1, cause: 2, effect: 3};
+  if (!treeStyle()) for (const list of children.values()) list.sort((a, b) => order[a.kind] - order[b.kind]);
 
   // Hidden causes under a collapsed node, for its "+N" tag.
   const hiddenCount = id => {
@@ -1306,7 +1439,8 @@ function routeEdges(boxes, links, parent, rank) {
     let d = `M ${e.x + e.w} ${midY(e)} H ${bx} M ${bx} ${Math.min(midY(e), ...ys)} V ${Math.max(midY(e), ...ys)}`;
     for (const l of group) d += ` M ${bx} ${midY(boxes.get(l.causeId))} H ${boxes.get(l.causeId).x}`;
     // Two or more causes under one effect are joined by AND, marked where the bracket meets the effect.
-    edges.push({d, shared: false, effectId, linkIds: group.map(l => l.id), junction: group.length > 1 ? {x: bx, y: midY(e)} : null});
+    edges.push({d, shared: false, effectId, linkIds: group.map(l => l.id), junction: group.length > 1 ? {x: bx, y: midY(e)} : null,
+      from: {x: e.x + e.w, y: midY(e)}, bx, branches: group.map(l => ({id: l.causeId, x: boxes.get(l.causeId).x, y: midY(boxes.get(l.causeId))}))});
   }
 
   // Further links of shared causes get their own lanes beside the brackets.
@@ -1362,23 +1496,44 @@ function chartBounds(boxes) {
 let layout = null;
 
 function setStatus(text) { $('status').textContent = text; }
+const plural = (n, word, many = word + 's') => `${n} ${n === 1 ? word : many}`;
+
+// A modal dialog. A button with data-choice closes it; a non-empty choice is passed to onChoice.
+function openDialog(html, onChoice) {
+  const d = $('dialog');
+  d.innerHTML = html;
+  d.onclick = e => {
+    const b = e.target.closest('[data-choice]');
+    if (!b) return;
+    d.close();
+    if (b.dataset.choice) onChoice(b.dataset.choice);
+  };
+  d.showModal();
+  d.querySelector('[autofocus]')?.focus();
+}
 
 const attrs = o => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== false).map(([k, v]) => `${k}="${escapeHtml(v)}"`).join(' ');
 
 function nodeMarkup(b, opts) {
-  const C = opts.colors || CHART_COLORS, n = b.node, c = C[n.kind], {w, h} = b;
+  const C = opts.colors || CHART_COLORS, n = b.node, c = C[nodeLook(n)], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
   let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) || opts.dragging?.id === n.id ? ' opacity="0.35"' : ''}>`;
   if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${C.highlight}" stroke-width="4"/>`;
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
-  s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1})}/>`;
-  const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : KINDS[n.kind].label;
+  s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': c.dash || n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1, 'stroke-dasharray': c.dash})}/>`;
+  const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
+    : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label;
   s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
   s += `<text x="${NODE_PAD_X}" font-size="${TITLE_SIZE}" font-weight="600" fill="${c.text}">`;
   b.lines.forEach((line, i) => { s += `<tspan x="${NODE_PAD_X}" y="${NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 12}">${escapeHtml(line)}</tspan>`; });
   s += '</text>';
+  // A ruled-out cause in a cause tree is struck through.
+  if (isRuledOut(n)) b.lines.forEach((line, i) => {
+    const y = NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 8;
+    s += `<line x1="${NODE_PAD_X}" y1="${y}" x2="${NODE_PAD_X + textWidth(line, TITLE_SIZE, 600)}" y2="${y}" stroke="${c.text}" stroke-width="1.2"/>`;
+  });
 
   const f = b.foot;
   if (hasFoot(f)) {
@@ -1414,7 +1569,7 @@ function nodeMarkup(b, opts) {
     s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${C.stop}" stroke-width="1.6"/></g>`;
   }
   if (isCause(n) && needsEvidence(n)) {
-    s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${C.unverified.fill}" stroke="${C.panel}" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${C.unverified.text}">?</text></g>`;
+    s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified && !treeStyle() ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${C.unverified.fill}" stroke="${C.panel}" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${C.unverified.text}">?</text></g>`;
   }
   return s + '</g>';
 }
@@ -1423,17 +1578,35 @@ function nodeMarkup(b, opts) {
 function chartMarkup(l, opts = {}) {
   const C = opts.colors || CHART_COLORS;
   let s = `<g font-family="${escapeHtml(CHART_FONT)}">`;
-  for (const e of l.edges) {
+  if (treeStyle()) s += treeEdges(l, C);
+  else for (const e of l.edges) {
     s += `<path class="edge" data-effect="${e.effectId}" d="${e.d}" fill="none" stroke="${e.shared ? C.shared : C.wire}" stroke-width="1.6"${e.shared ? ' stroke-dasharray="6 4"' : ''}/>`;
   }
   for (const e of l.edges) {
-    if (!e.junction) continue;
+    if (!e.junction || treeStyle()) continue;
     const {x, y} = e.junction;
     s += `<g class="junction"><rect x="${x - 16}" y="${y - 8}" width="32" height="16" rx="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><text x="${x}" y="${y + 3}" font-size="8.5" font-weight="800" letter-spacing="0.5" text-anchor="middle" fill="${C.junctionText}">AND</text></g>`;
   }
   for (const b of l.boxes.values()) s += nodeMarkup(b, opts);
   if (opts.dragging) s += dragMarkup(l, opts.dragging, C);
   return s + '</g>';
+}
+
+// A cause tree has no AND: each branch is drawn by its cause's status. The path from an effect to a
+// confirmed cause is bold, and the branch to a ruled-out cause is dashed and faint.
+function treeEdges(l, C) {
+  let s = '', bold = '';
+  for (const e of l.edges) {
+    if (e.shared) { s += `<path class="edge" data-effect="${e.effectId}" d="${e.d}" fill="none" stroke="${C.shared}" stroke-width="1.6" stroke-dasharray="6 4"/>`; continue; }
+    const ys = e.branches.map(b => b.y);
+    s += `<path class="edge" data-effect="${e.effectId}" d="M ${e.from.x} ${e.from.y} H ${e.bx} M ${e.bx} ${Math.min(e.from.y, ...ys)} V ${Math.max(e.from.y, ...ys)}" fill="none" stroke="${C.wire}" stroke-width="1.6"/>`;
+    for (const b of e.branches) {
+      const status = byId(b.id)?.status;
+      if (status === 'confirmed') bold += `<path d="M ${e.from.x} ${e.from.y} H ${e.bx} V ${b.y} H ${b.x}" fill="none" stroke="${C.confirmedWire}" stroke-width="2.6" stroke-linejoin="round"/>`;
+      else s += `<path d="M ${e.bx} ${b.y} H ${b.x}" fill="none" stroke="${status === 'ruled-out' ? C.ruledWire : C.wire}" stroke-width="1.6"${status === 'ruled-out' ? ' stroke-dasharray="5 4"' : ''}/>`;
+    }
+  }
+  return s + bold;
 }
 
 // While a node is dragged: the drop target, a copy of the node under the pointer, and what a drop does.
@@ -1483,10 +1656,11 @@ function render() {
   if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length],
+  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length + treeRuledOut().length],
     ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
+  renderStyle();
   if (record !== 'chart') { renderRecord(); return; }
   renderCanvas();
   const n = byId(selected);
@@ -1506,6 +1680,22 @@ function render() {
   renderProperties();
 }
 
+// What the chart style changes around the chart: names, hint, edit bar, legend, and key hints.
+function renderStyle() {
+  const tree = treeStyle();
+  if ($('app').dataset.style === state.meta.style) return;
+  $('app').dataset.style = state.meta.style;
+  $('railChartName').textContent = tree ? 'Cause tree' : 'Cause & effect';
+  $('railChart').title = tree ? 'Cause tree' : 'Cause-and-effect chart';
+  $('chartHint').textContent = tree ? 'Read left to right: each effect, then its possible causes. Test each until a confirmed branch reaches a root cause.'
+    : 'Read left to right: each effect, then the causes that were all needed for it (AND).';
+  $('addActionName').textContent = tree ? '+ Cause' : '+ Action';
+  $('addAction').title = tree ? 'Add a possible cause to the selected effect' : 'Add an action cause to the selected effect';
+  $('keyHints').innerHTML = tree
+    ? '<kbd>Ins</kbd> cause · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> status · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete'
+    : '<kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete';
+}
+
 function renderTitle() {
   $('sheetTitle').textContent = primaryEffect()?.title.trim() || 'Untitled RCA';
   document.title = `${rcaName()} · Causeway`;
@@ -1522,7 +1712,7 @@ const area = (label, id, value, attrs = '') =>
   `<label class="field" for="${id}">${label}</label><textarea class="text" id="${id}" ${attrs}>${escapeHtml(value)}</textarea>`;
 const flagBox = (id, on, label, title) =>
   `<label class="flag" title="${title}"><input type="checkbox" id="${id}" ${on ? 'checked' : ''}> ${label}</label>`;
-const swatch = n => `<span class="sw ${n.kind}" aria-hidden="true"></span>`;
+const swatch = n => `<span class="sw ${nodeLook(n)}" aria-hidden="true"></span>`;
 
 function renderProperties() {
   const box = $('properties');
@@ -1530,31 +1720,43 @@ function renderProperties() {
   if (n) renderNodeProperties(box, n); else renderRcaProperties(box);
 }
 
+// The style cards: one for each chart style, the RCA's own checked.
+const styleCards = () => `<div class="style-cards" role="radiogroup" aria-label="Chart style">${Object.entries(CHART_STYLES).map(([k, st]) =>
+  `<label class="style-card${state.meta.style === k ? ' on' : ''}"><input type="radio" name="chartStyle" value="${k}" ${state.meta.style === k ? 'checked' : ''}><span><b>${st.name}</b><small>${st.about}</small></span></label>`).join('')}</div>`;
+
 function renderRcaProperties(box) {
-  const issues = ruleIssues();
+  const issues = ruleIssues(), tree = treeStyle();
   box.innerHTML = `
     <div class="panel-title">RCA</div>
     ${field('RCA number', 'rcaNumber', state.meta.rcaNumber, 'placeholder="e.g. RCA-2026-014"')}
     ${field('Equipment / tag', 'equipmentTag', state.meta.equipmentTag, 'placeholder="e.g. P-101A"')}
     ${area('Primary effect', 'primaryTitle', primaryEffect()?.title || '', 'rows="2" style="min-height:44px"')}
+    <div class="field">Chart style</div>
+    ${styleCards()}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
     ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
-      <ol class="steps">
+      <ol class="steps">${tree ? `
+        <li>Select the primary effect and add its possible causes with <b>+ Cause</b>.</li>
+        <li>Select a cause and add its own possible causes the same way.</li>
+        <li>Test each cause: link its evidence, and set its status to <b>Possible</b>, <b>Confirmed</b>, or <b>Ruled out</b>.</li>
+        <li>Follow the confirmed causes down to the root causes, and mark each with a stop point.</li>` : `
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
-        <li>Each effect needs at least one action and one condition.</li>
-        <li>When one cause supports several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
+        <li>Each effect needs at least one action and one condition.</li>`}
+        <li>When one cause ${tree ? 'may explain' : 'supports'} several effects, select the second effect, choose <b>Link cause</b>, and click the cause.</li>
         <li>Back each cause with evidence: select it and search or type under <b>Evidence</b>.</li>
         <li>Save the RCA as a JSON file with <b>Save</b>.</li>
       </ol>
     </div>
     <div class="section">
       <div class="panel-title">Keys</div>
-      <dl class="keys">
+      <dl class="keys">${tree ? `
+        <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add a cause to the selected effect</dd>
+        <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
         <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add an action to the selected effect</dd>
-        <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>
+        <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>`}
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
         <dt><kbd>←↑↓→</kbd></dt><dd>Select the neighbouring node</dd>
         <dt><kbd>M</kbd></dt><dd>Move the cause under another effect</dd>
@@ -1570,6 +1772,7 @@ function renderRcaProperties(box) {
       </dl>
     </div>`;
   if ($('expandAll')) $('expandAll').onclick = expandAll;
+  box.querySelectorAll('input[name=chartStyle]').forEach(r => r.onchange = () => { render(); askSwitchStyle(r.value); });
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
   $('primaryTitle').oninput = e => { primaryEffect().title = e.target.value; refreshChart(); persist('title:' + state.problem.primaryEffectId); };
@@ -1581,19 +1784,23 @@ function renderNodeProperties(box, n) {
   const issues = ruleIssues().filter(i => i.nodeId === n.id);
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
   const solutions = solutionsOf(n.id);
-  const kindName = isPrimary ? 'Primary effect' : KINDS[n.kind].name;
+  const tree = treeStyle();
+  const kindName = isPrimary ? 'Primary effect' : tree ? (n.status === 'ruled-out' ? 'Ruled out' : `${STATUSES[n.status].name} cause`) : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
   box.innerHTML = `
-    <div class="kind-row"><span class="kind-chip ${isPrimary ? 'effect' : n.kind}">${kindName.toUpperCase()}</span><span class="muted">${about}</span></div>
+    <div class="kind-row"><span class="kind-chip ${nodeLook(n)}">${kindName.toUpperCase()}</span><span class="muted">${about}</span></div>
     ${issues.map(i => `<div class="info ${i.level === 'info' ? '' : i.level === 'error' ? 'error' : 'warn'}">${escapeHtml(i.text)}</div>`).join('')}
-    ${isPrimary ? '' : `<div class="segmented" role="group" aria-label="Cause type">
+    ${isPrimary ? '' : tree ? `<div class="segmented status" role="group" aria-label="Status">${Object.entries(STATUSES).map(([k, st], i) =>
+      `<button data-status="${k}" class="${k}" ${pressed(n.status === k)} title="${st.name} (${i + 1})">${st.mark} ${st.name}</button>`).join('')}</div>`
+      : `<div class="segmented" role="group" aria-label="Cause type">
       <button data-kind="action" ${pressed(n.kind === 'action')} title="A momentary cause that happened at a point in time">Action</button>
       <button data-kind="condition" ${pressed(n.kind === 'condition')} title="A cause that existed over time">Condition</button>
     </div>`}
     ${area('Title <span class="muted">required</span>', 'nodeTitle', n.title, 'rows="2" style="min-height:44px"')}
+    ${isPrimary ? '' : area('How it is tested', 'nodeTest', n.test, `rows="2" style="min-height:44px" placeholder="${!tree ? 'The check or test that confirmed it' : {possible: 'The check or test that will confirm it or rule it out', confirmed: 'The check or test that confirmed it', 'ruled-out': 'The check or test that ruled it out'}[n.status]}"`)}
     <div class="flags">
-      ${isPrimary ? '' : flagBox('nodeUnverified', n.unverified, 'Unverified (?)', 'A candidate cause that evidence has not confirmed yet')
+      ${isPrimary ? '' : (tree ? '' : flagBox('nodeUnverified', n.unverified, 'Unverified (?)', 'A candidate cause that evidence has not confirmed yet'))
         + flagBox('nodeControllable', n.controllable, 'Controllable', 'The organisation can change this cause: a candidate for a solution')}
       ${flagBox('nodeStop', !!n.stopPoint, 'Stop point', 'The branch ends here')}
     </div>
@@ -1605,7 +1812,7 @@ function renderNodeProperties(box, n) {
         <button class="code" data-highlight="${e.id}" title="Highlight every node that cites ${escapeHtml(e.code)}">${escapeHtml(e.code)}</button>
         <div class="body"><span>${escapeHtml(e.description)}</span><small>${escapeHtml([e.type === 'inferred' ? 'Inferred' : 'Sensed', e.collectedBy, e.date].filter(Boolean).join(' · '))}</small></div>
         <button class="unlink" data-unlink="${e.id}" title="Unlink ${escapeHtml(e.code)}; it stays in the evidence log" aria-label="Unlink ${escapeHtml(e.code)}">×</button>
-      </div>`).join('') : isCause(n) ? '<p class="empty-note">No evidence linked yet. Every cause needs evidence.</p>' : ''}
+      </div>`).join('') : isCause(n) ? `<p class="empty-note">No evidence linked yet. ${tree ? 'A confirmed cause needs evidence.' : 'Every cause needs evidence.'}</p>` : ''}
       <div class="combo">
         <label class="field" for="evidenceSearch" style="margin-top:4px">Link or add evidence</label>
         <input class="text" id="evidenceSearch" role="combobox" aria-expanded="false" aria-controls="evidenceOptions" aria-autocomplete="list" autocomplete="off" placeholder="Type a code, a word, or new evidence">
@@ -1617,8 +1824,8 @@ function renderNodeProperties(box, n) {
       <div class="panel-title">${isPrimary ? 'Causes' : 'Causes of this effect'}</div>
       ${causes.length ? `<ul class="cause-list">${causes.map(c => `<li><button data-goto="${c.id}">${swatch(c)}${escapeHtml(c.title)}</button></li>`).join('')}</ul>` : '<p class="note" style="margin-top:0">No causes yet.</p>'}
       <div class="button-grid">
-        <button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
-        <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>
+        ${tree ? '<button class="button" id="inspAddAction" title="Insert or A">+ Cause</button>' : `<button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
+        <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>`}
         <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (L)">Link existing</button>
         ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
       </div>
@@ -1627,7 +1834,7 @@ function renderNodeProperties(box, n) {
       <div class="panel-title">Supports</div>
       <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
-      ${effects.length > 1 ? '<p class="note">A shared cause: it is needed for each of these effects.</p>' : ''}
+      ${effects.length > 1 ? `<p class="note">A shared cause: it ${tree ? 'may explain' : 'is needed for'} each of these effects.</p>` : ''}
       <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (M), or drag the node onto it">Move to another effect</button>
       <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
     </div>`}
@@ -1642,11 +1849,14 @@ function renderNodeProperties(box, n) {
       ${area('Notes', 'nodeNotes', n.notes)}
     </div>
     ${isPrimary ? '' : `<div class="button-grid" style="margin-top:16px">
-      <button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>
+      ${tree ? (n.status === 'ruled-out' ? '' : '<button class="button" id="inspRuleOut" title="Mark it ruled out; it stays on the tree, faded (3)">Rule out</button>')
+        : '<button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>'}
       <button class="button danger" id="inspDelete">Delete <kbd>Del</kbd></button>
     </div>`}`;
 
   $('nodeTitle').oninput = e => { n.title = e.target.value; refreshChart(); persist('title:' + n.id); };
+  if ($('nodeTest')) $('nodeTest').oninput = e => { n.test = e.target.value; persist('test:' + n.id); };
+  box.querySelectorAll('[data-status]').forEach(b => b.onclick = () => setNodeStatus(b.dataset.status));
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
   $('nodeNotes').oninput = e => { n.notes = e.target.value; persist('notes:' + n.id); };
   box.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { n.kind = b.dataset.kind; render(); persist(); });
@@ -1659,7 +1869,7 @@ function renderNodeProperties(box, n) {
   box.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { select(b.dataset.goto); scrollToNode(b.dataset.goto); });
   evidenceCombo(n);
   $('inspAddAction').onclick = () => addCauseToSelected('action');
-  $('inspAddCondition').onclick = () => addCauseToSelected('condition');
+  if ($('inspAddCondition')) $('inspAddCondition').onclick = () => addCauseToSelected('condition');
   $('inspLink').onclick = startLinking;
   if ($('inspMove')) $('inspMove').onclick = startMoving;
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
@@ -1720,6 +1930,45 @@ function evidenceCombo(n) {
   };
 }
 
+// ---- Chart style ----
+// Labels for what the other style still needs, by rule issue code.
+const NEEDS = {
+  type: n => `${plural(n, 'cause')} without a type: choose action or condition`,
+  'causal-set': n => `${plural(n, 'effect')} missing an action or a condition`,
+  ruled: n => `${plural(n, 'ruled-out cause')} to move to the causes ruled out`,
+  evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
+  untested: n => `${plural(n, 'possible cause')} still to test`,
+  'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
+};
+
+// Asks before moving the RCA to the other style, with what that style will still need.
+function askSwitchStyle(style) {
+  if (style === state.meta.style) return;
+  const issues = issuesAfterSwitch(style), groups = new Map();
+  for (const i of [...issues].sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level])) {
+    if (!groups.has(i.code)) groups.set(i.code, {level: i.level, n: 0});
+    groups.get(i.code).n++;
+  }
+  const name = CHART_STYLES[style].name;
+  openDialog(`<h2>Switch to ${style === 'tree' ? 'a cause tree' : 'Apollo'}?</h2>
+    <p>${style === 'tree'
+      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes <b>possible</b>. Actions and conditions keep their type, for a move back.'
+      : 'Nothing is lost. <b>Possible</b> causes become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
+    <div class="sub">Still needed after the switch</div>
+    ${groups.size ? `<ul class="needs">${[...groups].map(([code, g]) => `<li class="need-${g.level}">${NEEDS[code]?.(g.n, style) ?? plural(g.n, 'issue')}</li>`).join('')}</ul>
+      <p class="note">Each one shows in the issues list, and is outlined on the chart, so you can work through them.</p>`
+      : '<p class="note">Nothing: the chart already meets the rules of the new style.</p>'}
+    <div class="dialog-foot"><button class="button" data-choice="">Cancel</button><button class="button primary" data-choice="${style}" autofocus>Switch to ${name}</button></div>`,
+  () => switchStyle(style));
+}
+function switchStyle(style) {
+  convertStyle(style);
+  render(); persist();
+  const open = ruleIssues().filter(i => i.level !== 'info').length;
+  setStatus(`Chart style: ${CHART_STYLES[style].name}${open ? `; ${plural(open, 'issue')} to correct` : ''}`);
+  if (open && record === 'chart') showIssues(true);
+}
+
 function showSolution(id, focus = false) {
   showRecord('solutions');
   const card = $('solution-' + id);
@@ -1749,7 +1998,7 @@ function fillIssues(issues = ruleIssues()) {
   const sorted = [...issues].sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level]);
   $('issuesList').innerHTML = sorted.length
     ? sorted.map(i => `<button role="menuitem" data-node="${i.nodeId}"><b>${escapeHtml(byId(i.nodeId)?.title || 'Untitled')}</b><small class="${i.level}">${escapeHtml(i.text)}</small></button>`).join('')
-    : '<div class="empty">No issues: every effect has an action and a condition, and every cause has evidence.</div>';
+    : `<div class="empty">No issues: ${treeStyle() ? 'every cause is tested, and every confirmed cause has evidence' : 'every effect has an action and a condition, and every cause has evidence'}.</div>`;
   $('issuesList').querySelectorAll('[data-node]').forEach(b => b.onclick = () => {
     showIssues(false);
     select(b.dataset.node);
@@ -1807,9 +2056,11 @@ function deleteSelected() {
 function ruleOutSelected() {
   const n = byId(selected);
   if (!n || n.id === state.problem.primaryEffectId) return;
+  // In a cause tree a ruled-out cause stays on the tree.
+  if (treeStyle()) { setNodeStatus('ruled-out'); return; }
   const ids = deletionSet(n.id), others = ids.length - 1;
   if (others && !confirm(`Rule out "${n.title}"? The ${others} cause${others > 1 ? 's' : ''} that only it supports will be deleted.`)) return;
-  const r = {id: uuid(), cause: n.title, kind: n.kind === 'effect' ? '' : n.kind, test: '', evidenceIds: [...n.evidenceIds], status: 'ruled-out'};
+  const r = {id: uuid(), cause: n.title, kind: ['action', 'condition'].includes(n.kind) ? n.kind : '', test: n.test, evidenceIds: [...n.evidenceIds], status: 'ruled-out'};
   state.ruledOut.push(r);
   // A fishbone cause that was this node is now this ruled-out cause.
   for (const c of fishCauses()) if (c.nodeId === n.id) Object.assign(c, {nodeId: null, ruledOutId: r.id});
@@ -1818,6 +2069,15 @@ function ruleOutSelected() {
   selected = effect?.id ?? null;
   render(); persist();
   setStatus(`Moved "${n.title}" to the causes ruled out`);
+}
+
+// A cause tree: 1, 2, and 3 set the selected cause's status.
+function setNodeStatus(status) {
+  const n = byId(selected);
+  if (!n || !isCause(n) || !treeStyle()) return;
+  n.status = status;
+  render(); persist();
+  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}`);
 }
 
 // Collapsing is a view setting: saved with the file, but not an undo step.
@@ -1858,11 +2118,11 @@ function moveTo(causeId, fromId, toId) {
   setStatus(`Moved "${byId(causeId).title}" under "${byId(toId).title}"`);
   return true;
 }
-// Alt+Up and Alt+Down: swap with the neighbouring cause of the same kind under the same effect.
+// Alt+Up and Alt+Down: swap with the neighbouring cause of its group under the same effect.
 function nudgeCause(direction) {
   const effect = layout.parent.get(selected), n = byId(selected);
   if (!effect || !n) return;
-  const group = (layout.children.get(effect) || []).filter(c => c.kind === n.kind);
+  const group = (layout.children.get(effect) || []).filter(c => sameGroup(c, n));
   const i = group.findIndex(c => c.id === n.id), other = group[i + direction];
   if (!other) return;
   placeCause(effect, n.id, other.id, direction > 0);
@@ -1955,11 +2215,11 @@ svg.addEventListener('pointerup', () => {
 svg.addEventListener('pointercancel', () => cancelNodeDrag());
 
 // What dropping the dragged node at chart point p would do. On a sibling's top or bottom 30 %, or in
-// the gap next to it, it is placed above or below that sibling (siblings of the same kind only);
+// the gap next to it, it is placed above or below that sibling (siblings of its group only);
 // anywhere else on a node, it moves under that node.
 function dropTarget(d, p) {
-  const kind = byId(d.id).kind;
-  const siblings = (layout.children.get(d.from) || []).filter(n => n.kind === kind && n.id !== d.id).map(n => layout.boxes.get(n.id)).filter(Boolean);
+  const dragged = byId(d.id);
+  const siblings = (layout.children.get(d.from) || []).filter(n => sameGroup(n, dragged) && n.id !== d.id).map(n => layout.boxes.get(n.id)).filter(Boolean);
   const hit = [...layout.boxes.values()].find(b => b.id !== d.id && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
   if (hit && siblings.includes(hit)) {
     const f = (p.y - hit.y) / hit.h;
@@ -2023,6 +2283,7 @@ $('redo').onclick = () => restoreHistory(true);
 
 window.addEventListener('keydown', e => {
   const key = e.key.toLowerCase(), command = (e.ctrlKey || e.metaKey) && !e.altKey;
+  if ($('dialog').open) return;
   if (nodeDrag?.moved && key === 'escape') { e.preventDefault(); cancelNodeDrag(); setStatus('Drag cancelled'); return; }
   if (command && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
@@ -2041,8 +2302,11 @@ window.addEventListener('keydown', e => {
   }
   if (!byId(selected)) return;
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
-  const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
+  // In a cause tree, Insert and A add a cause.
+  const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && (treeStyle() ? {a: 'cause'} : {a: 'action', c: 'condition'})[key];
+  const status = treeStyle() && !e.shiftKey && {1: 'possible', 2: 'confirmed', 3: 'ruled-out'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
+  else if (status) { e.preventDefault(); setNodeStatus(status); }
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
   else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
@@ -2129,14 +2393,15 @@ function normalizeProject(p) {
   if (p?.type !== FILE_TYPE && p?.type !== LEGACY_FILE_TYPE) throw Error('This is not a Causeway RCA file.');
   if (!Number.isInteger(p.schemaVersion) || p.schemaVersion > SCHEMA_VERSION) throw Error(`File format version ${p.schemaVersion} is newer than this tool understands (${SCHEMA_VERSION}).`);
   if (!Array.isArray(p.nodes) || !Array.isArray(p.links)) throw Error('The file has no chart.');
-  const blank = blankState();
+  const blank = blankState(p.meta?.style === 'tree' ? 'tree' : 'apollo');
   const s = {
     ...blank, ...p, type: FILE_TYPE,
-    meta: {...blank.meta, ...p.meta, dates: {...blank.meta.dates, ...p.meta?.dates}},
+    meta: {...blank.meta, ...p.meta, style: blank.meta.style, dates: {...blank.meta.dates, ...p.meta?.dates}},
     problem: {...blank.problem, ...p.problem, significance: {...blank.problem.significance, ...p.problem?.significance}},
   };
   for (const key of ['evidence', 'ruledOut', 'solutions', 'actions']) s[key] = Array.isArray(p[key]) ? p[key] : [];
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
+    kind: n.kind in KINDS ? n.kind : 'condition', status: n.status in STATUSES ? n.status : 'possible', test: typeof n.test === 'string' ? n.test : '',
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
@@ -2199,13 +2464,22 @@ $('projectFile').onchange = async e => {
 $('openProject').onclick = openProject;
 $('saveProject').onclick = () => saveProject();
 $('saveProjectAs').onclick = () => saveProject(true);
+// A new RCA starts with its chart style chosen.
 $('newProject').onclick = () => {
   if (!confirmDiscard('Start a new RCA?')) return;
+  openDialog(`<h2>New RCA</h2>
+    <p>Choose how the causes are charted. You can switch later; Causeway then shows what the other style still needs.</p>
+    <div class="style-choices">${Object.entries(CHART_STYLES).map(([k, st], i) =>
+      `<button class="style-choice" data-choice="${k}" ${i ? '' : 'autofocus'}><b>${st.name}</b><span>${st.about}</span></button>`).join('')}</div>
+    <div class="dialog-foot"><button class="button" data-choice="">Cancel</button></div>`, newProject);
+};
+function newProject(style) {
   fileHandle = null;
-  replaceState(blankState());
+  replaceState(blankState(style));
   select(state.problem.primaryEffectId);
   focusTitle();
-};
+  setStatus(`New RCA: ${CHART_STYLES[style].name}`);
+}
 $('loadExample').onclick = () => {
   if (!confirmDiscard('Load the example?')) return;
   fileHandle = null;
@@ -2324,8 +2598,8 @@ function stepRow(c, s, i) {
       ${n ? `<textarea class="cell answer" rows="1" ${bind('node', n.id, 'title')} data-step="${s.id}" aria-label="${label}">${escapeHtml(n.title)}</textarea>`
         : `<textarea class="cell answer" rows="1" ${bind('whySteps', s.id, 'answer')} data-step="${s.id}" aria-label="${label}" placeholder="Because…">${escapeHtml(s.answer)}</textarea>`}
       <div class="why-meta">
-        <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
-          `<button class="kind" data-act="step-kind" data-id="${s.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+        ${treeStyle() ? '' : `<div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+          `<button class="kind" data-act="step-kind" data-id="${s.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>`}
         <div class="chips">${cited.map(e => evidenceChip(e, 'step-remove-evidence', s.id)).join('')}
           ${rest.length ? `<select class="picker" data-act="step-add-evidence" data-id="${s.id}" aria-label="Cite evidence for ${label}"><option value="">+ Evidence…</option>${rest.map(e =>
             `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
@@ -2395,8 +2669,8 @@ function fishCauseRow(g, c) {
       <button class="unlink" data-act="delete-fish-cause" data-id="${c.id}" aria-label="Remove this ${label.toLowerCase()}${status === 'open' ? '' : status === 'chart' ? '; it stays on the chart' : '; it stays in the causes ruled out'}">×</button>
     </div>
     <div class="why-meta">
-      <div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
-        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>
+      ${treeStyle() ? '' : `<div class="seg" role="group" aria-label="${label} type">${['action', 'condition'].map(k =>
+        `<button class="kind" data-act="fish-kind" data-id="${c.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>`}
       <div class="chips">${cited.map(e => evidenceChip(e, 'fish-remove-evidence', c.id)).join('')}
         ${rest.length ? `<select class="picker" data-act="fish-add-evidence" data-id="${c.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
           `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
@@ -2515,7 +2789,19 @@ function ruledOutPage() {
           <td class="row-actions"><button class="unlink" data-act="delete-ruled" data-id="${r.id}" aria-label="Remove">×</button></td>
         </tr>`;
       }).join('') : empty(6, 'No causes ruled out yet.')}</tbody>
-    </table></div>`;
+    </table></div>
+    ${treeStyle() ? `<h2 class="page-sub">Ruled out on the cause tree</h2>
+    <p class="note">These stay on the tree, faded and struck through. Write how each was ruled out here or in its properties.</p>
+    <div class="table-wrap"><table class="log">
+      <colgroup><col style="width:30%"><col style="width:40%"><col style="width:20%"><col style="width:80px"></colgroup>
+      <thead><tr><th>Cause</th><th>Evidence or test</th><th>Evidence</th><th><span class="sr">Show</span></th></tr></thead>
+      <tbody>${treeRuledOut().length ? treeRuledOut().map(n => `<tr>
+        <td>${cellArea('node', n.id, 'title', n.title, 'Cause')}</td>
+        <td>${cellArea('node', n.id, 'test', n.test, 'Evidence or test', 'placeholder="How it was ruled out"')}</td>
+        <td><div class="chips">${n.evidenceIds.map(evidenceById).filter(Boolean).map(e => evidenceChip(e)).join('') || '<span class="muted">None</span>'}</div></td>
+        <td class="row-actions"><button class="link" data-act="goto-node" data-node="${n.id}">Show</button></td>
+      </tr>`).join('') : empty(4, 'No causes on the tree are ruled out.')}</tbody>
+    </table></div>` : ''}`;
 }
 
 function solutionsPage() {
@@ -3103,8 +3389,10 @@ function buildReport() {
       <dl class="r-grid">${item('Safety', sig.safety)}${item('Environment', sig.environment)}${item('Production / cost', sig.productionCost)}${item('Reliability', sig.reliability)}</dl>
     </section>
     <section class="r-page">
-      <h2>Cause-and-effect chart</h2>
-      <p class="r-legend">Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.</p>
+      <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
+      <p class="r-legend">${treeStyle()
+        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed: possible, still to test. Grey, struck through: ruled out. E-codes: evidence. ?: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
+        : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
       ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
     </section>
@@ -3132,8 +3420,9 @@ function buildReport() {
     </section>
     <section>
       <h2>Causes ruled out</h2>
-      ${table(['Possible cause', 'Type', 'Evidence or test', 'Evidence', 'Status'], state.ruledOut.map(r => `<tr>
-        <td>${text(r.cause)}</td><td>${{action: 'Action', condition: 'Condition'}[r.kind] || '—'}</td><td>${text(r.test)}</td><td>${codes(r.evidenceIds)}</td><td>${RULED_OUT_STATUS[r.status] || ''}</td></tr>`), 'No causes ruled out.')}
+      ${table(['Possible cause', 'Type', 'Evidence or test', 'Evidence', 'Status'], [...state.ruledOut.map(r => `<tr>
+        <td>${text(r.cause)}</td><td>${{action: 'Action', condition: 'Condition'}[r.kind] || '—'}</td><td>${text(r.test)}</td><td>${codes(r.evidenceIds)}</td><td>${RULED_OUT_STATUS[r.status] || ''}</td></tr>`),
+        ...treeRuledOut().map(n => `<tr><td>${text(n.title)}</td><td>—</td><td>${text(n.test)}</td><td>${codes(n.evidenceIds)}</td><td>Ruled out, on the tree</td></tr>`)], 'No causes ruled out.')}
     </section>
     <section class="r-page">
       <h2>Solutions</h2>
@@ -3254,7 +3543,7 @@ function exampleRca() {
   causes('solids', 'bypass', 'nocheck');
 
   s.meta = {
-    rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump',
+    rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump', style: 'apollo',
     leadId: '', team: [], dates: {opened: '2026-09-15', eventDate: '2026-09-14', closed: ''},
   };
   const team = [['L. Moreau', 'Seal specialist, test lab'], ['R. Haddad', 'Reliability engineer'], ['K. Osei', 'Operations supervisor'], ['S. Varga', 'Process engineer']];

@@ -144,8 +144,10 @@ function buildReport() {
       <dl class="r-grid">${item('Safety', sig.safety)}${item('Environment', sig.environment)}${item('Production / cost', sig.productionCost)}${item('Reliability', sig.reliability)}</dl>
     </section>
     <section class="r-page">
-      <h2>Cause-and-effect chart</h2>
-      <p class="r-legend">Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.</p>
+      <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
+      <p class="r-legend">${treeStyle()
+        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed: possible, still to test. Grey, struck through: ruled out. E-codes: evidence. ?: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
+        : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
       ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
     </section>
@@ -173,8 +175,9 @@ function buildReport() {
     </section>
     <section>
       <h2>Causes ruled out</h2>
-      ${table(['Possible cause', 'Type', 'Evidence or test', 'Evidence', 'Status'], state.ruledOut.map(r => `<tr>
-        <td>${text(r.cause)}</td><td>${{action: 'Action', condition: 'Condition'}[r.kind] || '—'}</td><td>${text(r.test)}</td><td>${codes(r.evidenceIds)}</td><td>${RULED_OUT_STATUS[r.status] || ''}</td></tr>`), 'No causes ruled out.')}
+      ${table(['Possible cause', 'Type', 'Evidence or test', 'Evidence', 'Status'], [...state.ruledOut.map(r => `<tr>
+        <td>${text(r.cause)}</td><td>${{action: 'Action', condition: 'Condition'}[r.kind] || '—'}</td><td>${text(r.test)}</td><td>${codes(r.evidenceIds)}</td><td>${RULED_OUT_STATUS[r.status] || ''}</td></tr>`),
+        ...treeRuledOut().map(n => `<tr><td>${text(n.title)}</td><td>—</td><td>${text(n.test)}</td><td>${codes(n.evidenceIds)}</td><td>Ruled out, on the tree</td></tr>`)], 'No causes ruled out.')}
     </section>
     <section class="r-page">
       <h2>Solutions</h2>

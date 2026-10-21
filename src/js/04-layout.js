@@ -86,9 +86,10 @@ function computeLayout() {
     if (!children.has(l.effectId)) children.set(l.effectId, []);
     children.get(l.effectId).push(byId(l.causeId));
   }
-  // Within an effect, its actions come above its conditions.
-  const order = {action: 0, condition: 1, effect: 2};
-  for (const list of children.values()) list.sort((a, b) => order[a.kind] - order[b.kind]);
+  // Within an effect, its actions come above its conditions, and causes without a type below them.
+  // In a cause tree, causes keep their order.
+  const order = {action: 0, condition: 1, cause: 2, effect: 3};
+  if (!treeStyle()) for (const list of children.values()) list.sort((a, b) => order[a.kind] - order[b.kind]);
 
   // Hidden causes under a collapsed node, for its "+N" tag.
   const hiddenCount = id => {
@@ -166,7 +167,8 @@ function routeEdges(boxes, links, parent, rank) {
     let d = `M ${e.x + e.w} ${midY(e)} H ${bx} M ${bx} ${Math.min(midY(e), ...ys)} V ${Math.max(midY(e), ...ys)}`;
     for (const l of group) d += ` M ${bx} ${midY(boxes.get(l.causeId))} H ${boxes.get(l.causeId).x}`;
     // Two or more causes under one effect are joined by AND, marked where the bracket meets the effect.
-    edges.push({d, shared: false, effectId, linkIds: group.map(l => l.id), junction: group.length > 1 ? {x: bx, y: midY(e)} : null});
+    edges.push({d, shared: false, effectId, linkIds: group.map(l => l.id), junction: group.length > 1 ? {x: bx, y: midY(e)} : null,
+      from: {x: e.x + e.w, y: midY(e)}, bx, branches: group.map(l => ({id: l.causeId, x: boxes.get(l.causeId).x, y: midY(boxes.get(l.causeId))}))});
   }
 
   // Further links of shared causes get their own lanes beside the brackets.

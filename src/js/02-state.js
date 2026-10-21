@@ -21,16 +21,17 @@ function uuid() {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
+// status is used in a cause tree; test, how the cause is or was tested, in both styles.
 const blankNode = (kind, title) => ({
-  id: uuid(), kind, title, description: '', evidenceIds: [],
+  id: uuid(), kind, title, description: '', evidenceIds: [], status: 'possible', test: '',
   unverified: false, controllable: false, stopPoint: null, notes: '',
 });
 
-function blankState() {
+function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
-    meta: {rcaNumber: '', equipmentTag: '', sealType: '', leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
+    meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [],
     counters: {evidence: 1},
@@ -50,6 +51,7 @@ let record = 'chart';          // the page shown: the chart or one of the RCA re
 const byId = id => state.nodes.find(n => n.id === id);
 const primaryEffect = () => byId(state.problem.primaryEffectId);
 const evidenceById = id => state.evidence.find(e => e.id === id);
+const treeStyle = () => state.meta.style === 'tree';
 
 function resetInteraction() {
   selected = null; drag = null; nodeDrag = null; linking = null; highlight = null;

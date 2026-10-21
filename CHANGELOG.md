@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Two chart styles, chosen with **New**: **Apollo** (actions and conditions, AND) or **Cause tree** (possible causes, each possible, confirmed, or ruled out, like an organisation chart lying on its side). In a cause tree the confirmed path is drawn bold and ruled-out causes stay on the tree, struck through; keys 1, 2, and 3 set the status.
+- Switching an RCA to the other style first lists what that style still needs (causes without a type, effects missing an action or a condition, ruled-out causes to move, untested causes), then flags each in the issues list. Nothing is lost; the switch is one undo step.
+- Every cause has **How it is tested**: the test planned for it, or the one that confirmed or ruled it out. Rule out takes it to the causes ruled out.
+
 ## v1.1 — 2026-10-21
 
 New methods beside the chart: the 5 Whys and the fishbone diagram, both able to add their causes to the chart; and causes can be moved and reordered.

@@ -2,7 +2,7 @@
 
 A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, team, evidence log, causes ruled out, solutions, and the action plan. No installation, server, account, or network connection is needed.
 
-The chart follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. Alongside it, the 5 Whys and the fishbone diagram help find the causes, and add what they find to the chart.
+Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is tested: possible, confirmed, or ruled out. Alongside the chart, the 5 Whys and the fishbone diagram help find the causes, and add what they find to the chart.
 
 Causeway is independent. Apollo Root Cause Analysis is a trademark of its owner; Causeway is not affiliated with or endorsed by it.
 
@@ -14,7 +14,7 @@ RCAs are saved as files on your computer (see **Files** below). Nothing is sent 
 
 ## Build a chart
 
-1. A new RCA starts with the **primary effect**. Click it and type what happened in **Title**.
+1. **New** asks for the chart style: **Apollo** or **Cause tree** (see [Chart styles](#chart-styles)). The steps below are for Apollo. A new RCA starts with the **primary effect**. Click it and type what happened in **Title**.
 2. With the effect selected, choose **+ Action** or **+ Condition**. The new cause is selected with its title ready to type over.
 3. Select any cause and add its own causes the same way. The chart lays itself out from left to right: the primary effect on the left, causes to the right of their effects.
 4. Tick **Stop point** where a branch ends and pick the reason. Tick **Controllable** on causes the organisation can change; they are the candidates for solutions.
@@ -31,6 +31,24 @@ RCAs are saved as files on your computer (see **Files** below). Nothing is sent 
 | **CONTROLLABLE** | A cause the organisation can change |
 | Dashed purple connector | A further link of a shared cause (one cause supporting several effects) |
 | `E1` `E4` pills | Evidence items the cause cites |
+
+## Chart styles
+
+Choose the style when you start an RCA with **New**; the RCA properties (click the empty canvas) show it under **Chart style**, where you can switch.
+
+**Cause tree.** Each effect has its possible causes, drawn like an organisation chart lying on its side; there is no AND, because the branches are alternatives.
+
+- **+ Cause** (**Insert** or **A**) adds a possible cause. A cause has no action or condition type.
+- Each cause has a **status**, set in its properties or with **1**, **2**, **3**: **Possible** (white, dashed outline: still to test), **Confirmed** (solid teal; the path to it from the effect is drawn bold), or **Ruled out** (grey and struck through, with a dashed link). A ruled-out cause stays on the tree, so the chart shows what was eliminated; **Rule out** sets the status. The ruled-out causes are listed under **Causes ruled out** and in the report.
+- **How it is tested**, in each cause's properties (in both styles): the check or test that will confirm it or rule it out, or that did.
+- Issues: a confirmed cause without evidence (error), a possible cause not tested yet (warning), and a confirmed branch that ends without a stop point (note).
+
+**Switching.** Choosing the other style shows what that style will still need, before anything changes, for example *4 causes without a type*, *3 effects missing an action or a condition*, *1 ruled-out cause to move to the causes ruled out*. Switch, and each shows in the issues list, which opens, and is outlined on the chart, so you can work through them. Nothing is lost, and the switch is one undo step:
+
+- To a cause tree: a cause backed by evidence, and not unverified, becomes confirmed; the others become possible. Actions and conditions keep their type for a move back.
+- To Apollo: possible causes become unverified (?). Causes made in the tree ask for a type (choose **Action** or **Condition** in their properties), each effect needs an action and a condition, and each ruled-out cause asks to be moved to the causes ruled out with **Rule out**, which takes its evidence and test along.
+
+In a cause tree, the 5 Whys and the fishbone add causes without a type.
 
 ## Screen
 
@@ -133,8 +151,9 @@ With a node selected and no field focused:
 
 | Key | Result |
 |---|---|
-| **Insert** or **A** | Add an action cause |
-| **Shift+Insert** or **C** | Add a condition cause |
+| **Insert** or **A** | Add an action cause; in a cause tree, a cause |
+| **Shift+Insert** or **C** | Add a condition cause (Apollo) |
+| **1** **2** **3** | Cause tree: set the status to possible, confirmed, or ruled out |
 | **F2** or **Enter** | Edit the title |
 | **←** | Select the effect |
 | **→** | Select a cause; on a collapsed node, expand it |
@@ -175,7 +194,7 @@ The theme button in the top bar switches between **System** (follows the operati
 | **Save** | Saves the RCA as JSON. In Chrome and Edge you pick a file once, and later saves write to it; Firefox downloads a copy each time. **Ctrl/Cmd+S** |
 | **Save as** | Saves under a new name. **Ctrl/Cmd+Shift+S** |
 | **Open** | Opens a saved RCA |
-| **New** | Starts an empty RCA |
+| **New** | Starts an empty RCA, in the chart style you choose |
 | **Load example** | Replaces the current RCA with the P-101A example |
 
 You are asked before unsaved changes are lost, and the browser warns when you close the tab with unsaved changes.
@@ -193,9 +212,9 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | Key | Content |
 |---|---|
 | `id` | The RCA's UUID |
-| `meta` | `rcaNumber`, `equipmentTag`, `sealType`, `leadId` (a team member's id), `team` [{`id`, `name`, `role`}], `dates` {`opened`, `eventDate`, `closed`} |
+| `meta` | `rcaNumber`, `equipmentTag`, `sealType`, `style`: `apollo` \| `tree` (files without it are Apollo), `leadId` (a team member's id), `team` [{`id`, `name`, `role`}], `dates` {`opened`, `eventDate`, `closed`} |
 | `problem` | `primaryEffectId`, `when`, `where`, `significance` {`safety`, `environment`, `productionCost`, `reliability`}. The "what" is the primary effect node's title. |
-| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition`, `title`, `description`, `evidenceIds`, `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`} |
+| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`} |
 | `links` | {`id`, `effectId`, `causeId`}: the cause supports the effect. Links form a directed acyclic graph rooted at the primary effect. |
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
 | `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |
@@ -227,4 +246,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

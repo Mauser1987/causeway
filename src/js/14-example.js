@@ -61,7 +61,7 @@ function exampleRca() {
   causes('solids', 'bypass', 'nocheck');
 
   s.meta = {
-    rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump',
+    rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump', style: 'apollo',
     leadId: '', team: [], dates: {opened: '2026-09-15', eventDate: '2026-09-14', closed: ''},
   };
   const team = [['L. Moreau', 'Seal specialist, test lab'], ['R. Haddad', 'Reliability engineer'], ['K. Osei', 'Operations supervisor'], ['S. Varga', 'Process engineer']];

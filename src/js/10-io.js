@@ -36,14 +36,15 @@ function normalizeProject(p) {
   if (p?.type !== FILE_TYPE && p?.type !== LEGACY_FILE_TYPE) throw Error('This is not a Causeway RCA file.');
   if (!Number.isInteger(p.schemaVersion) || p.schemaVersion > SCHEMA_VERSION) throw Error(`File format version ${p.schemaVersion} is newer than this tool understands (${SCHEMA_VERSION}).`);
   if (!Array.isArray(p.nodes) || !Array.isArray(p.links)) throw Error('The file has no chart.');
-  const blank = blankState();
+  const blank = blankState(p.meta?.style === 'tree' ? 'tree' : 'apollo');
   const s = {
     ...blank, ...p, type: FILE_TYPE,
-    meta: {...blank.meta, ...p.meta, dates: {...blank.meta.dates, ...p.meta?.dates}},
+    meta: {...blank.meta, ...p.meta, style: blank.meta.style, dates: {...blank.meta.dates, ...p.meta?.dates}},
     problem: {...blank.problem, ...p.problem, significance: {...blank.problem.significance, ...p.problem?.significance}},
   };
   for (const key of ['evidence', 'ruledOut', 'solutions', 'actions']) s[key] = Array.isArray(p[key]) ? p[key] : [];
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
+    kind: n.kind in KINDS ? n.kind : 'condition', status: n.status in STATUSES ? n.status : 'possible', test: typeof n.test === 'string' ? n.test : '',
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
@@ -106,13 +107,22 @@ $('projectFile').onchange = async e => {
 $('openProject').onclick = openProject;
 $('saveProject').onclick = () => saveProject();
 $('saveProjectAs').onclick = () => saveProject(true);
+// A new RCA starts with its chart style chosen.
 $('newProject').onclick = () => {
   if (!confirmDiscard('Start a new RCA?')) return;
+  openDialog(`<h2>New RCA</h2>
+    <p>Choose how the causes are charted. You can switch later; Causeway then shows what the other style still needs.</p>
+    <div class="style-choices">${Object.entries(CHART_STYLES).map(([k, st], i) =>
+      `<button class="style-choice" data-choice="${k}" ${i ? '' : 'autofocus'}><b>${st.name}</b><span>${st.about}</span></button>`).join('')}</div>
+    <div class="dialog-foot"><button class="button" data-choice="">Cancel</button></div>`, newProject);
+};
+function newProject(style) {
   fileHandle = null;
-  replaceState(blankState());
+  replaceState(blankState(style));
   select(state.problem.primaryEffectId);
   focusTitle();
-};
+  setStatus(`New RCA: ${CHART_STYLES[style].name}`);
+}
 $('loadExample').onclick = () => {
   if (!confirmDiscard('Load the example?')) return;
   fileHandle = null;

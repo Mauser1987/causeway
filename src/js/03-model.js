@@ -35,8 +35,10 @@ function addLink(effectId, causeId) {
   return link;
 }
 
-function addCause(effectId, kind, title = kind === 'action' ? 'New action' : 'New condition') {
-  const n = blankNode(kind, title);
+// In a cause tree a new cause has no type; it is given one if the RCA moves to Apollo.
+function addCause(effectId, kind, title) {
+  if (treeStyle()) kind = 'cause';
+  const n = blankNode(kind, title ?? `New ${KINDS[kind].name.toLowerCase()}`);
   state.nodes.push(n);
   addLink(effectId, n.id);
   collapsed.delete(effectId);
@@ -266,18 +268,68 @@ function reveal(id) {
   return hiding.length > 0;
 }
 
+// Causes reorder among the siblings of their group: in Apollo, the same kind; in a cause tree, all.
+const sameGroup = (a, b) => treeStyle() || a.kind === b.kind;
+
+// ---- Chart style ----
+// Moving an RCA to the other style keeps everything. A cause's status and Apollo's unverified flag
+// are carried across; what the new style still needs shows up as rule issues.
+function convertStyle(style) {
+  for (const n of state.nodes) {
+    if (!isCause(n)) continue;
+    if (style === 'tree') { if (n.status !== 'ruled-out') n.status = n.unverified || !hasEvidence(n) ? 'possible' : 'confirmed'; }
+    else n.unverified = n.status === 'possible';
+  }
+  state.meta.style = style;
+}
+// The rule issues the RCA would have in the other style, without changing it.
+function issuesAfterSwitch(style) {
+  const current = state;
+  state = JSON.parse(JSON.stringify(state));
+  try { convertStyle(style); return ruleIssues(); } finally { state = current; }
+}
+
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one
 // action and one condition; each cause needs evidence; each branch ends in a stop point.
 
 const isCause = n => n.kind !== 'effect';
-const needsEvidence = n => n.unverified || !n.evidenceIds.some(evidenceById);
+const hasEvidence = n => n.evidenceIds.some(evidenceById);
+// The "?" on a cause: in Apollo, unverified or without evidence; in a cause tree, not yet ruled out and without evidence.
+const needsEvidence = n => treeStyle() ? n.status !== 'ruled-out' && !hasEvidence(n) : n.unverified || !hasEvidence(n);
+const isRuledOut = n => treeStyle() && isCause(n) && n.status === 'ruled-out';
+// In a cause tree, the ruled-out causes on the tree; they are listed with the causes ruled out.
+const treeRuledOut = () => state.nodes.filter(isRuledOut);
+// The palette entry a node is drawn with.
+const nodeLook = n => n.id === state.problem.primaryEffectId || n.kind === 'effect' ? 'effect'
+  : treeStyle() ? (n.status === 'ruled-out' ? 'ruled' : n.status) : n.kind;
 
 function ruleIssues() {
+  return treeStyle() ? treeIssues() : apolloIssues();
+}
+
+// A cause tree: each confirmed cause needs evidence, each possible cause a test, and each confirmed
+// branch a stop point. Ruled-out causes need nothing more.
+function treeIssues() {
+  const issues = [], live = reachable();
+  for (const n of state.nodes) {
+    if (!live.has(n.id) || !isCause(n)) continue;
+    if (n.status === 'confirmed' && !hasEvidence(n)) issues.push({nodeId: n.id, level: 'error', code: 'evidence', text: 'Confirmed without evidence'});
+    if (n.status === 'possible') issues.push({nodeId: n.id, level: 'warning', code: 'untested', text: hasEvidence(n) ? 'Not confirmed or ruled out yet' : 'Not tested yet: no evidence'});
+    if (n.status === 'confirmed' && !causesOf(n.id).some(c => c.status !== 'ruled-out') && !n.stopPoint) issues.push({nodeId: n.id, level: 'info', code: 'open-branch',
+      text: 'Confirmed branch ends without a stop point'});
+  }
+  return issues;
+}
+
+function apolloIssues() {
   const issues = [];
   const live = reachable();
   for (const n of state.nodes) {
     if (!live.has(n.id)) continue;
+    if (n.kind === 'cause') issues.push({nodeId: n.id, level: 'error', code: 'type', text: 'Choose a type: action or condition'});
+    if (isCause(n) && n.status === 'ruled-out') issues.push({nodeId: n.id, level: 'error', code: 'ruled',
+      text: 'Ruled out in the cause tree: move it to the causes ruled out (Rule out)'});
     const causes = causesOf(n.id);
     const isEffect = causes.length > 0 || n.kind === 'effect';
     if (isEffect) {

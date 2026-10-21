@@ -58,11 +58,11 @@ svg.addEventListener('pointerup', () => {
 svg.addEventListener('pointercancel', () => cancelNodeDrag());
 
 // What dropping the dragged node at chart point p would do. On a sibling's top or bottom 30 %, or in
-// the gap next to it, it is placed above or below that sibling (siblings of the same kind only);
+// the gap next to it, it is placed above or below that sibling (siblings of its group only);
 // anywhere else on a node, it moves under that node.
 function dropTarget(d, p) {
-  const kind = byId(d.id).kind;
-  const siblings = (layout.children.get(d.from) || []).filter(n => n.kind === kind && n.id !== d.id).map(n => layout.boxes.get(n.id)).filter(Boolean);
+  const dragged = byId(d.id);
+  const siblings = (layout.children.get(d.from) || []).filter(n => sameGroup(n, dragged) && n.id !== d.id).map(n => layout.boxes.get(n.id)).filter(Boolean);
   const hit = [...layout.boxes.values()].find(b => b.id !== d.id && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h);
   if (hit && siblings.includes(hit)) {
     const f = (p.y - hit.y) / hit.h;
@@ -126,6 +126,7 @@ $('redo').onclick = () => restoreHistory(true);
 
 window.addEventListener('keydown', e => {
   const key = e.key.toLowerCase(), command = (e.ctrlKey || e.metaKey) && !e.altKey;
+  if ($('dialog').open) return;
   if (nodeDrag?.moved && key === 'escape') { e.preventDefault(); cancelNodeDrag(); setStatus('Drag cancelled'); return; }
   if (command && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
@@ -144,8 +145,11 @@ window.addEventListener('keydown', e => {
   }
   if (!byId(selected)) return;
   // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
-  const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && {a: 'action', c: 'condition'}[key];
+  // In a cause tree, Insert and A add a cause.
+  const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && (treeStyle() ? {a: 'cause'} : {a: 'action', c: 'condition'})[key];
+  const status = treeStyle() && !e.shiftKey && {1: 'possible', 2: 'confirmed', 3: 'ruled-out'}[key];
   if (kind) { e.preventDefault(); addCauseToSelected(kind); }
+  else if (status) { e.preventDefault(); setNodeStatus(status); }
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
   else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
