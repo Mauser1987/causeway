@@ -2,8 +2,6 @@
 
 An offline, single-file HTML tool for root cause analyses with the Apollo method: build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it. No installation, server, account, or network connection is needed.
 
-> Status: milestones M1–M3 of four. Export, printing, and the dark theme (M4) follow.
-
 ## Run it
 
 Open [`apollo-rca.html`](apollo-rca.html) in Chrome, Edge, or Firefox. Choose **Load example** to see a finished chart: high leakage on the single cartridge seal of pump P-101A.
@@ -30,7 +28,7 @@ Open [`apollo-rca.html`](apollo-rca.html) in Chrome, Edge, or Firefox. Choose **
 
 ## Screen
 
-- **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the file commands.
+- **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the theme, export, and print buttons; the file commands.
 - **Records** on the left: the chart and the six RCA records, with their counts. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
@@ -112,6 +110,20 @@ All causes under one effect are joined by AND: each was needed. Every effect nee
 
 Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whole chart.
 
+## Export and print
+
+| Control | Result |
+|---|---|
+| **Export ▾ → Chart as SVG** | The chart as one self-contained SVG file: colours are attributes, with no stylesheet, font, or image to fetch. It opens in browsers, Inkscape, and Office, and can be edited further. |
+| **Export ▾ → Chart as PNG** | The chart as an image at twice screen resolution (less for very large charts, which browsers limit). |
+| **Print report** or **Ctrl/Cmd+P** | The RCA report, on landscape pages: cover (RCA number, equipment, seal type, lead and team, dates), problem definition, chart and open rule issues, evidence log, causes ruled out, solutions with the four criteria, and the action plan. Choose **Save as PDF** as the printer for a PDF. |
+
+Exports and the report always show the **whole chart**, with every branch expanded, in the light colours, whatever the screen shows. On the report, a chart that fits one page at 55 % or more is scaled to fit; a larger one is split into page-sized parts, numbered by row and column, with the cuts between columns so no box is split across.
+
+## Theme
+
+The theme button in the top bar switches between **System** (follows the operating system), **Light**, and **Dark**. The choice is kept in this browser; it is not part of the RCA file.
+
 ## Files
 
 | Control | Result |
@@ -152,14 +164,14 @@ Stop point reasons are `outside-control`, `solution-found`, `no-evidence`, and `
 
 ## Offline
 
-The page has no external references, and its Content Security Policy (`default-src 'none'`) makes the browser refuse any network request. It contains no third-party code.
+The page has no external references and uses the system fonts, and its Content Security Policy (`default-src 'none'`) makes the browser refuse any network request. It contains no third-party code.
 
 ## Project files and development
 
 `apollo-rca.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the record pages), `12-example`, `13-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the record pages), `12-output` (SVG and PNG export, the printed report, themes), `13-example`, `14-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `apollo-rca.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.
@@ -169,4 +181,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, unlinking, collapsing and expanding, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, autosave recovery, unavailable storage, and that no network request is made.

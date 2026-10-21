@@ -2,8 +2,9 @@
 """Browser regression tests, run through Firefox using Marionette; no Python dependencies.
 
 Checks the script's syntax, then loads apollo-rca.html and covers the example, the layout,
-adding and deleting causes, rule checks, undo and redo, opening and saving files, autosave,
-and that the page makes no network requests.
+editing the chart with the mouse and keyboard, rule checks, shared causes, collapsing, the RCA
+record pages, undo and redo, opening and saving files, export, the printed report, themes,
+autosave, and that the page makes no network requests.
 
 Run directly to start a temporary headless Firefox, or pass --port to use an
 existing Firefox started with --headless --marionette and a temporary profile.
@@ -528,6 +529,60 @@ def run_tests(b):
     assert len(rca()['nodes']) == 16, 'a rejected file leaves the RCA as it was'
     print('PASS: invalid files are refused', flush=True)
 
+    # ---- Export, print, theme ----
+    import base64
+    nodes_total = len(rca()['nodes'])
+    select('Plan 11 flush flow dropped to near zero')
+    key(' ')
+    assert len(boxes()) < nodes_total
+    b.js('__downloads.length=0;return true')
+    click('exportButton'); click('exportSvg')
+    svg_text = b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)')
+    parsed = b.js('''const d=new DOMParser().parseFromString(arguments[0],"image/svg+xml");
+        return {error:!!d.querySelector("parsererror"),nodes:d.querySelectorAll(".node").length,root:d.documentElement.tagName,toggles:d.querySelectorAll(".toggle").length}''', [svg_text])
+    assert parsed == {'error': False, 'nodes': nodes_total, 'root': 'svg', 'toggles': 0}, parsed
+    assert not re.search(r'href|url\(|<style|https?:', svg_text.replace('xmlns="http://www.w3.org/2000/svg"', '')), 'the SVG references nothing outside itself'
+    assert 'fill="#0b5f66"' in svg_text, 'colours are attributes'
+    assert b.js('return document.getElementById("exportMenu").hidden')
+    print('PASS: SVG export: whole chart, self-contained', flush=True)
+
+    b.js('__downloads.length=0;return true')
+    click('exportButton'); click('exportPng')
+    png = b.async_js('''const done=arguments[arguments.length-1];const t0=Date.now();
+        (function wait(){ const png=__downloads.find(d=>d.type==='image/png'); if(png) done({type:png.type,size:png.size}); else if(Date.now()-t0>8000) done(null); else setTimeout(wait,50); })()''')
+    assert png and png['type'] == 'image/png' and png['size'] > 20000, png
+    print('PASS: PNG export', flush=True)
+
+    b.js('window.dispatchEvent(new Event("beforeprint"));return true')
+    report = b.js('''const r=document.getElementById("report");return {h2:[...r.querySelectorAll("h2")].map(h=>h.textContent),
+        figures:r.querySelectorAll("figure").length,nodes:[...r.querySelectorAll("figure svg")].map(s=>s.querySelectorAll(".node").length),
+        evidence:r.querySelectorAll("section:nth-of-type(3) tbody tr").length,text:r.textContent}''')
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+    assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
+    assert report['evidence'] == len(rca()['evidence'])
+    assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Revise upset procedure OP-212' in report['text']
+    pdf = base64.b64decode(b.call('WebDriver:Print', {'orientation': 'landscape', 'background': True})['value'])
+    assert pdf.startswith(b'%PDF') and pdf.count(b'/Type /Page') - pdf.count(b'/Type /Pages') >= 5, 'the report prints over several pages'
+    print('PASS: printed report', flush=True)
+
+    def node_fill(title):
+        return b.js('return document.querySelector(`#chart .node[data-id="${arguments[0]}"] rect:not([fill=none])`).getAttribute("fill")', [node_id(title)])
+    assert b.js('return document.documentElement.dataset.theme ?? null') is None, 'the theme follows the system at first'
+    click('themeButton')
+    assert b.js('return document.documentElement.dataset.theme') == 'light'
+    click('themeButton')
+    assert b.js('return document.documentElement.dataset.theme') == 'dark'
+    assert b.js("return localStorage.getItem('apollo-rca-theme')") == 'dark'
+    assert node_fill('Plan 11 flush flow dropped to near zero') == '#0d6e76', 'the canvas uses the dark palette'
+    assert b.js("return getComputedStyle(document.body).backgroundColor") == 'rgb(22, 31, 40)'
+    b.js('__downloads.length=0;return true')
+    click('exportButton'); click('exportSvg')
+    assert 'fill="#0b5f66"' in b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)'), 'exports stay light'
+    click('themeButton')
+    assert b.js('return document.documentElement.dataset.theme ?? null') is None and node_fill('Plan 11 flush flow dropped to near zero') == '#0b5f66'
+    key(' ')
+    print('PASS: light, dark, and system themes', flush=True)
+
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')
     type_into('nodeNotes', 'Check with the seal vendor')
@@ -546,7 +601,7 @@ def run_tests(b):
     print('PASS: works when storage is unavailable', flush=True)
 
     # ---- No network ----
-    assert b.js("return performance.getEntriesByType('resource').length") == 0, 'no resources were fetched'
+    assert b.js("return performance.getEntriesByType('resource').filter(r=>!r.name.startsWith('blob:')&&!r.name.startsWith('data:')).length") == 0, 'no resources were fetched'
     assert b.js('return __violations') == []
     assert b.js("return document.querySelector('meta[http-equiv=Content-Security-Policy]').content").startswith("default-src 'none'")
     html = (ROOT / 'apollo-rca.html').read_text(encoding='utf-8')

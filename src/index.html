@@ -27,6 +27,16 @@
       <div id="issuesList" class="popover" role="menu" hidden></div>
     </div>
     <div class="toolbar" id="fileGroup">
+      <button class="icon" id="themeButton" aria-label="Theme" title="Theme"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg></button>
+      <div class="menu-wrap">
+        <button id="exportButton" aria-expanded="false" aria-controls="exportMenu" title="Export the chart as an image">Export ▾</button>
+        <div id="exportMenu" class="popover right" role="menu" hidden>
+          <button role="menuitem" id="exportSvg"><b>Chart as SVG</b><small>Vector, for documents and further editing</small></button>
+          <button role="menuitem" id="exportPng"><b>Chart as PNG</b><small>Image at twice screen resolution</small></button>
+        </div>
+      </div>
+      <button id="printReport" title="Print the RCA report, or save it as a PDF (Ctrl/Cmd+P)">Print report</button>
+      <span class="divider" aria-hidden="true"></span>
       <button id="newProject" title="Start a new, empty RCA">New</button>
       <button id="openProject" title="Open a saved RCA (JSON)">Open</button>
       <button id="loadExample" title="Replace the current RCA with the built-in P-101A seal leakage example">Load example</button>
@@ -87,6 +97,7 @@
     <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
+<div id="report" aria-hidden="true"></div>
 <script>
 (() => {
 'use strict';

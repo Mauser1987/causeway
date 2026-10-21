@@ -34,12 +34,68 @@
   --warn-soft: #fff6ea;
   --warn-line: #f0c089;
   --select: #2563eb;
+  --kbd: #f7f9fb;
+  --soft: #f3f6f9;
+  --faint: #7d8b97;
+  --wire: #8796a4;
+  --shared: #7b5ab7;
+  --stop: #16232f;
+  --stop-ink: #fff;
+  --ok: #2f8a3e;
+  --ok-soft: #e3f3e6;
+  --ok-ink: #1f5f2a;
+  --danger-line: #e3aab0;
+  --info-line: #b8c9f5;
+  --info-soft: #eef3fe;
+  --info-ink: #1e3a8a;
+  --accent-faint: #f0f7f8;
+  --lit-soft: #fff8e1;
+  --lit: #ffe9a8;
+  --focus: #8ddadd;
+  --shadow: rgba(22, 35, 47, .12);
+  color-scheme: light;
   --mono: ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace;
   font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
   font-size: 13px;
   color: var(--ink);
   background: var(--panel);
 }
+
+/* Dark theme: the system setting, unless the theme button chose light; or chosen with the button. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme=light]) { 
+    color-scheme: dark;
+    --ink: #e3eaf0; --ink-2: #b9c6d2; --muted: #93a3b2; --faint: #6d7c89;
+    --line: #2b3844; --line-soft: #222e39; --panel: #161f28; --rail: #121a22; --canvas: #0e151c; --dots: #25313c;
+    --field-line: #3a4955; --kbd: #1d2731; --soft: #1b252f;
+    --accent: #0f7a83; --accent-2: #3fb5bd; --accent-ink: #8fdde2; --accent-soft: #123238; --accent-faint: #15292e;
+    --condition: #13272c; --effect: #c2372e; --wire: #6f8294; --shared: #a58be0;
+    --stop: #e3eaf0; --stop-ink: #0e151c;
+    --danger: #f2877e; --danger-soft: #3a1c1b; --danger-line: #6b2e2b;
+    --warn: #e0782f; --warn-ink: #f3b27a; --warn-soft: #33230f; --warn-line: #6b4a20;
+    --ok: #4cb35c; --ok-soft: #17301c; --ok-ink: #9fd8a8;
+    --info-line: #34508f; --info-soft: #17233b; --info-ink: #c3d3ff;
+    --lit-soft: #2e260c; --lit: #5a4710; --focus: #1f5d63; --select: #6b97ff;
+    --shadow: rgba(0, 0, 0, .45);
+    scrollbar-color: #3a4955 #121a22;
+   }
+}
+:root[data-theme=dark] { 
+    color-scheme: dark;
+    --ink: #e3eaf0; --ink-2: #b9c6d2; --muted: #93a3b2; --faint: #6d7c89;
+    --line: #2b3844; --line-soft: #222e39; --panel: #161f28; --rail: #121a22; --canvas: #0e151c; --dots: #25313c;
+    --field-line: #3a4955; --kbd: #1d2731; --soft: #1b252f;
+    --accent: #0f7a83; --accent-2: #3fb5bd; --accent-ink: #8fdde2; --accent-soft: #123238; --accent-faint: #15292e;
+    --condition: #13272c; --effect: #c2372e; --wire: #6f8294; --shared: #a58be0;
+    --stop: #e3eaf0; --stop-ink: #0e151c;
+    --danger: #f2877e; --danger-soft: #3a1c1b; --danger-line: #6b2e2b;
+    --warn: #e0782f; --warn-ink: #f3b27a; --warn-soft: #33230f; --warn-line: #6b4a20;
+    --ok: #4cb35c; --ok-soft: #17301c; --ok-ink: #9fd8a8;
+    --info-line: #34508f; --info-soft: #17233b; --info-ink: #c3d3ff;
+    --lit-soft: #2e260c; --lit: #5a4710; --focus: #1f5d63; --select: #6b97ff;
+    --shadow: rgba(0, 0, 0, .45);
+    scrollbar-color: #3a4955 #121a22;
+   }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 body { margin: 0; background: var(--panel); }
@@ -51,7 +107,7 @@ input[type=file] { display: none; }
 kbd {
   padding: 0 5px;
   border: 1px solid var(--field-line); border-bottom-width: 2px; border-radius: 4px;
-  background: #f7f9fb; color: var(--ink-2);
+  background: var(--kbd); color: var(--ink-2);
   font-family: inherit; font-size: 10.5px; font-weight: 600; line-height: 1.5;
 }
 
@@ -64,7 +120,7 @@ kbd {
 }
 
 /* ---- Top bar ---- */
-header {
+.app > header {
   grid-column: 1 / -1;
   display: flex; align-items: center; gap: 14px;
   padding: 0 16px;
@@ -81,39 +137,39 @@ header {
 .brand small { color: var(--muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .brand strong { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
 .group { display: flex; gap: 4px; }
-header button {
+.app > header button {
   height: 32px; padding: 0 12px;
   border: 1px solid var(--line); border-radius: 6px;
   background: var(--panel); color: var(--ink);
   white-space: nowrap;
 }
-header button:hover:not(:disabled) { border-color: var(--accent-2); }
-header button:disabled { opacity: .4; }
-header button.icon { width: 32px; padding: 0; display: grid; place-items: center; color: var(--ink-2); }
-header button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
-header button.primary:hover { background: #0e7880; }
+.app > header button:hover:not(:disabled) { border-color: var(--accent-2); }
+.app > header button:disabled { opacity: .4; }
+.app > header button.icon { width: 32px; padding: 0; display: grid; place-items: center; color: var(--ink-2); }
+.app > header button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.app > header button.primary:hover { background: #0e7880; }
 .toolbar { margin-left: auto; display: flex; gap: 6px; }
 
 .issues-wrap { position: relative; }
-header .issues {
+.app > header .issues {
   display: flex; align-items: center; gap: 8px;
   border-radius: 16px; border-color: var(--line); color: var(--muted);
 }
-.issues .dot { width: 8px; height: 8px; border-radius: 4px; background: #2f8a3e; }
-header .issues.has { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn-ink); font-weight: 600; }
+.issues .dot { width: 8px; height: 8px; border-radius: 4px; background: var(--ok); }
+.app > header .issues.has { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn-ink); font-weight: 600; }
 .issues.has .dot { background: var(--warn); }
 .popover {
   position: absolute; z-index: 10; top: 38px; left: 0;
   width: 360px; max-height: 60vh; overflow: auto; padding: 4px;
   border: 1px solid var(--line); border-radius: 8px;
-  background: var(--panel); box-shadow: 0 8px 24px rgba(22, 35, 47, .14);
+  background: var(--panel); box-shadow: 0 8px 24px var(--shadow);
 }
-.popover button {
+.app .popover button {
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
   width: 100%; height: auto; padding: 7px 10px;
   border: 0; border-radius: 6px; background: none; text-align: left;
 }
-.popover button:hover, .popover button:focus-visible { background: var(--accent-soft); }
+.app .popover button:hover, .app .popover button:focus-visible { background: var(--accent-soft); }
 .popover b { font-weight: 600; }
 .popover small { color: var(--muted); }
 .popover small.error { color: var(--danger); }
@@ -135,7 +191,7 @@ header .issues.has { border-color: var(--warn-line); background: var(--warn-soft
 .record span { font-size: 11px; color: var(--muted); }
 .record.active { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
 .record.active span { color: var(--accent-ink); }
-.record:disabled { color: #7d8b97; }
+.record:disabled { color: var(--faint); }
 .legend-title { margin-top: 20px !important; }
 .legend { list-style: none; margin: 0; padding: 0 10px; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--ink-2); }
 .legend li { display: flex; align-items: center; gap: 8px; }
@@ -143,11 +199,11 @@ header .issues.has { border-color: var(--warn-line); background: var(--warn-soft
 .sw.effect { background: var(--effect); }
 .sw.action { background: var(--accent); }
 .sw.condition { background: var(--condition); border: 1.5px solid var(--accent-2); }
-.sw.and { height: 16px; padding: 0 4px; border: 1.5px solid #8796a4; border-radius: 8px; background: #fff; color: var(--ink-2); font-size: 8px; font-weight: 800; }
+.sw.and { height: 16px; padding: 0 4px; border: 1.5px solid var(--wire); border-radius: 8px; background: var(--panel); color: var(--ink-2); font-size: 8px; font-weight: 800; }
 .sw.q { width: 18px; height: 18px; border-radius: 9px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; }
 .sw.code { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font: 700 10.5px var(--mono); }
-.sw.shared { height: 0; border-top: 2px dashed #7b5ab7; border-radius: 0; }
-.sw.stop { height: 16px; padding: 0 6px; border-radius: 8px; background: var(--ink); color: #fff; }
+.sw.shared { height: 0; border-top: 2px dashed var(--shared); border-radius: 0; }
+.sw.stop { height: 16px; padding: 0 6px; border-radius: 8px; background: var(--stop); color: var(--stop-ink); }
 .sw.ctrl { height: 16px; padding: 0 5px; border-radius: 8px; background: #2f7a3a; color: #fff; font-size: 7.5px; }
 
 /* ---- Canvas ---- */
@@ -164,10 +220,10 @@ main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .banner {
   position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%);
   max-width: calc(100% - 32px); display: flex; align-items: center; gap: 12px;
-  padding: 8px 8px 8px 14px; border: 1px solid #b8c9f5; border-radius: 8px;
-  background: #eef3fe; color: #1e3a8a; box-shadow: 0 4px 14px rgba(22, 35, 47, .10);
+  padding: 8px 8px 8px 14px; border: 1px solid var(--info-line); border-radius: 8px;
+  background: var(--info-soft); color: var(--info-ink); box-shadow: 0 4px 14px var(--shadow);
 }
-.banner button { flex: none; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid #b8c9f5; border-radius: 6px; background: #fff; color: #1e3a8a; }
+.banner button { flex: none; display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; border: 1px solid var(--info-line); border-radius: 6px; background: var(--panel); color: var(--info-ink); }
 .node { cursor: pointer; }
 main:has(.banner:not([hidden])) .hint { display: none; }
 .hint { position: absolute; left: 16px; top: 12px; margin: 0; font-size: 12px; color: var(--muted); pointer-events: none; }
@@ -175,7 +231,7 @@ main:has(.banner:not([hidden])) .hint { display: none; }
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   display: flex; align-items: center; gap: 4px; padding: 6px;
   border: 1px solid var(--line); border-radius: 10px;
-  background: var(--panel); box-shadow: 0 6px 20px rgba(22, 35, 47, .12);
+  background: var(--panel); box-shadow: 0 6px 20px var(--shadow);
   white-space: nowrap;
 }
 .editbar button {
@@ -231,7 +287,7 @@ footer {
   border: 1px solid var(--field-line); border-radius: 6px;
   background: var(--panel); color: var(--ink);
 }
-.text:focus { outline: 2px solid #8ddadd; border-color: var(--accent-2); }
+.text:focus { outline: 2px solid var(--focus); border-color: var(--accent-2); }
 textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 
 .flags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
@@ -257,7 +313,7 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 }
 .button:hover { border-color: var(--accent-2); background: var(--accent-soft); }
 .button.danger { color: var(--danger); }
-.button.danger:hover { background: var(--danger-soft); border-color: #e3aab0; }
+.button.danger:hover { background: var(--danger-soft); border-color: var(--danger-line); }
 .button.block { display: flex; width: 100%; margin-top: 16px; }
 .button-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
 
@@ -272,11 +328,11 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .options {
   margin: 4px 0 0; padding: 0; list-style: none;
   border: 1px solid var(--line); border-radius: 8px; background: var(--panel);
-  box-shadow: 0 6px 18px rgba(22, 35, 47, .10); overflow: hidden;
+  box-shadow: 0 6px 18px var(--shadow); overflow: hidden;
 }
 .options li { display: flex; gap: 8px; align-items: baseline; padding: 7px 10px; font-size: 12px; cursor: pointer; border-top: 1px solid var(--line-soft); }
 .options li:first-child { border-top: 0; }
-.options li[aria-selected=true] { background: #f0f7f8; }
+.options li[aria-selected=true] { background: var(--accent-faint); }
 .options li .k { flex: none; font: 700 11px var(--mono); color: var(--accent-ink); }
 .options li .new { flex: none; font-weight: 700; color: var(--accent); }
 .empty-note { margin: 0 0 8px; padding: 8px 10px; border-radius: 8px; background: var(--warn-soft); color: var(--warn-ink); font-size: 12px; }
@@ -289,7 +345,7 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .cause-list .with-action > button:first-child { flex: 1; min-width: 0; }
 .cause-list .sw { width: 10px; min-width: 10px; height: 10px; border-radius: 2px; }
 
-.info { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: #f3f6f9; color: var(--ink-2); font-size: 12px; line-height: 1.45; }
+.info { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--soft); color: var(--ink-2); font-size: 12px; line-height: 1.45; }
 .info.warn { background: var(--warn-soft); color: var(--warn-ink); }
 .info.error { background: var(--danger-soft); color: var(--danger); }
 .note { margin: 6px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
@@ -335,7 +391,7 @@ table.log { width: 100%; min-width: 1060px; border-collapse: collapse; table-lay
 table.log th { padding: 9px 8px; border-bottom: 1px solid var(--line); background: var(--rail); text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 table.log td { padding: 6px 6px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
 table.log tr:last-child td { border-bottom: 0; }
-table.log tr.current td { background: #fff8e1; }
+table.log tr.current td { background: var(--lit-soft); }
 table.log tr.done td { color: var(--muted); }
 table.log .center { text-align: center; vertical-align: middle; }
 table.log td.code-cell, table.log td:first-child .code { margin-top: 6px; display: inline-block; }
@@ -347,7 +403,7 @@ table.log td.code-cell, table.log td:first-child .code { margin-top: 6px; displa
 }
 textarea.cell { resize: vertical; min-height: 34px; display: block; }
 .cell:hover { border-color: var(--line); }
-.cell:focus { outline: none; border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 2px #cdeef0; }
+.cell:focus { outline: none; border-color: var(--accent-2); background: var(--panel); box-shadow: 0 0 0 2px var(--focus); }
 select.cell { border-color: var(--line); }
 td > .cell + .cell { margin-top: 4px; }
 .row-actions { white-space: nowrap; text-align: right; vertical-align: middle !important; }
@@ -365,16 +421,16 @@ td.overdue small { display: block; padding: 0 7px; font-size: 11px; }
 .cause-chip .unlink, .ev-chip .unlink { width: 20px; height: 20px; font-size: 13px; }
 .picker { max-width: 220px; padding: 3px 6px; border: 1px dashed var(--field-line); border-radius: 14px; background: var(--panel); color: var(--accent-ink); font-size: 12px; }
 button.code { border: 0; cursor: pointer; }
-button.code:hover { background: #ffe9a8; }
+button.code:hover { background: var(--lit); }
 
 .solution .card-head .title { flex: 1; font-size: 15px; font-weight: 600; }
 .sub { margin: 10px 0 6px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .badge { flex: none; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .badge.small { padding: 0 6px; font-size: 10px; }
-.badge.implement { background: #e3f3e6; color: #1f5f2a; }
+.badge.implement { background: var(--ok-soft); color: var(--ok-ink); }
 .badge.study { background: var(--warn-soft); color: var(--warn-ink); }
-.badge.reject { background: #eef1f4; color: #4a5866; }
-.badge.none { background: #f3f6f9; color: var(--muted); font-weight: 600; }
+.badge.reject { background: var(--line-soft); color: var(--ink-2); }
+.badge.none { background: var(--soft); color: var(--muted); font-weight: 600; }
 .cause-list .badge { margin-right: 2px; }
 table.criteria { width: 100%; margin-top: 12px; border-collapse: collapse; }
 table.criteria th { width: 180px; padding: 4px 8px 4px 0; text-align: left; font-weight: 600; font-size: 12px; color: var(--ink-2); }
@@ -390,6 +446,49 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
 .decision-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
 .decision-row .sub { margin: 0; }
 .decision-row .spacer { flex: 1; }
+
+/* ---- Menus in the top bar ---- */
+.menu-wrap { position: relative; }
+.popover.right { left: auto; right: 0; width: 290px; }
+.app > header .divider { width: 1px; height: 22px; margin: 0 2px; background: var(--line); }
+
+/* ---- Printed report ---- */
+#report { display: none; }
+@media print {
+  @page { size: landscape; margin: 12mm; }
+  :root { color-scheme: light; }
+  body { background: #fff; }
+  .app { display: none !important; }
+  #report { display: block; color: #16232f; font: 10pt/1.4 "Segoe UI", system-ui, Arial, sans-serif; }
+  #report * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  #report h1 { margin: 0 0 4mm; font-size: 20pt; line-height: 1.2; }
+  #report h2 { margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 1.5px solid #0b5f66; font-size: 13pt; color: #0b5f66; break-after: avoid; }
+  #report h3 { margin: 4mm 0 2mm; font-size: 10.5pt; break-after: avoid; }
+  #report section { margin-bottom: 7mm; }
+  #report .r-page { break-before: page; }
+  #report .r-kicker { font-size: 9pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b6b7a; }
+  #report .r-cover { padding: 6mm 0 4mm; border-bottom: 3px solid #b3261e; margin-bottom: 7mm; }
+  #report dl.r-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm 6mm; margin: 0; }
+  #report dl.r-grid.two { grid-template-columns: repeat(2, 1fr); }
+  #report dl.r-grid div { break-inside: avoid; }
+  #report dt { font-size: 8pt; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #5b6b7a; }
+  #report dd { margin: .5mm 0 0; white-space: pre-wrap; }
+  #report table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+  #report th { padding: 1.5mm 2mm; border-bottom: 1px solid #8796a4; text-align: left; font-size: 7.5pt; letter-spacing: .04em; text-transform: uppercase; color: #3d4f60; }
+  #report td { padding: 1.5mm 2mm; border-bottom: .5px solid #d5dde4; vertical-align: top; white-space: pre-wrap; }
+  #report tr { break-inside: avoid; }
+  #report thead { display: table-header-group; }
+  #report .r-code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #084f54; white-space: nowrap; }
+  #report .r-none { color: #5b6b7a; font-style: italic; }
+  #report figure { margin: 0; break-inside: avoid; }
+  #report figure + figure { break-before: page; }
+  #report figcaption { margin-top: 2mm; font-size: 8pt; color: #5b6b7a; }
+  #report figure svg { display: block; }
+  #report .r-legend { margin: 0 0 3mm; font-size: 8pt; color: #3d4f60; }
+  #report .r-issue-error { color: #a3261f; }
+  #report .r-crit { white-space: nowrap; }
+  #report .r-foot { margin-top: 8mm; font-size: 8pt; color: #5b6b7a; }
+}
 </style>
 </head>
 <body>
@@ -406,6 +505,16 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
       <div id="issuesList" class="popover" role="menu" hidden></div>
     </div>
     <div class="toolbar" id="fileGroup">
+      <button class="icon" id="themeButton" aria-label="Theme" title="Theme"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg></button>
+      <div class="menu-wrap">
+        <button id="exportButton" aria-expanded="false" aria-controls="exportMenu" title="Export the chart as an image">Export ▾</button>
+        <div id="exportMenu" class="popover right" role="menu" hidden>
+          <button role="menuitem" id="exportSvg"><b>Chart as SVG</b><small>Vector, for documents and further editing</small></button>
+          <button role="menuitem" id="exportPng"><b>Chart as PNG</b><small>Image at twice screen resolution</small></button>
+        </div>
+      </div>
+      <button id="printReport" title="Print the RCA report, or save it as a PDF (Ctrl/Cmd+P)">Print report</button>
+      <span class="divider" aria-hidden="true"></span>
       <button id="newProject" title="Start a new, empty RCA">New</button>
       <button id="openProject" title="Open a saved RCA (JSON)">Open</button>
       <button id="loadExample" title="Replace the current RCA with the built-in P-101A seal leakage example">Load example</button>
@@ -466,6 +575,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
     <span class="keyhints"><kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> move · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
+<div id="report" aria-hidden="true"></div>
 <script>
 (() => {
 'use strict';
@@ -514,13 +624,14 @@ const SUBTREE_GAP = 30;      // and between neighbouring branches
 const CHART_FONT = '"Segoe UI", system-ui, -apple-system, Arial, sans-serif';
 
 // Colours are written into the SVG as attributes, so an exported chart needs no stylesheet.
+// Exports and print use the light palette; the canvas uses the dark one in the dark theme.
 const CHART_COLORS = {
-  background: '#ffffff',
+  panel: '#ffffff',
   effect: {fill: '#b3261e', stroke: '#8f1c16', text: '#ffffff', sub: '#ffd9d6', code: {fill: 'rgba(255,255,255,.18)', text: '#ffffff'}},
   action: {fill: '#0b5f66', stroke: '#084a50', text: '#ffffff', sub: '#bfe6e8', code: {fill: 'rgba(255,255,255,.16)', text: '#ffffff'}},
   condition: {fill: '#eef7f7', stroke: '#0d858f', text: '#16232f', sub: '#0b6e75', code: {fill: '#ffffff', stroke: '#b9dfe2', text: '#084f54'}},
   wire: '#8796a4',
-  junction: {fill: '#ffffff', text: '#3d4f60'},
+  junctionText: '#3d4f60',
   shared: '#7b5ab7',
   select: '#2563eb',
   highlight: '#e0a100',
@@ -528,6 +639,23 @@ const CHART_COLORS = {
   unverified: {fill: '#c2570c', text: '#ffffff'},
   controllable: {fill: '#2f7a3a', text: '#ffffff'},
   stop: '#16232f',
+  stopText: '#ffffff',
+};
+const CHART_COLORS_DARK = {
+  panel: '#161f28',
+  effect: {fill: '#b8312a', stroke: '#e0574f', text: '#ffffff', sub: '#ffd9d6', code: {fill: 'rgba(255,255,255,.2)', text: '#ffffff'}},
+  action: {fill: '#0d6e76', stroke: '#2a9aa2', text: '#ffffff', sub: '#c5ecee', code: {fill: 'rgba(255,255,255,.18)', text: '#ffffff'}},
+  condition: {fill: '#13272c', stroke: '#3fb5bd', text: '#e3eef0', sub: '#7fd0d6', code: {fill: '#0e1c20', stroke: '#2f6e74', text: '#9fe2e6'}},
+  wire: '#6f8294',
+  junctionText: '#c9d5df',
+  shared: '#a58be0',
+  select: '#6b97ff',
+  highlight: '#f2b632',
+  issue: '#f08a3c',
+  unverified: {fill: '#e0782f', text: '#ffffff'},
+  controllable: {fill: '#3f9a4c', text: '#ffffff'},
+  stop: '#e3eaf0',
+  stopText: '#0e151c',
 };
 const MONO_FONT = 'ui-monospace, "Cascadia Mono", Consolas, "Liberation Mono", monospace';
 
@@ -1018,13 +1146,13 @@ function setStatus(text) { $('status').textContent = text; }
 const attrs = o => Object.entries(o).filter(([, v]) => v !== undefined && v !== null && v !== false).map(([k, v]) => `${k}="${escapeHtml(v)}"`).join(' ');
 
 function nodeMarkup(b, opts) {
-  const n = b.node, c = CHART_COLORS[n.kind], {w, h} = b;
+  const C = opts.colors || CHART_COLORS, n = b.node, c = C[n.kind], {w, h} = b;
   const isPrimary = n.id === state.problem.primaryEffectId;
   const issue = opts.issues?.get(n.id);
   let s = `<g class="node" data-id="${n.id}" transform="translate(${b.x} ${b.y})"${opts.dimmed?.has(n.id) || opts.highlight && !opts.highlight.has(n.id) ? ' opacity="0.35"' : ''}>`;
-  if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${CHART_COLORS.highlight}" stroke-width="4"/>`;
-  if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.select}" stroke-width="3"/>`;
-  else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${CHART_COLORS.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
+  if (opts.highlight?.has(n.id) && opts.selectedId !== n.id) s += `<rect x="-6" y="-6" width="${w + 12}" height="${h + 12}" rx="12" fill="none" stroke="${C.highlight}" stroke-width="4"/>`;
+  if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.select}" stroke-width="3"/>`;
+  else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1})}/>`;
   const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : KINDS[n.kind].label;
   s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
@@ -1043,9 +1171,9 @@ function nodeMarkup(b, opts) {
       s += `<rect x="${right}" y="${top}" width="${pw}" height="15" rx="7.5" ${attrs({fill, stroke})}/><text x="${right + pw / 2}" y="${base}" font-size="8.5" font-weight="700" letter-spacing="0.4" text-anchor="middle" fill="${text}">${label}</text>`;
       right -= 4;
     };
-    if (f.hidden) pill(`+${f.hidden}`, '#ffffff', CHART_COLORS.stop, CHART_COLORS.wire);
-    if (f.stop) pill('STOP', CHART_COLORS.stop, '#ffffff');
-    if (f.controllable) pill('CONTROLLABLE', CHART_COLORS.controllable.fill, CHART_COLORS.controllable.text);
+    if (f.hidden) pill(`+${f.hidden}`, C.panel, C.stop, C.wire);
+    if (f.stop) pill('STOP', C.stop, C.stopText);
+    if (f.controllable) pill('CONTROLLABLE', C.controllable.fill, C.controllable.text);
     let left = NODE_PAD_X;
     const codeWidth = code => textWidth(code, 10, 700, MONO_FONT) + 12;
     // Codes that do not fit are counted in a last "+N" pill.
@@ -1059,28 +1187,29 @@ function nodeMarkup(b, opts) {
     }
   }
   // A stop point closes the branch with a double bar on the right.
-  if (n.stopPoint) s += `<path d="M ${w + 7} ${h * .25} V ${h * .75} M ${w + 12} ${h * .25} V ${h * .75}" stroke="${CHART_COLORS.stop}" stroke-width="3"/>`;
+  if (n.stopPoint) s += `<path d="M ${w + 7} ${h * .25} V ${h * .75} M ${w + 12} ${h * .25} V ${h * .75}" stroke="${C.stop}" stroke-width="3"/>`;
   // On the canvas only: the collapse toggle where the node's connector leaves it.
   if (opts.toggles && causeLinks(n.id).length) {
     const open = !collapsed.has(n.id);
-    s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="#ffffff" stroke="${CHART_COLORS.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${CHART_COLORS.stop}" stroke-width="1.6"/></g>`;
+    s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${C.stop}" stroke-width="1.6"/></g>`;
   }
   if (isCause(n) && needsEvidence(n)) {
-    s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${CHART_COLORS.unverified.fill}" stroke="#ffffff" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${CHART_COLORS.unverified.text}">?</text></g>`;
+    s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${C.unverified.fill}" stroke="${C.panel}" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${C.unverified.text}">?</text></g>`;
   }
   return s + '</g>';
 }
 
 // The chart's elements, without the outer <svg>.
 function chartMarkup(l, opts = {}) {
+  const C = opts.colors || CHART_COLORS;
   let s = `<g font-family="${escapeHtml(CHART_FONT)}">`;
   for (const e of l.edges) {
-    s += `<path class="edge" data-effect="${e.effectId}" d="${e.d}" fill="none" stroke="${e.shared ? CHART_COLORS.shared : CHART_COLORS.wire}" stroke-width="1.6"${e.shared ? ' stroke-dasharray="6 4"' : ''}/>`;
+    s += `<path class="edge" data-effect="${e.effectId}" d="${e.d}" fill="none" stroke="${e.shared ? C.shared : C.wire}" stroke-width="1.6"${e.shared ? ' stroke-dasharray="6 4"' : ''}/>`;
   }
   for (const e of l.edges) {
     if (!e.junction) continue;
     const {x, y} = e.junction;
-    s += `<g class="junction"><rect x="${x - 16}" y="${y - 8}" width="32" height="16" rx="8" fill="${CHART_COLORS.junction.fill}" stroke="${CHART_COLORS.wire}" stroke-width="1.5"/><text x="${x}" y="${y + 3}" font-size="8.5" font-weight="800" letter-spacing="0.5" text-anchor="middle" fill="${CHART_COLORS.junction.text}">AND</text></g>`;
+    s += `<g class="junction"><rect x="${x - 16}" y="${y - 8}" width="32" height="16" rx="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><text x="${x}" y="${y + 3}" font-size="8.5" font-weight="800" letter-spacing="0.5" text-anchor="middle" fill="${C.junctionText}">AND</text></g>`;
   }
   for (const b of l.boxes.values()) s += nodeMarkup(b, opts);
   return s + '</g>';
@@ -1097,7 +1226,7 @@ function renderCanvas() {
   svg.setAttribute('viewBox', `${view.x} ${view.y} ${width / view.k} ${height / view.k}`);
   const dimmed = linking ? new Set(state.nodes.filter(n => linkProblem(linking.effectId, n.id)).map(n => n.id)) : null;
   const lit = highlight && !linking ? new Set(citingNodes(highlight).map(n => n.id)) : null;
-  svg.innerHTML = chartMarkup(layout, {selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true});
+  svg.innerHTML = chartMarkup(layout, {colors: darkTheme() ? CHART_COLORS_DARK : CHART_COLORS, selectedId: linking?.effectId ?? selected, issues: issueMap(ruleIssues()), dimmed, highlight: lit, toggles: true});
   svg.classList.toggle('linking', !!linking);
   $('zoomReset').textContent = `${Math.round(view.k * 100)}%`;
 }
@@ -1130,6 +1259,7 @@ function render() {
 
 function renderTitle() {
   $('sheetTitle').textContent = primaryEffect()?.title.trim() || 'Untitled RCA';
+  document.title = `${rcaName()} · Apollo RCA Builder`;
   $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag].filter(s => s?.trim()).join(' · ') || 'Apollo RCA Builder';
 }
 
@@ -2051,6 +2181,208 @@ $('records').addEventListener('click', e => {
 });
 
 document.querySelectorAll('.rail [data-record]').forEach(b => b.onclick = () => showRecord(b.dataset.record));
+
+// Output: chart export as SVG and PNG, the printed report, and the light and dark themes.
+
+// ---- Chart images ----
+// Exports and print show the whole chart, with every branch expanded, in the light palette.
+
+function fullLayout() {
+  const shown = collapsed;
+  collapsed = new Set();
+  try { return computeLayout(); } finally { collapsed = shown; }
+}
+const CHART_PAD = 28;      // room around the boxes for stop bars, "?" badges, and outlines
+
+// A self-contained SVG of the chart, or of the part of it inside `area` (chart units).
+function chartSvg(l, {area, heading = true, scale = 1} = {}) {
+  const b = l.bounds;
+  const full = {x: b.l - CHART_PAD, y: b.t - CHART_PAD, w: b.r - b.l + 2 * CHART_PAD, h: b.b - b.t + 2 * CHART_PAD};
+  const v = area || full, top = heading ? 44 : 0;
+  const w = v.w * scale, h = (v.h + top) * scale;
+  let s = `<svg xmlns="${NS}" width="${w}" height="${h}" viewBox="${v.x} ${v.y - top} ${v.w} ${v.h + top}" font-family="${escapeHtml(CHART_FONT)}">`;
+  s += `<title>${escapeHtml(rcaName())}</title>`;
+  s += `<rect x="${v.x}" y="${v.y - top}" width="${v.w}" height="${v.h + top}" fill="${CHART_COLORS.panel}"/>`;
+  if (heading) {
+    const meta = [state.meta.rcaNumber, state.meta.equipmentTag, today()].filter(x => x?.trim()).join(' · ');
+    s += `<text x="${v.x + CHART_PAD}" y="${v.y - top + 22}" font-size="15" font-weight="700" fill="${CHART_COLORS.stop}">${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</text>`;
+    s += `<text x="${v.x + CHART_PAD}" y="${v.y - top + 38}" font-size="10.5" fill="#5b6b7a">${escapeHtml(meta)}</text>`;
+  }
+  s += chartMarkup(l, {issues: issueMap(ruleIssues())});
+  return s + '</svg>';
+}
+
+const rcaName = () => [state.meta.rcaNumber, primaryEffect()?.title].filter(x => x?.trim()).join(' · ') || 'Untitled RCA';
+
+function exportSvg() {
+  showMenu(false);
+  download(baseName() + '-chart.svg', new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + chartSvg(fullLayout())], {type: 'image/svg+xml'}));
+  setStatus(`Exported ${baseName()}-chart.svg`);
+}
+
+// The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
+async function exportPng() {
+  showMenu(false);
+  const svgText = chartSvg(fullLayout());
+  const [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svgText).map(Number);
+  const scale = Math.min(2, 16000 / Math.max(w, h), Math.sqrt(120e6 / (w * h)));
+  const url = URL.createObjectURL(new Blob([svgText], {type: 'image/svg+xml'}));
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w * scale); canvas.height = Math.round(h * scale);
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise(done => canvas.toBlob(done, 'image/png'));
+    if (!blob) throw Error('the browser could not encode the image');
+    download(baseName() + '-chart.png', blob);
+    setStatus(`Exported ${baseName()}-chart.png`);
+  } catch (err) {
+    alert('Could not export the PNG: ' + err.message);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function showMenu(open) {
+  $('exportMenu').hidden = !open;
+  $('exportButton').setAttribute('aria-expanded', open);
+  if (open) $('exportMenu').querySelector('button').focus();
+}
+$('exportButton').onclick = () => showMenu($('exportMenu').hidden);
+$('exportSvg').onclick = exportSvg;
+$('exportPng').onclick = exportPng;
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.menu-wrap')) showMenu(false); });
+$('exportMenu').addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Escape') { showMenu(false); $('exportButton').focus(); }
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    const items = [...$('exportMenu').querySelectorAll('button')], i = items.indexOf(document.activeElement);
+    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+  }
+});
+
+// ---- Printed report ----
+// Built just before printing, so Ctrl+P prints the current RCA as well.
+
+// The printable area of a landscape A4 or Letter page, less the chart heading, in CSS pixels.
+const PRINT_W = 1000, PRINT_H = 600, PRINT_MIN_SCALE = 0.55;
+
+// The chart as one or more page-sized figures. When it cannot fit one page at a readable size, it is
+// split into tiles; horizontal cuts fall between columns, so no box is cut across.
+function chartFigures() {
+  const l = fullLayout(), b = l.bounds;
+  const cw = b.r - b.l + 2 * CHART_PAD, ch = b.b - b.t + 2 * CHART_PAD;
+  const fit = Math.min(1, PRINT_W / cw, PRINT_H / ch);
+  if (fit >= PRINT_MIN_SCALE) return [`<figure>${chartSvg(l, {heading: false, scale: fit})}</figure>`];
+  const s = PRINT_MIN_SCALE, column = NODE_W + COL_GAP;
+  const perTile = Math.max(1, Math.floor((PRINT_W / s - 2 * CHART_PAD) / column));
+  const tileW = perTile * column, tileH = PRINT_H / s;
+  const cols = Math.ceil((b.r - b.l + COL_GAP) / tileW), rows = Math.ceil(ch / tileH);
+  const figures = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const area = {x: b.l - CHART_PAD + c * tileW, y: b.t - CHART_PAD + r * tileH, w: tileW + (c === cols - 1 ? 2 * CHART_PAD : CHART_PAD), h: Math.min(tileH, ch - r * tileH)};
+    figures.push(`<figure>${chartSvg(l, {area, heading: false, scale: s})}<figcaption>Chart, part ${figures.length + 1} of ${rows * cols}: row ${r + 1}, column ${c + 1}. Read left to right.</figcaption></figure>`);
+  }
+  return figures;
+}
+
+function buildReport() {
+  const m = state.meta, p = state.problem, sig = p.significance;
+  const text = v => v?.trim() ? escapeHtml(v) : '<span class="r-none">—</span>';
+  const item = (label, value) => `<div><dt>${label}</dt><dd>${text(value)}</dd></div>`;
+  const lead = m.team.find(t => t.id === m.leadId);
+  const table = (heads, rows, none) => rows.length
+    ? `<table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
+    : `<p class="r-none">${none}</p>`;
+  const codes = ids => ids.map(evidenceById).filter(Boolean).map(e => `<span class="r-code">${escapeHtml(e.code)}</span>`).join(' ') || '—';
+  const issues = ruleIssues().filter(i => i.level !== 'info');
+
+  $('report').innerHTML = `
+    <header class="r-cover">
+      <div class="r-kicker">Apollo root cause analysis${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}</div>
+      <h1>${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</h1>
+      <dl class="r-grid">
+        ${item('Equipment / tag', m.equipmentTag)}${item('Seal type', m.sealType)}${item('Lead', lead && `${lead.name}${lead.role ? ', ' + lead.role : ''}`)}
+        ${item('Team', m.team.filter(t => t.id !== m.leadId).map(t => `${t.name}${t.role ? ' (' + t.role + ')' : ''}`).join('\n'))}
+        ${item('Event', m.dates.eventDate)}${item('RCA opened', m.dates.opened)}${item('RCA closed', m.dates.closed)}${item('Report printed', today())}
+      </dl>
+    </header>
+    <section>
+      <h2>Problem definition</h2>
+      <dl class="r-grid two">${item('What', primaryEffect()?.title)}${item('When', p.when)}${item('Where', p.where)}</dl>
+      <h3>Significance</h3>
+      <dl class="r-grid">${item('Safety', sig.safety)}${item('Environment', sig.environment)}${item('Production / cost', sig.productionCost)}${item('Reliability', sig.reliability)}</dl>
+    </section>
+    <section class="r-page">
+      <h2>Cause-and-effect chart</h2>
+      <p class="r-legend">Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.</p>
+      ${chartFigures().join('')}
+      ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
+    </section>
+    <section class="r-page">
+      <h2>Evidence log</h2>
+      ${table(['Code', 'Description', 'Type', 'Source / location', 'Collected by', 'Date', 'Cited by'], state.evidence.map(e => `<tr>
+        <td class="r-code">${escapeHtml(e.code)}</td><td>${text(e.description)}</td><td>${EVIDENCE_TYPES[e.type] || ''}</td><td>${text(e.source)}</td>
+        <td>${text(e.collectedBy)}</td><td class="r-crit">${text(e.date)}</td><td>${citingNodes(e.id).map(n => escapeHtml(n.title)).join('\n') || '—'}</td></tr>`), 'No evidence recorded.')}
+    </section>
+    <section>
+      <h2>Causes ruled out</h2>
+      ${table(['Possible cause', 'Type', 'Evidence or test', 'Evidence', 'Status'], state.ruledOut.map(r => `<tr>
+        <td>${text(r.cause)}</td><td>${{action: 'Action', condition: 'Condition'}[r.kind] || '—'}</td><td>${text(r.test)}</td><td>${codes(r.evidenceIds)}</td><td>${RULED_OUT_STATUS[r.status] || ''}</td></tr>`), 'No causes ruled out.')}
+    </section>
+    <section class="r-page">
+      <h2>Solutions</h2>
+      ${table(['Solution', 'Attacks', ...Object.values(CRITERIA), 'Decision'], state.solutions.map(s => `<tr>
+        <td>${text(s.title)}</td><td>${s.causeIds.map(byId).filter(Boolean).map(n => escapeHtml(n.title)).join('\n') || '—'}</td>
+        ${Object.keys(CRITERIA).map(k => `<td><b>${CRITERION_VALUES[s.criteria[k].v] || '—'}</b>${s.criteria[k].c ? '\n' + escapeHtml(s.criteria[k].c) : ''}</td>`).join('')}
+        <td><b>${DECISIONS[s.decision] || 'Not decided'}</b></td></tr>`), 'No solutions recorded.')}
+    </section>
+    <section>
+      <h2>Action plan</h2>
+      ${table(['Action', 'Solution', 'Owner', 'Due', 'Verification', 'Status', 'Effectiveness check'], state.actions.map(a => `<tr>
+        <td>${text(a.action)}</td><td>${text(state.solutions.find(s => s.id === a.solutionId)?.title)}</td><td>${text(a.owner)}</td>
+        <td class="r-crit">${text(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${text(a.verification)}</td><td>${ACTION_STATUS[a.status] || ''}</td>
+        <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`), 'No actions recorded.')}
+    </section>
+    <p class="r-foot">Apollo RCA Builder · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
+}
+
+function printReport() {
+  buildReport();
+  window.print();
+}
+$('printReport').onclick = printReport;
+window.addEventListener('beforeprint', buildReport);
+
+// ---- Theme ----
+// System follows the operating system; the choice is kept in this browser only.
+
+const THEME_KEY = 'apollo-rca-theme';
+const THEMES = {system: 'System', light: 'Light', dark: 'Dark'};
+let theme = 'system';
+try { theme = THEMES[localStorage.getItem(THEME_KEY)] ? localStorage.getItem(THEME_KEY) : 'system'; } catch {}
+const systemDark = matchMedia('(prefers-color-scheme: dark)');
+const darkTheme = () => theme === 'dark' || theme === 'system' && systemDark.matches;
+
+function applyTheme() {
+  if (theme === 'system') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.dataset.theme = theme;
+  const next = {system: 'light', light: 'dark', dark: 'system'}[theme];
+  $('themeButton').title = `Theme: ${THEMES[theme]}. Click for ${THEMES[next]}.`;
+  $('themeButton').setAttribute('aria-label', `Theme: ${THEMES[theme]}`);
+  if (layout && record === 'chart') renderCanvas();
+}
+$('themeButton').onclick = () => {
+  theme = {system: 'light', light: 'dark', dark: 'system'}[theme];
+  try { localStorage.setItem(THEME_KEY, theme); } catch {}
+  applyTheme();
+  setStatus(`Theme: ${THEMES[theme]}`);
+};
+systemDark.addEventListener('change', () => { if (theme === 'system') applyTheme(); });
+applyTheme();
 
 // The built-in worked example: high leakage on the single cartridge seal of pump P-101A.
 // People and dates are invented. Fresh ids are made on every load, as for any new RCA.

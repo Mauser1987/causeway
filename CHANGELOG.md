@@ -1,5 +1,12 @@
 # Changelog
 
+## M4 — 2026-10-21
+
+- Export the chart as a self-contained SVG, or as a PNG at twice screen resolution. Exports show the whole chart, expanded, in the light colours, with a heading.
+- Print report (also Ctrl/Cmd+P; Save as PDF for a PDF): cover, problem definition, chart and open issues, evidence log, causes ruled out, solutions, action plan, on landscape pages. A chart too large for one page at a readable size is split into numbered parts, cut between columns.
+- Light and dark themes, or the system setting, from the button in the top bar; the chart has its own dark palette.
+- The browser tab shows the RCA number and primary effect.
+
 ## M3 — 2026-10-21
 
 - RCA record pages, opened from the left column: problem definition, team and dates, evidence log, causes ruled out, solutions, action plan. Fields save as you type; every change is an undo step.
