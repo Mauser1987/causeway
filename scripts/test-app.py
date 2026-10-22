@@ -158,6 +158,18 @@ def run_tests(b):
     placed = check_layout()
     primary = rca()['problem']['primaryEffectId']
     assert min(x['x'] for x in placed.values()) == placed[primary]['x'], 'the primary effect is leftmost'
+    # Each effect is centred on the causes in the next column that it is drawn with.
+    mid = lambda box: box['y'] + box['h'] / 2
+    columns = sorted({x['x'] for x in placed.values()})
+    drawn_under, causes = set(), {}
+    for link in rca()['links']:
+        effect, cause = placed[link['effectId']], placed[link['causeId']]
+        if cause['id'] in drawn_under or cause['x'] - effect['x'] != columns[1] - columns[0]:
+            continue
+        drawn_under.add(cause['id'])
+        causes.setdefault(effect['id'], []).append(mid(cause))
+    for effect, ys in causes.items():
+        assert abs(mid(placed[effect]) - (min(ys) + max(ys)) / 2) < 0.5, 'effects are centred on their causes'
     print('PASS: layout reads left to right without overlaps', flush=True)
 
     # ---- Adding and editing causes ----

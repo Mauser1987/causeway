@@ -1396,7 +1396,8 @@ function computeLayout() {
         acc[d] = acc[d] ? [Math.min(acc[d][0], top + offset), Math.max(acc[d][1], bottom + offset)] : [top + offset, bottom + offset];
       });
       for (const [m, y] of t.members) members.push([m, y + offset]);
-      const center = offset + sizes.get(kid.id).h / 2;
+      // The kid's box is the first member, not necessarily at the top of its subtree.
+      const center = offset + t.members[0][1] + sizes.get(kid.id).h / 2;
       firstCenter ??= center; lastCenter = center;
     }
     const top = (firstCenter + lastCenter) / 2 - h / 2;
