@@ -49,18 +49,20 @@ function renderRcaProperties(box) {
     <div class="section">
       <div class="panel-title">Keys</div>
       <dl class="keys">${tree ? `
-        <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add a cause to the selected effect</dd>
-        <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
-        <dt><kbd>Ins</kbd> or <kbd>A</kbd></dt><dd>Add an action to the selected effect</dd>
-        <dt><kbd>Shift+Ins</kbd> or <kbd>C</kbd></dt><dd>Add a condition</dd>`}
+        <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add a cause to the selected effect</dd>
+        <dt><kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
+        <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add an action to the selected effect</dd>
+        <dt><kbd>Shift+Ins</kbd> or <kbd>Alt+C</kbd></dt><dd>Add a condition</dd>`}
+        <dt>Type</dt><dd>Replace the title; <kbd>Enter</kbd> finishes it</dd>
         <dt><kbd>F2</kbd> or <kbd>Enter</kbd></dt><dd>Edit the title</dd>
         <dt><kbd>←↑↓→</kbd></dt><dd>Select the neighbouring node</dd>
-        <dt><kbd>M</kbd></dt><dd>Move the cause under another effect</dd>
+        <dt><kbd>Alt+M</kbd></dt><dd>Move the cause under another effect</dd>
         <dt><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd></dt><dd>Reorder among its siblings</dd>
         <dt>Drag a node</dt><dd>Onto an effect: move. Between siblings: reorder</dd>
-        <dt><kbd>L</kbd></dt><dd>Link an existing node as a cause</dd>
+        <dt><kbd>Alt+L</kbd></dt><dd>Link an existing node as a cause</dd>
         <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
-        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, moving, or a drag; or clear the selection</dd>
+        <dt><kbd>Esc</kbd></dt><dd>Cancel linking, moving, or a drag; or clear the selection. In the title: undo what was typed</dd>
+        <dt><kbd>Shift+Enter</kbd></dt><dd>In the title: a new line</dd>
         <dt><kbd>Del</kbd></dt><dd>Delete the selected cause</dd>
         <dt><kbd>Ctrl+S</kbd></dt><dd>Save</dd>
         <dt><kbd>Ctrl+Z</kbd> <kbd>Ctrl+Y</kbd></dt><dd>Undo, redo</dd>
@@ -88,7 +90,7 @@ function renderNodeProperties(box, n) {
     <div class="kind-row"><span class="kind-chip ${nodeLook(n)}">${kindName.toUpperCase()}</span><span class="muted">${about}</span></div>
     ${issues.map(i => `<div class="info ${i.level === 'info' ? '' : i.level === 'error' ? 'error' : 'warn'}">${escapeHtml(i.text)}</div>`).join('')}
     ${isPrimary ? '' : tree ? `<div class="segmented status" role="group" aria-label="Status">${Object.entries(STATUSES).map(([k, st], i) =>
-      `<button data-status="${k}" class="${k}" ${pressed(n.status === k)} title="${st.name} (${i + 1})">${st.mark} ${st.name}</button>`).join('')}</div>`
+      `<button data-status="${k}" class="${k}" ${pressed(n.status === k)} title="${st.name} (Alt+${i + 1})">${st.mark} ${st.name}</button>`).join('')}</div>`
       : `<div class="segmented" role="group" aria-label="Cause type">
       <button data-kind="action" ${pressed(n.kind === 'action')} title="A momentary cause that happened at a point in time">Action</button>
       <button data-kind="condition" ${pressed(n.kind === 'condition')} title="A cause that existed over time">Condition</button>
@@ -122,7 +124,7 @@ function renderNodeProperties(box, n) {
       <div class="button-grid">
         ${tree ? '<button class="button" id="inspAddAction" title="Insert or A">+ Cause</button>' : `<button class="button" id="inspAddAction" title="Insert or A">+ Action</button>
         <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>`}
-        <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (L)">Link existing</button>
+        <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (Alt+L)">Link existing</button>
         ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
       </div>
     </div>
@@ -131,7 +133,7 @@ function renderNodeProperties(box, n) {
       <ul class="cause-list">${effects.map(e => `<li class="with-action"><button data-goto="${e.id}">${swatch(e.id === state.problem.primaryEffectId ? {kind: 'effect'} : e)}${escapeHtml(e.title)}</button>${effects.length > 1
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
       ${effects.length > 1 ? `<p class="note">A shared cause: it ${tree ? 'may explain' : 'is needed for'} each of these effects.</p>` : ''}
-      <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (M), or drag the node onto it">Move to another effect</button>
+      <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (Alt+M), or drag the node onto it">Move to another effect</button>
       <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
     </div>`}
 
@@ -145,12 +147,22 @@ function renderNodeProperties(box, n) {
       ${area('Notes', 'nodeNotes', n.notes)}
     </div>
     ${isPrimary ? '' : `<div class="button-grid" style="margin-top:16px">
-      ${tree ? (n.status === 'ruled-out' ? '' : '<button class="button" id="inspRuleOut" title="Mark it ruled out; it stays on the tree, faded (3)">Rule out</button>')
+      ${tree ? (n.status === 'ruled-out' ? '' : '<button class="button" id="inspRuleOut" title="Mark it ruled out; it stays on the tree, faded (Alt+3)">Rule out</button>')
         : '<button class="button" id="inspRuleOut" title="Move to the causes ruled out, with its evidence">Rule out</button>'}
       <button class="button danger" id="inspDelete">Delete <kbd>Del</kbd></button>
     </div>`}`;
 
   $('nodeTitle').oninput = e => { n.title = e.target.value; refreshChart(); persist('title:' + n.id); };
+  // Each time the title is focused, its edits start a new undo step; Esc takes that step back.
+  // Enter finishes the title, back to the chart's keys; Shift+Enter starts a new line.
+  let titleBefore = n.title;
+  $('nodeTitle').onfocus = () => { titleBefore = n.title; historyGroup = null; };
+  $('nodeTitle').onkeydown = e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); e.stopPropagation(); e.target.blur(); return; }
+    if (e.key !== 'Escape') return;
+    e.preventDefault(); e.stopPropagation();
+    if (n.title !== titleBefore) restoreHistory(); else e.target.blur();
+  };
   if ($('nodeTest')) $('nodeTest').oninput = e => { n.test = e.target.value; persist('test:' + n.id); };
   box.querySelectorAll('[data-status]').forEach(b => b.onclick = () => setNodeStatus(b.dataset.status));
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };

@@ -197,8 +197,19 @@ def run_tests(b):
     print('PASS: undo and redo', flush=True)
 
     # ---- Keyboard ----
-    def key(name, shift=False):
-        b.js('document.activeElement.blur();window.dispatchEvent(new KeyboardEvent("keydown",{key:arguments[0],shiftKey:arguments[1],bubbles:true}));return true', [name, shift])
+    def key(name, shift=False, alt=False):
+        code = 'Key' + name.upper() if name.isalpha() and len(name) == 1 else 'Digit' + name if name.isdigit() else name
+        b.js('document.activeElement.blur();window.dispatchEvent(new KeyboardEvent("keydown",{key:arguments[0],code:arguments[1],shiftKey:arguments[2],altKey:arguments[3],bubbles:true}));return true',
+             [name, code, shift, alt])
+
+    def type_keys(text, on_page=True):
+        """Real key presses, through the browser's input; by default with the focus on the page."""
+        if on_page:
+            b.js('document.activeElement.blur();return true')
+        keys = {'Escape': '\ue00c'}
+        actions = [a for k in text for a in ({'type': 'keyDown', 'value': keys.get(k, k)}, {'type': 'keyUp', 'value': keys.get(k, k)})]
+        b.call('WebDriver:PerformActions', {'actions': [{'type': 'key', 'id': 'keyboard', 'actions': actions}]})
+        b.call('WebDriver:ReleaseActions')
 
     select('Heat input from face friction and pump')
     key('Insert')
@@ -207,13 +218,34 @@ def run_tests(b):
     key('Insert', shift=True)
     assert rca()['nodes'][-1]['kind'] == 'condition', 'Shift+Insert adds a condition'
     select('Heat input from face friction and pump')
-    key('c')
+    key('c', alt=True)
     assert rca()['nodes'][-1]['kind'] == 'condition' and len(rca()['nodes']) == 20
     key('Delete')
     assert len(rca()['nodes']) == 19, 'Delete removes the selected cause'
     click('undo'); click('undo'); click('undo'); click('undo')
     assert rca() == before
-    print('PASS: Insert, Shift+Insert, C and Delete keys', flush=True)
+    print('PASS: Insert, Shift+Insert, Alt+C and Delete keys', flush=True)
+
+    # Typing on a selected node replaces its title, even with letters that are commands with Alt.
+    select('Heat input from face friction and pump')
+    type_keys('Lam')
+    assert b.js("return document.activeElement.id") == 'nodeTitle' and b.js("return document.getElementById('linkBanner').hidden"), 'L types, and does not link'
+    assert any(n['title'] == 'Lam' for n in rca()['nodes']), 'the first key replaces the title'
+    type_keys(['Escape'], on_page=False)
+    assert rca() == before and b.js("return document.activeElement.id") != 'nodeTitle', 'Esc takes back what was typed'
+    select('Heat input from face friction and pump')
+    type_keys('Pump')
+    shift, enter = '\ue008', '\ue007'
+    actions = [{'type': 'keyDown', 'value': shift}, {'type': 'keyDown', 'value': enter}, {'type': 'keyUp', 'value': enter}, {'type': 'keyUp', 'value': shift}]
+    b.call('WebDriver:PerformActions', {'actions': [{'type': 'key', 'id': 'keyboard', 'actions': actions}]})
+    b.call('WebDriver:ReleaseActions')
+    type_keys(['h', 'e', 'a', 't', enter], on_page=False)
+    assert any(n['title'] == 'Pump\nheat' for n in rca()['nodes']), 'Shift+Enter starts a new line'
+    assert b.js("return document.activeElement.id") != 'nodeTitle', 'Enter finishes the title'
+    assert b.js("return document.getElementById('nodeTitle').value") == 'Pump\nheat'
+    click('undo')
+    assert rca() == before, 'what was typed is one undo step'
+    print('PASS: typing renames the selected node; Enter finishes it and Esc takes it back', flush=True)
 
     # ---- Evidence ----
     def search(text):
@@ -283,8 +315,8 @@ def run_tests(b):
     film, orifice = 'Fluid film flashed to vapour (intermittent dry running)', '3 mm orifice, no strainer or cyclone'
     before_link = rca()
     select(film)
-    key('l')
-    assert banner_shown(), 'L starts linking'
+    key('l', alt=True)
+    assert banner_shown(), 'Alt+L starts linking'
     assert b.js("return document.querySelectorAll('#chart .node[opacity]').length") > 0, 'nodes that cannot be linked are faded'
     select('Leak path opened across primary faces')
     assert 'loop' in b.js("return document.getElementById('status').textContent") and banner_shown(), 'a loop is refused'
@@ -374,7 +406,7 @@ def run_tests(b):
     assert drag(primary_title, film) is None and rca() == before_move, 'the primary effect cannot be dragged'
 
     select(heat)
-    key('m')
+    key('m', alt=True)
     assert banner_shown() and 'move' in b.js("return document.getElementById('linkText').textContent")
     select(film)
     assert heat in drawn_under(film) and not banner_shown(), 'M, then a click, moves the cause'
@@ -840,12 +872,12 @@ def run_tests(b):
     set_title('Seal leaks')
     key('Insert'); set_title('Faces damaged')
     assert node('Faces damaged')['kind'] == 'cause' and node('Faces damaged')['status'] == 'possible', 'a new cause has no type and is possible'
-    select('Seal leaks'); key('a'); set_title('O-ring attacked')
+    select('Seal leaks'); key('a', alt=True); set_title('O-ring attacked')
     select('Seal leaks'); key('Insert', shift=True); set_title('Shaft moves')
     assert all(n['kind'] == 'cause' for n in rca()['nodes'][1:]), 'Shift+Insert and A add causes too'
     assert b.js("return document.querySelectorAll('#chart .junction').length") == 0, 'no AND in a cause tree'
     assert b.js('return document.querySelectorAll("#chart .node").length') == 4
-    select('Faces damaged'); key('2')
+    select('Faces damaged'); key('2', alt=True)
     assert node('Faces damaged')['status'] == 'confirmed'
     assert b.js(f"return document.querySelectorAll('#chart path[stroke=\"{'#0b5f66'}\"][stroke-width=\"2.6\"]').length") == 1, 'the confirmed branch is bold'
     click('issuesButton')
@@ -886,6 +918,29 @@ def run_tests(b):
     causes = [n for n in rca()['nodes'] if n['kind'] != 'effect']
     assert all(n['status'] == ('confirmed' if n['evidenceIds'] and not n['unverified'] else 'possible') for n in causes)
     assert sum(n['status'] == 'possible' for n in causes) == 2
+
+    # Confirming a cause confirms the possible effects it leads to; a ruled-out one stops the way.
+    def issue_texts():
+        click('issuesButton')
+        texts = b.js('return [...document.querySelectorAll("#issuesList small")].map(s=>s.textContent)')
+        click('issuesButton')
+        return texts
+    possible = next(n['title'] for n in causes if n['status'] == 'possible')
+    select(possible); key('a', alt=True); set_title('Root of it')
+    assert 'Not tested yet: no evidence' in issue_texts()
+    select(possible); key('3', alt=True)
+    select('Root of it'); key('2', alt=True)
+    assert node(possible)['status'] == 'ruled-out', 'a ruled-out effect is left as it is'
+    assert 'Ruled out, but its cause "Root of it" is confirmed' in issue_texts()
+    click('undo'); click('undo')
+    select('Root of it'); key('2', alt=True)
+    assert node(possible)['status'] == 'confirmed' and node('Root of it')['status'] == 'confirmed', 'the effect is confirmed with its cause'
+    assert 'with the 1 effect it leads to' in b.js("return document.getElementById('status').textContent")
+    click('undo')
+    assert node(possible)['status'] == 'possible' and node('Root of it')['status'] == 'possible', 'one undo step'
+    select('Root of it'); b.js('document.querySelector("#properties [data-status=confirmed]").click();return true')
+    assert node(possible)['status'] == 'confirmed', 'the status buttons confirm the effects too'
+    click('undo'); click('undo'); click('undo')
     tree_file = rca()
     tree_file['meta']['style'] = 'nonsense'
     load(tree_file)

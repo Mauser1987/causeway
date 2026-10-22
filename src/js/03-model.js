@@ -309,13 +309,18 @@ function ruleIssues() {
 }
 
 // A cause tree: each confirmed cause needs evidence, each possible cause a test, and each confirmed
-// branch a stop point. Ruled-out causes need nothing more.
+// branch a stop point. Ruled-out causes need nothing more, unless one of their causes is confirmed.
 function treeIssues() {
   const issues = [], live = reachable();
   for (const n of state.nodes) {
     if (!live.has(n.id) || !isCause(n)) continue;
     if (n.status === 'confirmed' && !hasEvidence(n)) issues.push({nodeId: n.id, level: 'error', code: 'evidence', text: 'Confirmed without evidence'});
-    if (n.status === 'possible') issues.push({nodeId: n.id, level: 'warning', code: 'untested', text: hasEvidence(n) ? 'Not confirmed or ruled out yet' : 'Not tested yet: no evidence'});
+    // A confirmed cause happened, so its effects did too.
+    const confirmedCause = causesOf(n.id).find(c => c.status === 'confirmed');
+    if (n.status === 'possible') issues.push({nodeId: n.id, level: 'warning', code: 'untested', text: confirmedCause ? `Its cause "${confirmedCause.title}" is confirmed: confirm this too`
+      : hasEvidence(n) ? 'Not confirmed or ruled out yet' : 'Not tested yet: no evidence'});
+    if (n.status === 'ruled-out' && confirmedCause) issues.push({nodeId: n.id, level: 'error', code: 'contradiction',
+      text: `Ruled out, but its cause "${confirmedCause.title}" is confirmed`});
     if (n.status === 'confirmed' && !causesOf(n.id).some(c => c.status !== 'ruled-out') && !n.stopPoint) issues.push({nodeId: n.id, level: 'info', code: 'open-branch',
       text: 'Confirmed branch ends without a stop point'});
   }

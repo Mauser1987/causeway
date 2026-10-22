@@ -38,10 +38,11 @@ Choose the style when you start an RCA with **New**; the RCA properties (click t
 
 **Cause tree.** Each effect has its possible causes, drawn like an organisation chart lying on its side; there is no AND, because the branches are alternatives.
 
-- **+ Cause** (**Insert** or **A**) adds a possible cause. A cause has no action or condition type.
-- Each cause has a **status**, set in its properties or with **1**, **2**, **3**: **Possible** (white, dashed outline: still to test), **Confirmed** (solid teal; the path to it from the effect is drawn bold), or **Ruled out** (grey and struck through, with a dashed link). A ruled-out cause stays on the tree, so the chart shows what was eliminated; **Rule out** sets the status. The ruled-out causes are listed under **Causes ruled out** and in the report.
+- **+ Cause** (**Insert** or **Alt+A**) adds a possible cause. A cause has no action or condition type.
+- Each cause has a **status**, set in its properties or with **Alt+1**, **Alt+2**, **Alt+3**: **Possible** (white, dashed outline: still to test), **Confirmed** (solid teal; the path to it from the effect is drawn bold), or **Ruled out** (grey and struck through, with a dashed link). A ruled-out cause stays on the tree, so the chart shows what was eliminated; **Rule out** sets the status. The ruled-out causes are listed under **Causes ruled out** and in the report.
+- A confirmed cause happened, so the effects it leads to did too: confirming a cause also confirms the possible effects between it and the primary effect, in the same undo step. A ruled-out effect on the way is left as it is.
 - **How it is tested**, in each cause's properties (in both styles): the check or test that will confirm it or rule it out, or that did.
-- Issues: a confirmed cause without evidence (error), a possible cause not tested yet (warning), and a confirmed branch that ends without a stop point (note).
+- Issues: a confirmed cause without evidence (error), a ruled-out effect of a confirmed cause (error), a possible cause not tested yet or whose cause is confirmed (warning), and a confirmed branch that ends without a stop point (note).
 
 **Switching.** Choosing the other style shows what that style will still need, before anything changes, for example *4 causes without a type*, *3 effects missing an action or a condition*, *1 ruled-out cause to move to the causes ruled out*. Switch, and each shows in the issues list, which opens, and is outlined on the chart, so you can work through them. Nothing is lost, and the switch is one undo step:
 
@@ -63,7 +64,7 @@ In a cause tree, the 5 Whys and the fishbone add causes without a type.
 One cause can support more than one effect. To chart that:
 
 1. Select the second effect.
-2. Choose **Link cause** (or press **L**). A banner asks for the cause; nodes that cannot be linked are faded, because the link would make a loop or already exists.
+2. Choose **Link cause** (or press **Alt+L**). A banner asks for the cause; nodes that cannot be linked are faded, because the link would make a loop or already exists.
 3. Click the cause. The new link is drawn dashed in purple.
 
 **Esc**, **Cancel**, or a click on the empty canvas stops linking. The selected cause's **Supports** section lists every effect it supports; **×** removes one link. A cause keeps at least one effect; to take it off the chart, delete it.
@@ -77,7 +78,7 @@ The chart always lays itself out; boxes are not placed by hand. Dragging a cause
 
 **Esc** cancels a drag. The primary effect cannot be dragged.
 
-Without the mouse: **M** (or **Move to another effect** in the Properties panel) asks for the new effect, the way **Link cause** does; **Alt+↑** and **Alt+↓** move a cause above or below its neighbour.
+Without the mouse: **Alt+M** (or **Move to another effect** in the Properties panel) asks for the new effect, the way **Link cause** does; **Alt+↑** and **Alt+↓** move a cause above or below its neighbour.
 
 For a shared cause, moving changes only the link it is drawn along (the solid one); its dashed links stay.
 
@@ -151,21 +152,22 @@ With a node selected and no field focused:
 
 | Key | Result |
 |---|---|
-| **Insert** or **A** | Add an action cause; in a cause tree, a cause |
-| **Shift+Insert** or **C** | Add a condition cause (Apollo) |
-| **1** **2** **3** | Cause tree: set the status to possible, confirmed, or ruled out |
-| **F2** or **Enter** | Edit the title |
+| Type | Replace the title: the first key starts the new one. **Enter** finishes it, back to the chart's keys; **Shift+Enter** starts a new line |
+| **Insert** or **Alt+A** | Add an action cause; in a cause tree, a cause |
+| **Shift+Insert** or **Alt+C** | Add a condition cause (Apollo) |
+| **Alt+1** **Alt+2** **Alt+3** | Cause tree: set the status to possible, confirmed, or ruled out |
+| **F2** or **Enter** | Edit the title, keeping it |
 | **←** | Select the effect |
 | **→** | Select a cause; on a collapsed node, expand it |
 | **↑ ↓** | Select the node above or below in the same column |
-| **M** | Move the cause under another effect |
+| **Alt+M** | Move the cause under another effect |
 | **Alt+↑ Alt+↓** | Move the cause above or below its neighbour |
-| **L** | Link an existing node as a further cause |
+| **Alt+L** | Link an existing node as a further cause |
 | **Space** | Collapse or expand the branch |
-| **Esc** | Cancel linking, moving, or a drag; or clear the selection |
+| **Esc** | Cancel linking, moving, or a drag; or clear the selection. In the title: undo what was typed since it was focused |
 | **Delete** | Delete the selected cause |
 
-With nothing selected, an arrow key selects the primary effect. A and C are there for laptops without an Insert key.
+With nothing selected, an arrow key selects the primary effect. Alt+A and Alt+C are there for laptops without an Insert key. The commands that are letters or digits take Alt so that typing always goes to the title; on a Mac, Alt is Option.
 
 All causes under one effect are joined by AND: each was needed. Every effect needs at least one action and at least one condition.
 

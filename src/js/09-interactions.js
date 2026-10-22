@@ -137,24 +137,32 @@ window.addEventListener('keydown', e => {
   }
   if (command || record !== 'chart') return;
   if (e.altKey && (key === 'arrowup' || key === 'arrowdown') && byId(selected)) { e.preventDefault(); nudgeCause(key === 'arrowup' ? -1 : 1); return; }
-  if (e.altKey) return;
   if (key === 'escape' && (linking || highlight || selected)) {
     e.preventDefault();
     if (linking) cancelLinking(); else if (highlight) clearHighlight(); else select(null);
     return;
   }
   if (!byId(selected)) return;
-  // Insert adds an action and Shift+Insert a condition; A and C do the same on keyboards without Insert.
-  // In a cause tree, Insert and A add a cause.
-  const kind = key === 'insert' ? (e.shiftKey ? 'condition' : 'action') : !e.shiftKey && (treeStyle() ? {a: 'cause'} : {a: 'action', c: 'condition'})[key];
-  const status = treeStyle() && !e.shiftKey && {1: 'possible', 2: 'confirmed', 3: 'ruled-out'}[key];
-  if (kind) { e.preventDefault(); addCauseToSelected(kind); }
-  else if (status) { e.preventDefault(); setNodeStatus(status); }
+  // Commands that are letters or digits take Alt, so that typing goes to the title. Read from e.code,
+  // since Option on a Mac changes e.key. AltGr (Ctrl+Alt) types characters.
+  if (e.altKey && !e.ctrlKey) {
+    const code = e.code.replace(/^(Key|Digit)/, '').toLowerCase();
+    // Alt+A adds an action and Alt+C a condition; in a cause tree, Alt+A adds a cause.
+    const kind = !e.shiftKey && (treeStyle() ? {a: 'cause'} : {a: 'action', c: 'condition'})[code];
+    const status = treeStyle() && !e.shiftKey && {1: 'possible', 2: 'confirmed', 3: 'ruled-out'}[code];
+    if (kind) { e.preventDefault(); addCauseToSelected(kind); }
+    else if (status) { e.preventDefault(); setNodeStatus(status); }
+    else if (code === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
+    else if (code === 'm' && !e.shiftKey) { e.preventDefault(); startMoving(); }
+    return;
+  }
+  // Insert adds an action and Shift+Insert a condition; in a cause tree, Insert adds a cause.
+  if (key === 'insert') { e.preventDefault(); addCauseToSelected(e.shiftKey ? 'condition' : 'action'); }
   else if (key === 'f2' || key === 'enter' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); focusTitle(); }
   else if (key === 'delete') { e.preventDefault(); deleteSelected(); }
-  else if (key === 'l' && !e.shiftKey) { e.preventDefault(); startLinking(); }
-  else if (key === 'm' && !e.shiftKey) { e.preventDefault(); startMoving(); }
   else if (key === ' ' && document.activeElement?.tagName !== 'BUTTON') { e.preventDefault(); toggleCollapse(); }
+  // Any other character starts a new title: the title is focused and selected, and the key replaces it.
+  else if (e.key.length === 1) focusTitle();
 });
 
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.

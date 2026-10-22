@@ -46,13 +46,26 @@ function ruleOutSelected() {
   setStatus(`Moved "${n.title}" to the causes ruled out`);
 }
 
-// A cause tree: 1, 2, and 3 set the selected cause's status.
+// A cause tree: Alt+1, Alt+2, and Alt+3 set the selected cause's status. A confirmed cause happened,
+// so the effects it leads to did too: the possible ones on the way to the primary effect are confirmed
+// with it. A ruled-out effect stops the way; the issues list flags it.
 function setNodeStatus(status) {
   const n = byId(selected);
   if (!n || !isCause(n) || !treeStyle()) return;
   n.status = status;
+  let more = 0;
+  if (status === 'confirmed') {
+    const seen = new Set(), todo = effectsOf(n.id);
+    while (todo.length) {
+      const e = todo.pop();
+      if (seen.has(e.id) || !isCause(e) || e.status === 'ruled-out') continue;
+      seen.add(e.id);
+      if (e.status === 'possible') { e.status = 'confirmed'; more++; }
+      todo.push(...effectsOf(e.id));
+    }
+  }
   render(); persist();
-  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}`);
+  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}${more ? `, with the ${more} effect${more > 1 ? 's' : ''} it leads to` : ''}`);
 }
 
 // Collapsing is a view setting: saved with the file, but not an undo step.

@@ -200,8 +200,8 @@ function renderStyle() {
   $('addActionName').textContent = tree ? '+ Cause' : '+ Action';
   $('addAction').title = tree ? 'Add a possible cause to the selected effect' : 'Add an action cause to the selected effect';
   $('keyHints').innerHTML = tree
-    ? '<kbd>Ins</kbd> cause · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> status · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete'
-    : '<kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>F2</kbd> rename · <kbd>L</kbd> link · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>M</kbd> move · <kbd>Del</kbd> delete';
+    ? 'Type to rename · <kbd>Ins</kbd> cause · <kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd> status · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete'
+    : 'Type to rename · <kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete';
 }
 
 function renderTitle() {
