@@ -947,6 +947,127 @@ def run_tests(b):
     assert rca()['meta']['style'] == 'apollo', 'an unknown style opens as Apollo'
     print('PASS: cause tree, statuses, and switching between the chart styles', flush=True)
 
+    # ---- Layout of other chart shapes ----
+    SIBLING_GAP = 16  # as in 01-constants.js
+
+    def chart(links, style='apollo', collapsed=(), roots=()):
+        """An RCA from (effect, cause) title pairs; the first effect is the primary one. Titles of
+        different lengths give nodes of different heights. `roots` are nodes no effect links to."""
+        project = json.loads(json.dumps(example_file))
+        for key in ('evidence', 'ruledOut', 'solutions', 'actions', 'fiveWhys', 'fishbones'):
+            project[key] = []
+        titles = list(dict.fromkeys([t for pair in links for t in pair] + list(roots)))
+        ids = {t: f'00000000-0000-4000-8000-{i:012d}' for i, t in enumerate(titles)}
+        causes = {c for _, c in links} | set(roots[1:])
+        project['nodes'] = [{'id': ids[t], 'kind': ('condition' if i % 2 else 'action') if t in causes else 'effect', 'title': t,
+                             'description': '', 'evidenceIds': [], 'status': 'possible', 'test': '', 'unverified': False,
+                             'controllable': False, 'stopPoint': None, 'notes': ''} for i, t in enumerate(titles)]
+        project['links'] = [{'id': f'00000000-0000-4000-9000-{i:012d}', 'effectId': ids[e], 'causeId': ids[c]} for i, (e, c) in enumerate(links)]
+        project['problem']['primaryEffectId'] = ids[titles[0]]
+        project['meta']['style'] = style
+        project['view'] = {'collapsed': [ids[t] for t in collapsed]}
+        return project
+
+    def edges():
+        return b.js("return [...document.querySelectorAll('#chart path.edge')].map(p=>p.getAttribute('d'))")
+
+    def segments(d):
+        """The straight runs of a connector path made of M, H, and V commands."""
+        tokens, runs, x, y = re.findall(r'[MHV]|-?[\d.]+', d), [], 0, 0
+        i = 0
+        while i < len(tokens):
+            command = tokens[i]
+            if command == 'M':
+                x, y = float(tokens[i + 1]), float(tokens[i + 2]); i += 3
+            elif command == 'H':
+                runs.append((x, y, float(tokens[i + 1]), y)); x = float(tokens[i + 1]); i += 2
+            else:
+                runs.append((x, y, x, float(tokens[i + 1]))); y = float(tokens[i + 1]); i += 2
+        return runs
+
+    def check_shape(name, project, kept_order=False):
+        load(project)
+        placed = check_layout()
+        assert len(placed) == len(b.js("return document.querySelectorAll('#chart .node')")), name
+        mid = lambda box: box['y'] + box['h'] / 2
+        columns = sorted({x['x'] for x in placed.values()})
+        step = columns[1] - columns[0] if len(columns) > 1 else 0
+        # The effect each cause is drawn under: its first-linked effect in the column just to the left.
+        under = {}
+        for link in rca()['links']:
+            e, c = placed.get(link['effectId']), placed.get(link['causeId'])
+            if e and c and c['id'] not in under and c['x'] - e['x'] == step:
+                under[c['id']] = e['id']
+        drawn = {}
+        for c, e in under.items():
+            drawn.setdefault(e, []).append(placed[c])
+        for e, kids in drawn.items():
+            kids.sort(key=lambda k: k['y'])
+            # Each effect is centred on its causes.
+            assert abs(mid(placed[e]) - (mid(kids[0]) + mid(kids[-1])) / 2) < 0.5, f'{name}: an effect is centred on its causes'
+            # Causes with nothing drawn under them sit one sibling gap apart.
+            for one, other in zip(kids, kids[1:]):
+                gap = other['y'] - one['y'] - one['h']
+                if one['id'] not in drawn and other['id'] not in drawn:
+                    assert abs(gap - SIBLING_GAP) < 0.5, f'{name}: leaf causes are evenly spaced ({gap})'
+            if kept_order:
+                order = [l['causeId'] for l in rca()['links'] if l['effectId'] == e and under.get(l['causeId']) == e]
+                assert [k['id'] for k in kids] == order, f'{name}: causes keep their order'
+        # No two nodes in a column are closer than the sibling gap.
+        for x in columns:
+            stack = sorted((b_ for b_ in placed.values() if b_['x'] == x), key=lambda b_: b_['y'])
+            for one, other in zip(stack, stack[1:]):
+                assert other['y'] - one['y'] - one['h'] >= SIBLING_GAP - 0.5, f'{name}: nodes in a column keep their distance'
+        # No connector runs through a node.
+        for d in edges():
+            for x1, y1, x2, y2 in segments(d):
+                for box in placed.values():
+                    inside_x = min(x1, x2) < box['x'] + box['w'] and max(x1, x2) > box['x'] if y1 == y2 else box['x'] < x1 < box['x'] + box['w']
+                    inside_y = box['y'] < y1 < box['y'] + box['h'] if y1 == y2 else min(y1, y2) < box['y'] + box['h'] and max(y1, y2) > box['y']
+                    assert not (inside_x and inside_y), f'{name}: a connector crosses a node ({d})'
+        # The same file gives the same chart, again and after a re-render.
+        first, lines = boxes(), edges()
+        load(project)
+        assert boxes() == first and edges() == lines, f'{name}: the layout is the same every time'
+        b.js('window.dispatchEvent(new Event("resize"));return true')
+        assert boxes() == first, f'{name}: the layout is the same every time'
+        return placed
+
+    example_file = rca()
+    long_title = 'A cause with a long title that wraps onto three lines of the node, or more'
+    mid_title = 'A cause with a title over two lines'
+
+    check_shape('the example', example_file)
+
+    chain = [('Seal leaks', 'Step 1')] + [(f'Step {i}' if i % 3 else long_title + f' {i}', f'Step {i + 1}' if (i + 1) % 3 else long_title + f' {i + 1}') for i in range(1, 8)]
+    chain += [('Step 2', 'Short side branch'), ('Step 5', mid_title)]
+    check_shape('a long chain', chart(chain))
+
+    # Causes of different heights, several levels deep: the case the centring missed.
+    deep = [('Seal leaks', long_title), ('Seal leaks', 'Short'), ('Seal leaks', mid_title),
+            (long_title, 'A'), (long_title, mid_title + ' A'), (long_title, long_title + ' A'),
+            ('Short', 'B'), (mid_title + ' A', 'C'), (mid_title + ' A', long_title + ' C'), (mid_title + ' A', 'D'),
+            (mid_title, 'E'), ('E', long_title + ' E'), ('E', 'F')]
+    check_shape('mixed heights', chart(deep))
+    check_shape('mixed heights, collapsed', chart(deep, collapsed=[mid_title + ' A', 'E']))
+    collapsed_shape = boxes()
+    assert len(collapsed_shape) == len({t for pair in deep for t in pair}) - 5, 'collapsed causes are hidden'
+    check_shape('mixed heights, as a cause tree', chart(deep, style='tree'), kept_order=True)
+
+    # Shared causes, to the next column and across several, with more than one per effect.
+    shared = deep + [('Seal leaks', 'C'), ('Short', 'E'), (long_title, 'F'), ('B', 'D'), ('Short', long_title + ' C'),
+                     ('Seal leaks', 'F')]
+    check_shape('shared causes', chart(shared))
+    check_shape('shared causes, as a cause tree', chart(shared, style='tree'), kept_order=True)
+
+    # A hand-edited file: nodes no effect links to are drawn as further trees below.
+    placed = check_shape('several starting nodes', chart(deep + [('Loose node', 'Its cause'), ('Its cause', long_title + ' L')],
+                                                           roots=['Loose node', 'Alone']))
+    primary = rca()['problem']['primaryEffectId']
+    assert all(x['x'] >= placed[primary]['x'] for x in placed.values())
+    load(example_file)
+    print('PASS: layout of chains, mixed heights, shared and collapsed causes, cause trees, and several roots', flush=True)
+
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')
     type_into('nodeNotes', 'Check with the seal vendor')

@@ -93,7 +93,7 @@ Collapsing is part of the view, not an edit: it is not an undo step and does not
 Select a cause. Its **Evidence** section lists the items it cites, each with its code, description, type, collector, and date.
 
 - Type in **Link or add evidence**: a code (`E3`), or a word from the description or source. Matching items from the evidence log are listed; choose one with the arrow keys and **Enter**, or click it.
-- To log something new, type what was seen or measured and choose **+ New**. It goes into the evidence log with the next free code and is cited by the cause. Its type, source, collector, and date are edited in the evidence log (M3); until then it is recorded as sensed, collected today.
+- To log something new, type what was seen or measured and choose **+ New**. It goes into the evidence log with the next free code and is cited by the cause. It is recorded as sensed, collected today; change its type, source, collector, and date in the evidence log.
 - **×** unlinks an item. It stays in the evidence log.
 
 The "?" marker goes away once a cause cites at least one item and is not marked unverified. Codes are never reused: after E11 is deleted, the next item is still E12. (Undoing the addition of E11 does free the code.) On the chart, codes show as pills under the title; when they do not fit, the last pill counts the rest (`+3`).
