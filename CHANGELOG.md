@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.3 — 2026-10-22
+
+Faster keyboard editing, and confirmed causes that confirm what they lead to.
+
+- Typing on a selected node replaces its title, as in a spreadsheet cell. **Enter** finishes the title and goes back to the chart's keys, **Shift+Enter** starts a new line, and **Esc** takes back what was typed. Each time a title is edited is one undo step.
+- The commands that were letters or digits now take Alt, so that typing always goes to the title: **Alt+A** and **Alt+C** add an action and a condition (in a cause tree, Alt+A adds a cause), **Alt+L** links, **Alt+M** moves, and **Alt+1**, **Alt+2**, **Alt+3** set a cause's status. On a Mac, Alt is Option. Insert, Shift+Insert, F2, Enter, Space, Delete, and the arrows are unchanged.
+- In a cause tree, confirming a cause also confirms the possible effects between it and the primary effect, in the same undo step. A ruled-out effect on the way is left as it is and flagged in the issues list; a possible effect whose cause is confirmed is flagged too, for RCAs made before this change.
+- The chart layout centres each effect on its causes; effects whose causes had causes of their own sat too high.
+
 ## v1.2 — 2026-10-21
 
 Two chart styles per RCA, Apollo or cause tree, with guided switching between them.
