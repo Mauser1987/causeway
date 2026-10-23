@@ -1309,6 +1309,25 @@ def run_tests(b):
     page('chart')
     print('PASS: action kinds, strength, status sequence, and read-across', flush=True)
 
+    # Equipment and duty: the failure record a seal or pump maker asks for.
+    page('equipment')
+    assert b.js("return document.getElementById('railEquipment').textContent") == str(len(rca()['equipment']))
+    assert 'Ran 439 days' in b.js("return document.querySelector('#records .run-time').textContent")
+    set_field('equipment', '', 'sealPlans', '11 + 31')
+    set_field('equipment', '', 'failed', '2025-07-01')
+    assert rca()['equipment']['sealPlans'] == '11 + 31' and not b.js("return document.querySelector('#records .run-time')"), 'no run time when the dates are reversed'
+    odd = json.loads(json.dumps(saved_file))
+    odd['equipment'] = {'sealPlans': '53B', 'speed': 2960, 'unknown': 'x'}
+    load(odd)
+    assert rca()['equipment'] == {'sealPlans': '53B'}, 'unknown keys and non-text values are dropped'
+    load({**saved_file, 'equipment': None})
+    assert rca()['equipment'] == {}
+    load(saved_file)
+    b.js('window.dispatchEvent(new Event("beforeprint"));return true')
+    assert 'Seal piping plans' in b.js("return document.getElementById('report').textContent")
+    page('chart')
+    print('PASS: equipment and duty record', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'

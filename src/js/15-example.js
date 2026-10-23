@@ -107,6 +107,22 @@ function exampleRca() {
     action('Add vapour-pressure margin step to the seal selection checklist', 2, 'preventive', 'medium', 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
     action('Configure TI-104 high alarm at 85 °C', 3, 'corrective', 'medium', 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'implemented'),
   ];
+  s.equipment = {
+    machine: 'Centrifugal pump, overhung, API 610 OH2', machineModel: 'P-101A, 3x4-10, 37 kW',
+    sealModel: 'Single cartridge pusher seal', arrangement: 'Single (Arrangement 1)', sealPlans: '11',
+    faces: 'Carbon against silicon carbide', elastomers: 'FKM O-rings',
+    product: 'Light naphtha with fine catalyst fines after upsets', specificGravity: '0.68', viscosity: '0.4 cP',
+    vapourPressure: '6.1 bar a at 85 °C', temperature: '62 °C', suction: '4.5 bar g', discharge: '14 bar g', chamber: '5.2 bar g',
+    speed: '2960 rpm', flowRate: '85 m³/h, 90 % of BEP', operation: 'Continuous; process upset and filter bypass two days before',
+    flushFlow: 'Normally 6 l/min; near zero when found', flushTemp: '62 °C', flushPressure: 'Discharge, through a 3 mm orifice',
+    runout: '0.03 mm TIR', endFloat: '0.05 mm', alignment: 'Within 0.05 mm, checked after the failure', vibration: '2.1 mm/s, steady',
+    bearings: 'Good; oil clean',
+    installed: '2025-07-02', failed: '2026-09-14', firstLeak: '14 Sep 2026, 06:30, morning round', leakRate: '15 ml/min at the gland drain',
+    detectedBy: 'Operator round', previous: 'One, July 2025: faces heat-checked, cause not found',
+    changes: 'Process upset on 12 Sep with the flush filter bypassed for about 6 hours. No maintenance on the pump since the last seal change.',
+    preserved: 'Workshop quarantine shelf, bagged and labelled', decontaminated: 'Steam-cleaned outside only; faces untouched',
+    photos: 'RCA folder, teardown 16 Sep', asFound: 'Stationary SiC face heat-checked with radial cracks; carbon face chipped at the OD; O-rings intact; springs free; orifice blocked with black fines.',
+  };
   s.problem.readAcross = 'P-101B and the two other Plan 11 pumps on the unit (P-103A/B) have the same 3 mm flush orifice without a strainer. Inspected on 2026-09-20: orifices clean. The cyclones are on the same work order.';
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});

@@ -50,6 +50,7 @@ function normalizeProject(p) {
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.equipment = Object.fromEntries(EQUIPMENT_KEYS.filter(k => typeof p.equipment?.[k] === 'string').map(k => [k, p.equipment[k]]));
   s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
   s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));
   s.ruledOut = s.ruledOut.filter(r => r?.id).map(r => ({cause: '', kind: '', test: '', status: 'ruled-out', ...r, evidenceIds: Array.isArray(r.evidenceIds) ? r.evidenceIds : []}));

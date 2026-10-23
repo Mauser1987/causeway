@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.11 — 2026-10-23
+
+The equipment and duty record.
+
+- A new record page, **Equipment and duty**, holds what a seal or pump maker asks for when a failed part comes back: machine and seal, duty at the failure, seal support system, mechanical condition, history (with the run time worked out from the installed and failed dates), and the failed parts. Every field is optional.
+- The printed report shows the filled-in fields under the problem definition. Files keep them under `equipment`.
+- The example's P-101A record is filled in.
+
 ## v1.10 — 2026-10-23
 
 Actions as 8D and the action hierarchy track them.

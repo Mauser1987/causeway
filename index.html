@@ -386,6 +386,8 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .card-head h2 { flex: 1; margin: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
+.form-grid .wide { grid-column: 1 / -1; }
+.run-time { margin-top: 4px; font-weight: 600; color: var(--ink-2); }
 .form-grid.dates { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .card .field { margin-top: 12px; }
 .card .field .text { display: block; margin-top: 5px; font-weight: 400; }
@@ -478,6 +480,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report h1 { margin: 0 0 4mm; font-size: 20pt; line-height: 1.2; }
   #report h2 { margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 1.5px solid #0b5f66; font-size: 13pt; color: #0b5f66; break-after: avoid; }
   #report h3 { margin: 4mm 0 2mm; font-size: 10.5pt; break-after: avoid; }
+  #report h4 { margin: 3mm 0 1.5mm; font-size: 9pt; color: #3d4f60; break-after: avoid; }
   #report section { margin-bottom: 7mm; }
   #report .r-page { break-before: page; }
   #report .r-kicker { font-size: 9pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b6b7a; }
@@ -651,6 +654,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
     <button class="record" data-record="timeline">Sequence of events<span id="railTimeline">0</span></button>
     <div class="panel-title group-title">Records</div>
     <button class="record" data-record="problem">Problem definition</button>
+    <button class="record" data-record="equipment">Equipment and duty<span id="railEquipment">0</span></button>
     <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
     <button class="record" data-record="evidence">Evidence log<span id="railEvidence">0</span></button>
     <button class="record" data-record="ruledOut">Causes ruled out<span id="railRuledOut">0</span></button>
@@ -757,6 +761,65 @@ const STOP_REASONS = {
   'no-evidence': 'No further evidence',
   'no-value': 'Going further adds nothing',
 };
+
+// The equipment and duty record: what a seal or pump maker asks for when a failed part comes back.
+// Each field is [key, label, placeholder, type]; the type is 'date', 'area', or a one-line text.
+const EQUIPMENT_SECTIONS = [
+  {title: 'Machine and seal', fields: [
+    ['machine', 'Machine', 'e.g. Centrifugal pump, overhung, API 610 OH2'],
+    ['machineModel', 'Make, model, and size', ''],
+    ['sealModel', 'Seal make, model, and drawing', ''],
+    ['arrangement', 'Seal arrangement', 'e.g. Single, dual unpressurised, dual pressurised'],
+    ['sealPlans', 'Seal piping plans', 'e.g. 11, or 11 + 52, or 53B'],
+    ['faces', 'Face materials', 'e.g. Carbon against silicon carbide'],
+    ['elastomers', 'Secondary seals', 'e.g. FKM O-rings'],
+  ]},
+  {title: 'Duty at the failure', fields: [
+    ['product', 'Product', 'Fluid, and any solids, crystals, or dissolved gas'],
+    ['specificGravity', 'Specific gravity', ''],
+    ['viscosity', 'Viscosity', 'At pumping temperature'],
+    ['vapourPressure', 'Vapour pressure', 'At seal chamber temperature'],
+    ['temperature', 'Pumping temperature', ''],
+    ['suction', 'Suction pressure', ''],
+    ['discharge', 'Discharge pressure', ''],
+    ['chamber', 'Seal chamber pressure', ''],
+    ['speed', 'Speed', 'rpm'],
+    ['flowRate', 'Flow', 'And its share of the best efficiency point'],
+    ['operation', 'Operation before the failure', 'e.g. Continuous, standby, start-up, upset'],
+  ]},
+  {title: 'Seal support system', fields: [
+    ['flushFlow', 'Flush or buffer flow', ''],
+    ['flushTemp', 'Flush temperature', ''],
+    ['flushPressure', 'Flush pressure', ''],
+    ['barrierFluid', 'Barrier or buffer fluid', ''],
+    ['barrierPressure', 'Barrier pressure, and what holds it', 'e.g. 12 bar g, nitrogen on the reservoir'],
+    ['reservoir', 'Reservoir level and top-ups', ''],
+    ['cooling', 'Cooling', 'Cooler, cooling water flow and temperatures'],
+  ]},
+  {title: 'Mechanical condition', fields: [
+    ['runout', 'Shaft runout', ''],
+    ['endFloat', 'Axial end float', ''],
+    ['alignment', 'Alignment', ''],
+    ['vibration', 'Vibration before the failure', ''],
+    ['bearings', 'Bearings and lubrication', ''],
+  ]},
+  {title: 'History', fields: [
+    ['installed', 'Seal installed', '', 'date'],
+    ['failed', 'Failed or removed', '', 'date'],
+    ['firstLeak', 'First leak noticed', 'When, and by whom'],
+    ['leakRate', 'Leak rate', ''],
+    ['detectedBy', 'How it was found', 'e.g. Round, alarm, condition monitoring, trip'],
+    ['previous', 'Earlier failures in this position', 'How many, when, and what failed'],
+    ['changes', 'Changes since the last good run', 'Process, operation, maintenance, parts, or design', 'area'],
+  ]},
+  {title: 'Failed parts', fields: [
+    ['preserved', 'Where the parts are kept', 'Bagged and labelled, not cleaned'],
+    ['decontaminated', 'Decontamination', 'Done, and the declaration for the seal maker'],
+    ['photos', 'Photos', 'Where they are filed'],
+    ['asFound', 'As-found condition', 'Each part as it came apart: faces, wear track, secondary seals, springs, drive, sleeve', 'area'],
+  ]},
+];
+const EQUIPMENT_KEYS = EQUIPMENT_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
 
 // Record values. Keys are what the file stores; values are what the page shows.
 const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
@@ -889,7 +952,7 @@ function blankState(style = 'apollo') {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [],
+    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [],
     counters: {evidence: 1},
   };
 }
@@ -1934,7 +1997,7 @@ function render() {
   if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTimeline', state.timelines.length], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length + treeRuledOut().length],
+  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTimeline', state.timelines.length], ['railEquipment', equipmentFilled()], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length + treeRuledOut().length],
     ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
@@ -2898,6 +2961,7 @@ function normalizeProject(p) {
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.equipment = Object.fromEntries(EQUIPMENT_KEYS.filter(k => typeof p.equipment?.[k] === 'string').map(k => [k, p.equipment[k]]));
   s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
   s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));
   s.ruledOut = s.ruledOut.filter(r => r?.id).map(r => ({cause: '', kind: '', test: '', status: 'ruled-out', ...r, evidenceIds: Array.isArray(r.evidenceIds) ? r.evidenceIds : []}));
@@ -3130,7 +3194,7 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
@@ -3379,6 +3443,27 @@ function problemPage() {
     </section>`;
 }
 
+// How long the seal ran, from its installed and failed dates.
+function runTime(e = state.equipment) {
+  const from = Date.parse(e.installed), to = Date.parse(e.failed);
+  if (!e.installed || !e.failed || !(to >= from)) return '';
+  const days = Math.round((to - from) / 864e5);
+  return `Ran ${plural(days, 'day')}${days >= 60 ? `, about ${(days / 30.44).toFixed(1)} months` : ''}`;
+}
+const equipmentFilled = () => EQUIPMENT_KEYS.filter(k => state.equipment[k]?.trim()).length;
+
+function equipmentPage() {
+  const e = state.equipment;
+  return `${pageHead('Equipment and duty', 'What a seal or pump maker asks for when a failed part comes back: the machine and seal, the duty, the support system, the mechanical condition, the history, and the failed parts. Fill in what you know; every field is optional.')}
+    ${EQUIPMENT_SECTIONS.map(s => `<section class="card">
+      <h2>${s.title}</h2>
+      <div class="form-grid">${s.fields.map(([key, label, hint, type]) => type === 'area'
+        ? `<div class="wide">${formArea(label, 'equipment', '', key, e[key] || '', `rows="3" placeholder="${escapeHtml(hint)}"`)}</div>`
+        : formField(label, 'equipment', '', key, e[key] || '', `${type === 'date' ? 'type="date" data-refresh' : ''} placeholder="${escapeHtml(hint)}"`)).join('')}</div>
+      ${s.title === 'History' && runTime() ? `<p class="note run-time">${runTime()}</p>` : ''}
+    </section>`).join('')}`;
+}
+
 function teamPage() {
   const m = state.meta, d = m.dates;
   return `${pageHead('Team and dates', 'Who carries out the RCA, and its dates.')}
@@ -3540,6 +3625,7 @@ function boundObject(el) {
   const {list, id} = el.dataset;
   if (list === 'meta') return state.meta;
   if (list === 'problem') return state.problem;
+  if (list === 'equipment') return state.equipment;
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
@@ -4260,6 +4346,8 @@ function buildReport() {
       <dl class="r-grid two">${item('What', primaryEffect()?.title)}${item('When', p.when)}${item('Where', p.where)}</dl>
       <h3>Significance</h3>
       <dl class="r-grid">${item('Safety', sig.safety)}${item('Environment', sig.environment)}${item('Production / cost', sig.productionCost)}${item('Reliability', sig.reliability)}</dl>
+      ${equipmentFilled() ? `<h3>Equipment and duty</h3>${EQUIPMENT_SECTIONS.filter(s => s.fields.some(f => state.equipment[f[0]]?.trim())).map(s => `<h4>${s.title}</h4>
+        <dl class="r-grid">${s.fields.filter(f => state.equipment[f[0]]?.trim()).map(([key, label]) => item(label, state.equipment[key])).join('')}${s.title === 'History' && runTime() ? item('Run time', runTime()) : ''}</dl>`).join('')}` : ''}
     </section>
     <section class="r-page">
       <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
@@ -4477,6 +4565,22 @@ function exampleRca() {
     action('Add vapour-pressure margin step to the seal selection checklist', 2, 'preventive', 'medium', 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
     action('Configure TI-104 high alarm at 85 °C', 3, 'corrective', 'medium', 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'implemented'),
   ];
+  s.equipment = {
+    machine: 'Centrifugal pump, overhung, API 610 OH2', machineModel: 'P-101A, 3x4-10, 37 kW',
+    sealModel: 'Single cartridge pusher seal', arrangement: 'Single (Arrangement 1)', sealPlans: '11',
+    faces: 'Carbon against silicon carbide', elastomers: 'FKM O-rings',
+    product: 'Light naphtha with fine catalyst fines after upsets', specificGravity: '0.68', viscosity: '0.4 cP',
+    vapourPressure: '6.1 bar a at 85 °C', temperature: '62 °C', suction: '4.5 bar g', discharge: '14 bar g', chamber: '5.2 bar g',
+    speed: '2960 rpm', flowRate: '85 m³/h, 90 % of BEP', operation: 'Continuous; process upset and filter bypass two days before',
+    flushFlow: 'Normally 6 l/min; near zero when found', flushTemp: '62 °C', flushPressure: 'Discharge, through a 3 mm orifice',
+    runout: '0.03 mm TIR', endFloat: '0.05 mm', alignment: 'Within 0.05 mm, checked after the failure', vibration: '2.1 mm/s, steady',
+    bearings: 'Good; oil clean',
+    installed: '2025-07-02', failed: '2026-09-14', firstLeak: '14 Sep 2026, 06:30, morning round', leakRate: '15 ml/min at the gland drain',
+    detectedBy: 'Operator round', previous: 'One, July 2025: faces heat-checked, cause not found',
+    changes: 'Process upset on 12 Sep with the flush filter bypassed for about 6 hours. No maintenance on the pump since the last seal change.',
+    preserved: 'Workshop quarantine shelf, bagged and labelled', decontaminated: 'Steam-cleaned outside only; faces untouched',
+    photos: 'RCA folder, teardown 16 Sep', asFound: 'Stationary SiC face heat-checked with radial cracks; carbon face chipped at the OD; O-rings intact; springs free; orifice blocked with black fines.',
+  };
   s.problem.readAcross = 'P-101B and the two other Plan 11 pumps on the unit (P-103A/B) have the same 3 mm flush orifice without a strainer. Inspected on 2026-09-20: orifices clean. The cyclones are on the same work order.';
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});

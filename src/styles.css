@@ -374,6 +374,8 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .card-head h2 { flex: 1; margin: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
+.form-grid .wide { grid-column: 1 / -1; }
+.run-time { margin-top: 4px; font-weight: 600; color: var(--ink-2); }
 .form-grid.dates { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .card .field { margin-top: 12px; }
 .card .field .text { display: block; margin-top: 5px; font-weight: 400; }
@@ -466,6 +468,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report h1 { margin: 0 0 4mm; font-size: 20pt; line-height: 1.2; }
   #report h2 { margin: 0 0 3mm; padding-bottom: 1.5mm; border-bottom: 1.5px solid #0b5f66; font-size: 13pt; color: #0b5f66; break-after: avoid; }
   #report h3 { margin: 4mm 0 2mm; font-size: 10.5pt; break-after: avoid; }
+  #report h4 { margin: 3mm 0 1.5mm; font-size: 9pt; color: #3d4f60; break-after: avoid; }
   #report section { margin-bottom: 7mm; }
   #report .r-page { break-before: page; }
   #report .r-kicker { font-size: 9pt; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #5b6b7a; }

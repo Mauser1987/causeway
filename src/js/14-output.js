@@ -147,6 +147,8 @@ function buildReport() {
       <dl class="r-grid two">${item('What', primaryEffect()?.title)}${item('When', p.when)}${item('Where', p.where)}</dl>
       <h3>Significance</h3>
       <dl class="r-grid">${item('Safety', sig.safety)}${item('Environment', sig.environment)}${item('Production / cost', sig.productionCost)}${item('Reliability', sig.reliability)}</dl>
+      ${equipmentFilled() ? `<h3>Equipment and duty</h3>${EQUIPMENT_SECTIONS.filter(s => s.fields.some(f => state.equipment[f[0]]?.trim())).map(s => `<h4>${s.title}</h4>
+        <dl class="r-grid">${s.fields.filter(f => state.equipment[f[0]]?.trim()).map(([key, label]) => item(label, state.equipment[key])).join('')}${s.title === 'History' && runTime() ? item('Run time', runTime()) : ''}</dl>`).join('')}` : ''}
     </section>
     <section class="r-page">
       <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>

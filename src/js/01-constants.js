@@ -40,6 +40,65 @@ const STOP_REASONS = {
   'no-value': 'Going further adds nothing',
 };
 
+// The equipment and duty record: what a seal or pump maker asks for when a failed part comes back.
+// Each field is [key, label, placeholder, type]; the type is 'date', 'area', or a one-line text.
+const EQUIPMENT_SECTIONS = [
+  {title: 'Machine and seal', fields: [
+    ['machine', 'Machine', 'e.g. Centrifugal pump, overhung, API 610 OH2'],
+    ['machineModel', 'Make, model, and size', ''],
+    ['sealModel', 'Seal make, model, and drawing', ''],
+    ['arrangement', 'Seal arrangement', 'e.g. Single, dual unpressurised, dual pressurised'],
+    ['sealPlans', 'Seal piping plans', 'e.g. 11, or 11 + 52, or 53B'],
+    ['faces', 'Face materials', 'e.g. Carbon against silicon carbide'],
+    ['elastomers', 'Secondary seals', 'e.g. FKM O-rings'],
+  ]},
+  {title: 'Duty at the failure', fields: [
+    ['product', 'Product', 'Fluid, and any solids, crystals, or dissolved gas'],
+    ['specificGravity', 'Specific gravity', ''],
+    ['viscosity', 'Viscosity', 'At pumping temperature'],
+    ['vapourPressure', 'Vapour pressure', 'At seal chamber temperature'],
+    ['temperature', 'Pumping temperature', ''],
+    ['suction', 'Suction pressure', ''],
+    ['discharge', 'Discharge pressure', ''],
+    ['chamber', 'Seal chamber pressure', ''],
+    ['speed', 'Speed', 'rpm'],
+    ['flowRate', 'Flow', 'And its share of the best efficiency point'],
+    ['operation', 'Operation before the failure', 'e.g. Continuous, standby, start-up, upset'],
+  ]},
+  {title: 'Seal support system', fields: [
+    ['flushFlow', 'Flush or buffer flow', ''],
+    ['flushTemp', 'Flush temperature', ''],
+    ['flushPressure', 'Flush pressure', ''],
+    ['barrierFluid', 'Barrier or buffer fluid', ''],
+    ['barrierPressure', 'Barrier pressure, and what holds it', 'e.g. 12 bar g, nitrogen on the reservoir'],
+    ['reservoir', 'Reservoir level and top-ups', ''],
+    ['cooling', 'Cooling', 'Cooler, cooling water flow and temperatures'],
+  ]},
+  {title: 'Mechanical condition', fields: [
+    ['runout', 'Shaft runout', ''],
+    ['endFloat', 'Axial end float', ''],
+    ['alignment', 'Alignment', ''],
+    ['vibration', 'Vibration before the failure', ''],
+    ['bearings', 'Bearings and lubrication', ''],
+  ]},
+  {title: 'History', fields: [
+    ['installed', 'Seal installed', '', 'date'],
+    ['failed', 'Failed or removed', '', 'date'],
+    ['firstLeak', 'First leak noticed', 'When, and by whom'],
+    ['leakRate', 'Leak rate', ''],
+    ['detectedBy', 'How it was found', 'e.g. Round, alarm, condition monitoring, trip'],
+    ['previous', 'Earlier failures in this position', 'How many, when, and what failed'],
+    ['changes', 'Changes since the last good run', 'Process, operation, maintenance, parts, or design', 'area'],
+  ]},
+  {title: 'Failed parts', fields: [
+    ['preserved', 'Where the parts are kept', 'Bagged and labelled, not cleaned'],
+    ['decontaminated', 'Decontamination', 'Done, and the declaration for the seal maker'],
+    ['photos', 'Photos', 'Where they are filed'],
+    ['asFound', 'As-found condition', 'Each part as it came apart: faces, wear track, secondary seals, springs, drive, sleeve', 'area'],
+  ]},
+];
+const EQUIPMENT_KEYS = EQUIPMENT_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
+
 // Record values. Keys are what the file stores; values are what the page shows.
 const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
 const RULED_OUT_STATUS = {'testing': 'Being tested', 'ruled-out': 'Ruled out'};

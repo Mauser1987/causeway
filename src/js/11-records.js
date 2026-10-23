@@ -57,7 +57,7 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
@@ -306,6 +306,27 @@ function problemPage() {
     </section>`;
 }
 
+// How long the seal ran, from its installed and failed dates.
+function runTime(e = state.equipment) {
+  const from = Date.parse(e.installed), to = Date.parse(e.failed);
+  if (!e.installed || !e.failed || !(to >= from)) return '';
+  const days = Math.round((to - from) / 864e5);
+  return `Ran ${plural(days, 'day')}${days >= 60 ? `, about ${(days / 30.44).toFixed(1)} months` : ''}`;
+}
+const equipmentFilled = () => EQUIPMENT_KEYS.filter(k => state.equipment[k]?.trim()).length;
+
+function equipmentPage() {
+  const e = state.equipment;
+  return `${pageHead('Equipment and duty', 'What a seal or pump maker asks for when a failed part comes back: the machine and seal, the duty, the support system, the mechanical condition, the history, and the failed parts. Fill in what you know; every field is optional.')}
+    ${EQUIPMENT_SECTIONS.map(s => `<section class="card">
+      <h2>${s.title}</h2>
+      <div class="form-grid">${s.fields.map(([key, label, hint, type]) => type === 'area'
+        ? `<div class="wide">${formArea(label, 'equipment', '', key, e[key] || '', `rows="3" placeholder="${escapeHtml(hint)}"`)}</div>`
+        : formField(label, 'equipment', '', key, e[key] || '', `${type === 'date' ? 'type="date" data-refresh' : ''} placeholder="${escapeHtml(hint)}"`)).join('')}</div>
+      ${s.title === 'History' && runTime() ? `<p class="note run-time">${runTime()}</p>` : ''}
+    </section>`).join('')}`;
+}
+
 function teamPage() {
   const m = state.meta, d = m.dates;
   return `${pageHead('Team and dates', 'Who carries out the RCA, and its dates.')}
@@ -467,6 +488,7 @@ function boundObject(el) {
   const {list, id} = el.dataset;
   if (list === 'meta') return state.meta;
   if (list === 'problem') return state.problem;
+  if (list === 'equipment') return state.equipment;
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
