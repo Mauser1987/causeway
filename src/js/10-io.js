@@ -78,7 +78,9 @@ function normalizeProject(p) {
       events: (Array.isArray(ph.events) ? ph.events : []).filter(ev => ev?.id).map(ev => ({text: '', ...ev,
         start: when(ev.start), end: when(ev.end), kind: ['action', 'condition'].includes(ev.kind) ? ev.kind : 'action', deviation: ev.deviation === true,
         evidenceIds: Array.isArray(ev.evidenceIds) ? ev.evidenceIds : [], nodeId: nodeIds.has(ev.nodeId) ? ev.nodeId : null}))}))}));
-  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
+  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', ...a,
+    status: a.status === 'done' ? 'implemented' : a.status in ACTION_STATUS ? a.status : 'open',
+    kind: a.kind in ACTION_KINDS ? a.kind : 'corrective', strength: a.strength in ACTION_STRENGTH ? a.strength : '',
     effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.
   const previous = state;

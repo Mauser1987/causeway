@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.10 — 2026-10-23
+
+Actions as 8D and the action hierarchy track them.
+
+- Each action has a **kind**: containment (until the fix is in), corrective, or preventive; and a **strength**: strong (removes the cause by design), medium (a checklist, an alarm, redundancy), or weak (training, a procedure, a warning).
+- Action status follows 8D: identified, in progress, implemented, verified, validated, or cancelled. Files with `done` open as implemented.
+- **Read-across** below the action plan records where else the problem could happen and what was checked; the report prints it, with each action's kind and strength.
+- New checks: a solution with only weak actions (warning), an action that sounds like training with no strength set (note), and an action validated without an effectiveness result (warning).
+- The example has a containment action, rated actions, and its read-across.
+
 ## v1.9 — 2026-10-23
 
 Root cause types, as 8D asks for them.

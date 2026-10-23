@@ -136,7 +136,7 @@ def run_tests(b):
     data = rca()
     assert len(data['nodes']) == 16 and len(data['links']) == 15 and len(data['evidence']) == 10
     assert [e['code'] for e in data['evidence']] == [f'E{i}' for i in range(1, 11)]
-    assert len(data['ruledOut']) == 5 and len(data['solutions']) == 7 and len(data['actions']) == 4 and len(data['fiveWhys']) == 2
+    assert len(data['ruledOut']) == 5 and len(data['solutions']) == 7 and len(data['actions']) == 5 and len(data['fiveWhys']) == 2
     assert data['schemaVersion'] == 1 and data['type'] == 'causeway'
     uuid = re.compile(r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$')
     every_id = [x['id'] for key in ('nodes', 'links', 'evidence', 'ruledOut', 'solutions', 'actions') for x in data[key]] + [data['id']]
@@ -842,7 +842,7 @@ def run_tests(b):
     # Action plan: overdue actions are marked until done.
     set_field('actions', action['id'], 'due', '2020-01-01')
     assert b.js("return document.querySelectorAll('#records td.overdue').length") == 1
-    set_field('actions', action['id'], 'status', 'done')
+    set_field('actions', action['id'], 'status', 'implemented')
     assert b.js("return document.querySelectorAll('#records td.overdue').length") == 0
     key('Insert')
     assert len(rca()['nodes']) == len(before_records['nodes']), 'chart keys do nothing on a record page'
@@ -1211,9 +1211,9 @@ def run_tests(b):
     free[2]['controllable'] = True
     checked['ruledOut'][0].update(test='', evidenceIds=[])
     checked['solutions'].append({'id': 'sol-x', 'title': 'Orphan solution', 'causeIds': [], 'criteria': checked['solutions'][0]['criteria'], 'decision': 'implement'})
-    checked['actions'][0]['effectiveness'] = {'date': '2020-01-01', 'result': ''}
-    checked['actions'][1]['effectiveness'] = {'date': '', 'result': ''}; checked['actions'][1]['status'] = 'done'
-    checked['actions'][2]['effectiveness'] = {'date': '', 'result': ''}
+    checked['actions'][1]['effectiveness'] = {'date': '2020-01-01', 'result': ''}
+    checked['actions'][2]['effectiveness'] = {'date': '', 'result': ''}; checked['actions'][2]['status'] = 'implemented'
+    checked['actions'][3]['effectiveness'] = {'date': '', 'result': ''}
     load(checked)
     got = {(i['title'], i['text'].split(':')[0], i['level'], i['record']) for i in all_issues()}
     expected = {
@@ -1223,9 +1223,9 @@ def run_tests(b):
         (checked['ruledOut'][0]['cause'], 'Ruled out without a reason', 'warning', 'ruledOut'),
         ('Orphan solution', 'Attacks no cause', 'warning', 'solutions'),
         ('Orphan solution', 'To implement, but no action in the plan', 'warning', 'solutions'),
-        (checked['actions'][0]['action'], 'The effectiveness check is due', 'warning', 'actions'),
-        (checked['actions'][1]['action'], 'No effectiveness check planned', 'warning', 'actions'),
-        (checked['actions'][2]['action'], 'No effectiveness check planned', 'info', 'actions'),
+        (checked['actions'][1]['action'], 'The effectiveness check is due', 'warning', 'actions'),
+        (checked['actions'][2]['action'], 'No effectiveness check planned', 'warning', 'actions'),
+        (checked['actions'][3]['action'], 'No effectiveness check planned', 'info', 'actions'),
     }
     assert expected <= got, expected - got
     assert b.js("return document.getElementById('issuesCount').textContent") == f'{sum(1 for i in all_issues() if i["level"] != "info")} issues'
@@ -1233,7 +1233,7 @@ def run_tests(b):
     click('issuesButton')
     b.js('''[...document.querySelectorAll("#issuesList [data-record=actions]")].find(x=>x.textContent.includes("is due")).click();return true''')
     assert b.js("return document.getElementById('app').dataset.record") == 'actions'
-    assert b.js("return document.activeElement.dataset.id") == checked['actions'][0]['id']
+    assert b.js("return document.activeElement.dataset.id") == checked['actions'][1]['id']
     click('issuesButton')
     b.js('''document.querySelector("#issuesList [data-record=solutions]").click();return true''')
     assert b.js("return document.getElementById('app').dataset.record") == 'solutions' and b.js("return document.activeElement.value") == 'Orphan solution'
@@ -1276,6 +1276,38 @@ def run_tests(b):
     assert any(t.startswith('No cause is marked systemic') for t in notes) and not any('escape point' in t for t in notes), notes
     load(saved_file)
     print('PASS: root cause types', flush=True)
+
+    # Actions: kind, strength, the 8D status sequence, read-across, and their checks.
+    old = json.loads(json.dumps(saved_file))
+    old['actions'][4]['status'] = 'done'
+    for field in ('kind', 'strength'): old['actions'][4].pop(field)
+    old['actions'][3]['strength'] = 'bogus'
+    old['problem'].pop('readAcross')
+    load(old)
+    acts = rca()['actions']
+    assert acts[4]['status'] == 'implemented' and acts[4]['kind'] == 'corrective' and acts[4]['strength'] == '', 'an older file: done is implemented'
+    assert acts[3]['strength'] == '' and rca()['problem']['readAcross'] == ''
+    load(saved_file)
+    page('actions')
+    a2 = rca()['actions'][2]
+    assert b.js("return document.querySelector(`#records [data-list=actions][data-id='${arguments[0]}'][data-field=strength]`).value", [a2['id']]) == 'medium'
+    set_field('actions', a2['id'], 'strength', 'weak')
+    weak = {(i['title'], i['text'].split(':')[0]) for i in all_issues()}
+    sol_title = next(x['title'] for x in rca()['solutions'] if x['id'] == a2['solutionId'])
+    assert (sol_title, 'Only weak actions (training, procedures, warnings)') in weak, weak
+    set_field('actions', a2['id'], 'strength', '')
+    set_field('actions', a2['id'], 'action', 'Retrain the operators on OP-212')
+    assert ('Retrain the operators on OP-212', 'Training or a reminder is a weak action') in {(i['title'], i['text'].split(':')[0]) for i in all_issues()}
+    set_field('actions', a2['id'], 'kind', 'containment')
+    assert not any(i['text'].startswith('Training') for i in all_issues()), 'containment is not rated'
+    set_field('actions', a2['id'], 'status', 'validated')
+    assert ('Retrain the operators on OP-212', 'Validated, but no effectiveness result') in {(i['title'], i['text'].split(':')[0]) for i in all_issues()}
+    assert b.js("return document.querySelector(`#records tr:has([data-id='${arguments[0]}'])`).classList.contains('done')", [a2['id']])
+    set_field('problem', '', 'readAcross', 'P-103A/B checked')
+    assert rca()['problem']['readAcross'] == 'P-103A/B checked'
+    load(saved_file)
+    page('chart')
+    print('PASS: action kinds, strength, status sequence, and read-across', flush=True)
 
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
@@ -1336,7 +1368,7 @@ def run_tests(b):
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'
     assert report['fish'] == [len(fish_causes(i)) for i in range(len(rca()['fishbones']))], 'the report draws every fishbone'
     assert report['events'] == [sum(len(ph['events']) for ph in t['phases']) for t in rca()['timelines']], 'the report draws every timeline'
-    assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Revise upset procedure OP-212' in report['text']
+    assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Add a seal-system walkdown checklist to upset procedure OP-212' in report['text'] and 'Containment' in report['text'] and 'Strong action' in report['text'] and 'P-103A/B' in report['text']
     pdf = base64.b64decode(b.call('WebDriver:Print', {'orientation': 'landscape', 'background': True})['value'])
     assert pdf.startswith(b'%PDF') and pdf.count(b'/Type /Page') - pdf.count(b'/Type /Pages') >= 5, 'the report prints over several pages'
     print('PASS: printed report', flush=True)

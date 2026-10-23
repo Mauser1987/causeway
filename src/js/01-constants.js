@@ -49,7 +49,15 @@ const CRITERIA = {
 };
 const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
 const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
-const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+// An action's status, as 8D tracks it: implemented (done), verified (done as intended), and validated
+// (its effectiveness check shows the problem is gone). Files from before keep 'done' as implemented.
+const ACTION_STATUS = {open: 'Identified', 'in-progress': 'In progress', implemented: 'Implemented', verified: 'Verified', validated: 'Validated', cancelled: 'Cancelled'};
+const ACTION_DONE = ['implemented', 'verified', 'validated'];
+// What an action is for: containment protects until the fix is in (8D D3), a corrective action removes
+// a cause (D5–D6), and a preventive one stops it elsewhere or in the system (D7).
+const ACTION_KINDS = {containment: 'Containment', corrective: 'Corrective', preventive: 'Preventive'};
+// How much an action relies on people remembering, after the action hierarchy of RCA².
+const ACTION_STRENGTH = {strong: 'Strong', medium: 'Medium', weak: 'Weak'};
 // Starting categories for a fishbone diagram; each can be renamed, added, or removed.
 const FISHBONE_PRESETS = {
   seal: {name: 'Seal failure', categories: ['Seal and materials', 'Installation', 'Operation', 'Process fluid', 'Support system', 'Pump and equipment']},

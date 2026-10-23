@@ -207,9 +207,10 @@ function buildReport() {
     <section>
       <h2>Action plan</h2>
       ${table(['Action', 'Solution', 'Owner', 'Due', 'Verification', 'Status', 'Effectiveness check'], state.actions.map(a => `<tr>
-        <td>${text(a.action)}</td><td>${text(state.solutions.find(s => s.id === a.solutionId)?.title)}</td><td>${text(a.owner)}</td>
+        <td>${text(a.action)}<small class="r-tags">${[ACTION_KINDS[a.kind], ACTION_STRENGTH[a.strength] && `${ACTION_STRENGTH[a.strength]} action`].filter(Boolean).join(' · ')}</small></td><td>${text(state.solutions.find(s => s.id === a.solutionId)?.title)}</td><td>${text(a.owner)}</td>
         <td class="r-crit">${text(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${text(a.verification)}</td><td>${ACTION_STATUS[a.status] || ''}</td>
         <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`), 'No actions recorded.')}
+      ${state.problem.readAcross.trim() ? `<h3>Read-across</h3><p class="r-read">${escapeHtml(state.problem.readAcross)}</p>` : ''}
     </section>
     <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
 }

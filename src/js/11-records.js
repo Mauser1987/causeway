@@ -430,16 +430,20 @@ function solutionsPage() {
     }).join('') : '<p class="empty-card">No solutions yet. Add one here, or from a cause on the chart.</p>'}`;
 }
 
+const STRENGTH_HELP = 'Strength: strong actions remove the cause by design (eliminate, redesign, a physical barrier, automation); medium ones make the right result likely (a checklist, an alarm or monitoring, redundancy); weak ones rely on people remembering (training, a procedure, a warning, a reminder).';
+
 function actionsPage() {
   const solutions = Object.fromEntries(state.solutions.map(s => [s.id, shorten(s.title || 'Untitled solution', 60)]));
   const overdue = state.actions.filter(isOverdue).length;
-  return `${pageHead('Action plan', `Who does what, by when, how it is verified, and whether it worked.${overdue ? ` <b class="overdue">${overdue} overdue.</b>` : ''}`,
+  return `${pageHead('Action plan', `Who does what, by when, how it is verified, and whether it worked: containment until the fix is in, corrective actions that remove the causes, and preventive ones that stop it elsewhere.${overdue ? ` <b class="overdue">${overdue} overdue.</b>` : ''}`,
     '<button class="button primary" data-act="add-action">+ Add action</button>')}
     <div class="table-wrap"><table class="log">
-      <colgroup><col style="width:24%"><col style="width:16%"><col style="width:120px"><col style="width:136px"><col style="width:18%"><col style="width:118px"><col style="width:20%"><col style="width:44px"></colgroup>
+      <colgroup><col style="width:24%"><col style="width:16%"><col style="width:120px"><col style="width:136px"><col style="width:18%"><col style="width:132px"><col style="width:20%"><col style="width:44px"></colgroup>
       <thead><tr><th>Action</th><th>Solution</th><th>Owner</th><th>Due</th><th>Verification</th><th>Status</th><th>Effectiveness check</th><th><span class="sr">Remove</span></th></tr></thead>
-      <tbody>${state.actions.length ? state.actions.map(a => `<tr class="${a.status === 'done' ? 'done' : ''}">
-        <td>${cellArea('actions', a.id, 'action', a.action, 'Action', 'placeholder="What will be done"')}</td>
+      <tbody>${state.actions.length ? state.actions.map(a => `<tr class="${ACTION_DONE.includes(a.status) ? 'done' : ''}">
+        <td>${cellArea('actions', a.id, 'action', a.action, 'Action', 'placeholder="What will be done"')}
+          <div class="row-tags"><select class="cell tag" ${bind('actions', a.id, 'kind')} aria-label="Kind">${optionList(ACTION_KINDS, a.kind)}</select>
+          ${a.kind === 'containment' ? '<span class="tag-note">until the fix is in</span>' : `<select class="cell tag strength-${a.strength || 'none'}" ${bind('actions', a.id, 'strength')} aria-label="Strength" title="${STRENGTH_HELP}">${optionList(ACTION_STRENGTH, a.strength, 'Strength…')}</select>`}</div></td>
         <td><select class="cell" ${bind('actions', a.id, 'solutionId')} aria-label="Solution">${optionList(solutions, a.solutionId, '—')}</select></td>
         <td>${cell('actions', a.id, 'owner', a.owner, 'Owner', 'list="teamNames"')}</td>
         <td class="${isOverdue(a) ? 'overdue' : ''}">${cell('actions', a.id, 'due', a.due, 'Due', 'type="date" data-refresh')}${isOverdue(a) ? '<small>Overdue</small>' : ''}</td>
@@ -449,7 +453,12 @@ function actionsPage() {
           ${cellArea('actions', a.id, 'effectiveness.result', a.effectiveness.result, 'Effectiveness check result', 'placeholder="Result: did it stop recurrence?"')}</td>
         <td class="row-actions"><button class="unlink" data-act="delete-action" data-id="${a.id}" aria-label="Delete action">×</button></td>
       </tr>`).join('') : empty(8, 'No actions yet. Add one here, or from a solution.')}</tbody>
-    </table></div>`;
+    </table></div>
+    <p class="note">${STRENGTH_HELP} Status: <b>implemented</b> is done, <b>verified</b> is checked to be done as intended, and <b>validated</b> is shown by the effectiveness check to have worked.</p>
+    <section class="card">
+      ${formArea('Read-across <span class="muted">where else could this happen, and what was checked</span>', 'problem', '', 'readAcross', state.problem.readAcross,
+        'rows="3" placeholder="Similar equipment, sites, or designs, and what was found on them"')}
+    </section>`;
 }
 
 // ---- Editing ----

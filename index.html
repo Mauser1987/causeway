@@ -401,6 +401,12 @@ table.log td { padding: 6px 6px; border-bottom: 1px solid var(--line-soft); vert
 table.log tr:last-child td { border-bottom: 0; }
 table.log tr.current td { background: var(--lit-soft); }
 table.log tr.done td { color: var(--muted); }
+.row-tags { display: flex; gap: 6px; margin-top: 4px; }
+.row-tags select.tag { width: auto; flex: 1; min-width: 0; padding: 2px 4px; font-size: 11.5px; color: var(--ink-2); }
+.row-tags select.strength-none { color: var(--muted); }
+.row-tags .tag-note { flex: 1; align-self: center; color: var(--muted); font-size: 11.5px; }
+.row-tags select.strength-weak { color: var(--warn-ink); }
+.row-tags select.strength-strong { color: var(--accent); font-weight: 600; }
 table.log .center { text-align: center; vertical-align: middle; }
 table.log td.code-cell, table.log td:first-child .code { margin-top: 6px; display: inline-block; }
 .empty-row { padding: 24px !important; text-align: center; color: var(--muted); }
@@ -486,6 +492,8 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report td { padding: 1.5mm 2mm; border-bottom: .5px solid #d5dde4; vertical-align: top; white-space: pre-wrap; }
   #report tr { break-inside: avoid; }
   #report thead { display: table-header-group; }
+  #report .r-tags { display: block; margin-top: 2px; color: #5b6b7a; font-size: 8pt; }
+  #report .r-read { white-space: pre-wrap; }
   #report .r-code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #084f54; white-space: nowrap; }
   #report .r-none { color: #5b6b7a; font-style: italic; }
   #report figure { margin: 0; break-inside: avoid; }
@@ -759,7 +767,15 @@ const CRITERIA = {
 };
 const CRITERION_VALUES = {yes: 'Yes', partly: 'Partly', no: 'No'};
 const DECISIONS = {implement: 'Implement', study: 'Study further', reject: 'Reject'};
-const ACTION_STATUS = {open: 'Open', 'in-progress': 'In progress', done: 'Done', cancelled: 'Cancelled'};
+// An action's status, as 8D tracks it: implemented (done), verified (done as intended), and validated
+// (its effectiveness check shows the problem is gone). Files from before keep 'done' as implemented.
+const ACTION_STATUS = {open: 'Identified', 'in-progress': 'In progress', implemented: 'Implemented', verified: 'Verified', validated: 'Validated', cancelled: 'Cancelled'};
+const ACTION_DONE = ['implemented', 'verified', 'validated'];
+// What an action is for: containment protects until the fix is in (8D D3), a corrective action removes
+// a cause (D5–D6), and a preventive one stops it elsewhere or in the system (D7).
+const ACTION_KINDS = {containment: 'Containment', corrective: 'Corrective', preventive: 'Preventive'};
+// How much an action relies on people remembering, after the action hierarchy of RCA².
+const ACTION_STRENGTH = {strong: 'Strong', medium: 'Medium', weak: 'Weak'};
 // Starting categories for a fishbone diagram; each can be renamed, added, or removed.
 const FISHBONE_PRESETS = {
   seal: {name: 'Seal failure', categories: ['Seal and materials', 'Installation', 'Operation', 'Process fluid', 'Support system', 'Pump and equipment']},
@@ -872,7 +888,7 @@ function blankState(style = 'apollo') {
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
-    problem: {primaryEffectId: effect.id, when: '', where: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
+    problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [],
     counters: {evidence: 1},
   };
@@ -1262,11 +1278,11 @@ function addSolution(causeIds = []) {
   return s;
 }
 function addAction(solutionId = '') {
-  const a = {id: uuid(), action: '', solutionId, owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
+  const a = {id: uuid(), action: '', solutionId, kind: 'corrective', strength: '', owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
   state.actions.push(a);
   return a;
 }
-const isOverdue = a => a.due && a.due < today() && !['done', 'cancelled'].includes(a.status);
+const isOverdue = a => a.due && a.due < today() && !ACTION_DONE.includes(a.status) && a.status !== 'cancelled';
 
 // Nodes reachable from the primary effect.
 function reachable(links = state.links) {
@@ -1429,6 +1445,8 @@ function causeIssues() {
   return issues;
 }
 
+const WEAK_WORDS = /\b(re-?train(ing)?|training|brief(ing)?|remind(er)?|awareness|toolbox talk|be (more )?careful)\b/i;
+
 // The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
 // a planned effectiveness check, with its result once the date has passed.
 function recordIssues() {
@@ -1436,15 +1454,19 @@ function recordIssues() {
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
   for (const s of state.solutions) {
-    const title = s.title || 'Untitled solution';
+    const title = s.title || 'Untitled solution', actions = actionsOf(s.id).filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
     if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');
     if (s.decision === 'implement' && !actionsOf(s.id).length) add('solutions', s.id, title, 'warning', 'solution-actions', 'To implement, but no action in the plan');
+    if (s.decision !== 'reject' && actions.length && actions.every(a => a.strength === 'weak')) add('solutions', s.id, title, 'warning', 'weak-actions',
+      'Only weak actions (training, procedures, warnings): add a stronger one that does not rely on people remembering');
   }
   for (const a of state.actions) {
     if (a.status === 'cancelled') continue;
     const title = a.action || 'Untitled action', check = a.effectiveness;
-    if (!check.date) add('actions', a.id, title, a.status === 'done' ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
+    if (!check.date) add('actions', a.id, title, ACTION_DONE.includes(a.status) ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
     else if (check.date < today() && !check.result.trim()) add('actions', a.id, title, 'warning', 'effect-due', 'The effectiveness check is due: record the result');
+    if (a.status === 'validated' && !check.result.trim()) add('actions', a.id, title, 'warning', 'validated', 'Validated, but no effectiveness result: record what showed that it worked');
+    if (!a.strength && a.kind !== 'containment' && WEAK_WORDS.test(a.action)) add('actions', a.id, title, 'info', 'strength', 'Training or a reminder is a weak action: rate its strength, and look for a stronger one');
   }
   return issues;
 }
@@ -2904,7 +2926,9 @@ function normalizeProject(p) {
       events: (Array.isArray(ph.events) ? ph.events : []).filter(ev => ev?.id).map(ev => ({text: '', ...ev,
         start: when(ev.start), end: when(ev.end), kind: ['action', 'condition'].includes(ev.kind) ? ev.kind : 'action', deviation: ev.deviation === true,
         evidenceIds: Array.isArray(ev.evidenceIds) ? ev.evidenceIds : [], nodeId: nodeIds.has(ev.nodeId) ? ev.nodeId : null}))}))}));
-  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
+  s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', ...a,
+    status: a.status === 'done' ? 'implemented' : a.status in ACTION_STATUS ? a.status : 'open',
+    kind: a.kind in ACTION_KINDS ? a.kind : 'corrective', strength: a.strength in ACTION_STRENGTH ? a.strength : '',
     effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.
   const previous = state;
@@ -3479,16 +3503,20 @@ function solutionsPage() {
     }).join('') : '<p class="empty-card">No solutions yet. Add one here, or from a cause on the chart.</p>'}`;
 }
 
+const STRENGTH_HELP = 'Strength: strong actions remove the cause by design (eliminate, redesign, a physical barrier, automation); medium ones make the right result likely (a checklist, an alarm or monitoring, redundancy); weak ones rely on people remembering (training, a procedure, a warning, a reminder).';
+
 function actionsPage() {
   const solutions = Object.fromEntries(state.solutions.map(s => [s.id, shorten(s.title || 'Untitled solution', 60)]));
   const overdue = state.actions.filter(isOverdue).length;
-  return `${pageHead('Action plan', `Who does what, by when, how it is verified, and whether it worked.${overdue ? ` <b class="overdue">${overdue} overdue.</b>` : ''}`,
+  return `${pageHead('Action plan', `Who does what, by when, how it is verified, and whether it worked: containment until the fix is in, corrective actions that remove the causes, and preventive ones that stop it elsewhere.${overdue ? ` <b class="overdue">${overdue} overdue.</b>` : ''}`,
     '<button class="button primary" data-act="add-action">+ Add action</button>')}
     <div class="table-wrap"><table class="log">
-      <colgroup><col style="width:24%"><col style="width:16%"><col style="width:120px"><col style="width:136px"><col style="width:18%"><col style="width:118px"><col style="width:20%"><col style="width:44px"></colgroup>
+      <colgroup><col style="width:24%"><col style="width:16%"><col style="width:120px"><col style="width:136px"><col style="width:18%"><col style="width:132px"><col style="width:20%"><col style="width:44px"></colgroup>
       <thead><tr><th>Action</th><th>Solution</th><th>Owner</th><th>Due</th><th>Verification</th><th>Status</th><th>Effectiveness check</th><th><span class="sr">Remove</span></th></tr></thead>
-      <tbody>${state.actions.length ? state.actions.map(a => `<tr class="${a.status === 'done' ? 'done' : ''}">
-        <td>${cellArea('actions', a.id, 'action', a.action, 'Action', 'placeholder="What will be done"')}</td>
+      <tbody>${state.actions.length ? state.actions.map(a => `<tr class="${ACTION_DONE.includes(a.status) ? 'done' : ''}">
+        <td>${cellArea('actions', a.id, 'action', a.action, 'Action', 'placeholder="What will be done"')}
+          <div class="row-tags"><select class="cell tag" ${bind('actions', a.id, 'kind')} aria-label="Kind">${optionList(ACTION_KINDS, a.kind)}</select>
+          ${a.kind === 'containment' ? '<span class="tag-note">until the fix is in</span>' : `<select class="cell tag strength-${a.strength || 'none'}" ${bind('actions', a.id, 'strength')} aria-label="Strength" title="${STRENGTH_HELP}">${optionList(ACTION_STRENGTH, a.strength, 'Strength…')}</select>`}</div></td>
         <td><select class="cell" ${bind('actions', a.id, 'solutionId')} aria-label="Solution">${optionList(solutions, a.solutionId, '—')}</select></td>
         <td>${cell('actions', a.id, 'owner', a.owner, 'Owner', 'list="teamNames"')}</td>
         <td class="${isOverdue(a) ? 'overdue' : ''}">${cell('actions', a.id, 'due', a.due, 'Due', 'type="date" data-refresh')}${isOverdue(a) ? '<small>Overdue</small>' : ''}</td>
@@ -3498,7 +3526,12 @@ function actionsPage() {
           ${cellArea('actions', a.id, 'effectiveness.result', a.effectiveness.result, 'Effectiveness check result', 'placeholder="Result: did it stop recurrence?"')}</td>
         <td class="row-actions"><button class="unlink" data-act="delete-action" data-id="${a.id}" aria-label="Delete action">×</button></td>
       </tr>`).join('') : empty(8, 'No actions yet. Add one here, or from a solution.')}</tbody>
-    </table></div>`;
+    </table></div>
+    <p class="note">${STRENGTH_HELP} Status: <b>implemented</b> is done, <b>verified</b> is checked to be done as intended, and <b>validated</b> is shown by the effectiveness check to have worked.</p>
+    <section class="card">
+      ${formArea('Read-across <span class="muted">where else could this happen, and what was checked</span>', 'problem', '', 'readAcross', state.problem.readAcross,
+        'rows="3" placeholder="Similar equipment, sites, or designs, and what was found on them"')}
+    </section>`;
 }
 
 // ---- Editing ----
@@ -4287,9 +4320,10 @@ function buildReport() {
     <section>
       <h2>Action plan</h2>
       ${table(['Action', 'Solution', 'Owner', 'Due', 'Verification', 'Status', 'Effectiveness check'], state.actions.map(a => `<tr>
-        <td>${text(a.action)}</td><td>${text(state.solutions.find(s => s.id === a.solutionId)?.title)}</td><td>${text(a.owner)}</td>
+        <td>${text(a.action)}<small class="r-tags">${[ACTION_KINDS[a.kind], ACTION_STRENGTH[a.strength] && `${ACTION_STRENGTH[a.strength]} action`].filter(Boolean).join(' · ')}</small></td><td>${text(state.solutions.find(s => s.id === a.solutionId)?.title)}</td><td>${text(a.owner)}</td>
         <td class="r-crit">${text(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${text(a.verification)}</td><td>${ACTION_STATUS[a.status] || ''}</td>
         <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`), 'No actions recorded.')}
+      ${state.problem.readAcross.trim() ? `<h3>Read-across</h3><p class="r-read">${escapeHtml(state.problem.readAcross)}</p>` : ''}
     </section>
     <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
 }
@@ -4434,14 +4468,16 @@ function exampleRca() {
     solution('Larger flush orifice', ['orifice'], crit(['partly', 'Less prone to blocking'], ['yes'], ['partly'], ['partly', 'More flush flow, more heat and erosion; needs a study']), 'study'),
     solution('Train operators', ['bypass'], crit(['no', 'Does not change the conditions'], ['yes'], ['no'], ['yes']), 'reject'),
   ];
-  const action = (text, sol, owner, due, verification, check, status = 'open') =>
-    ({id: uuid(), action: text, solutionId: s.solutions[sol].id, owner, due, verification, status, effectiveness: {date: check, result: ''}});
+  const action = (text, sol, kind, strength, owner, due, verification, check, status = 'open') =>
+    ({id: uuid(), action: text, solutionId: sol === null ? '' : s.solutions[sol].id, kind, strength, owner, due, verification, status, effectiveness: {date: check, result: ''}});
   s.actions = [
-    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'S. Varga', '2026-12-15', 'Installation check and flush flow test', '2027-06-15'),
-    action('Revise upset procedure OP-212 to require a seal-system walkdown', 1, 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset', '2027-05-15'),
-    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
-    action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'done'),
+    action('Run on P-101B, with its flush strainer cleaned and checked every shift until the cyclone is in', null, 'containment', '', 'R. Haddad', '2026-09-15', 'Shift log of strainer checks', '2026-12-31', 'verified'),
+    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'corrective', 'strong', 'S. Varga', '2026-12-15', 'Installation check and flush flow test', '2027-06-15'),
+    action('Add a seal-system walkdown checklist to upset procedure OP-212', 1, 'corrective', 'medium', 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset', '2027-05-15'),
+    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'preventive', 'medium', 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
+    action('Configure TI-104 high alarm at 85 °C', 3, 'corrective', 'medium', 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'implemented'),
   ];
+  s.problem.readAcross = 'P-101B and the two other Plan 11 pumps on the unit (P-103A/B) have the same 3 mm flush orifice without a strainer. Inspected on 2026-09-20: orifices clean. The cyclones are on the same work order.';
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});
   s.fiveWhys = [

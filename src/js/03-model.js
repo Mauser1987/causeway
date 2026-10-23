@@ -300,11 +300,11 @@ function addSolution(causeIds = []) {
   return s;
 }
 function addAction(solutionId = '') {
-  const a = {id: uuid(), action: '', solutionId, owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
+  const a = {id: uuid(), action: '', solutionId, kind: 'corrective', strength: '', owner: '', due: '', verification: '', status: 'open', effectiveness: {date: '', result: ''}};
   state.actions.push(a);
   return a;
 }
-const isOverdue = a => a.due && a.due < today() && !['done', 'cancelled'].includes(a.status);
+const isOverdue = a => a.due && a.due < today() && !ACTION_DONE.includes(a.status) && a.status !== 'cancelled';
 
 // Nodes reachable from the primary effect.
 function reachable(links = state.links) {
@@ -467,6 +467,8 @@ function causeIssues() {
   return issues;
 }
 
+const WEAK_WORDS = /\b(re-?train(ing)?|training|brief(ing)?|remind(er)?|awareness|toolbox talk|be (more )?careful)\b/i;
+
 // The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
 // a planned effectiveness check, with its result once the date has passed.
 function recordIssues() {
@@ -474,15 +476,19 @@ function recordIssues() {
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
   for (const s of state.solutions) {
-    const title = s.title || 'Untitled solution';
+    const title = s.title || 'Untitled solution', actions = actionsOf(s.id).filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
     if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');
     if (s.decision === 'implement' && !actionsOf(s.id).length) add('solutions', s.id, title, 'warning', 'solution-actions', 'To implement, but no action in the plan');
+    if (s.decision !== 'reject' && actions.length && actions.every(a => a.strength === 'weak')) add('solutions', s.id, title, 'warning', 'weak-actions',
+      'Only weak actions (training, procedures, warnings): add a stronger one that does not rely on people remembering');
   }
   for (const a of state.actions) {
     if (a.status === 'cancelled') continue;
     const title = a.action || 'Untitled action', check = a.effectiveness;
-    if (!check.date) add('actions', a.id, title, a.status === 'done' ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
+    if (!check.date) add('actions', a.id, title, ACTION_DONE.includes(a.status) ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
     else if (check.date < today() && !check.result.trim()) add('actions', a.id, title, 'warning', 'effect-due', 'The effectiveness check is due: record the result');
+    if (a.status === 'validated' && !check.result.trim()) add('actions', a.id, title, 'warning', 'validated', 'Validated, but no effectiveness result: record what showed that it worked');
+    if (!a.strength && a.kind !== 'containment' && WEAK_WORDS.test(a.action)) add('actions', a.id, title, 'info', 'strength', 'Training or a reminder is a weak action: rate its strength, and look for a stronger one');
   }
   return issues;
 }
