@@ -989,6 +989,119 @@ def run_tests(b):
     assert rca() == before_records, 'undo returns to the RCA before the record edits'
     print('PASS: record edits undo', flush=True)
 
+    # ---- Sequence of events ----
+    before_timeline = rca()
+    page('timeline')
+    assert b.js("return document.getElementById('railTimeline').textContent") == '1'
+    example_events = [ev for ph in rca()['timelines'][0]['phases'] for ev in ph['events']]
+    assert len(example_events) == 10 and b.js("return document.querySelectorAll('#records .tl-row').length") == 10
+    assert b.js("return document.querySelectorAll('#records .tl-phase').length") == 4
+    assert 'Add 2 deviations to chart' in b.js("return document.querySelector('#records .tl-tally').textContent")
+
+    b.js("const s=document.getElementById('timelinePreset');s.value='test';s.dispatchEvent(new Event('change',{bubbles:true}));return true")
+    act('add-timeline')
+    t = rca()['timelines'][-1]
+    assert [ph['name'] for ph in t['phases']] == ['Pre-test work', 'Testing', 'Post-test work', 'Report'], 'the test-run phases'
+    assert t['effectId'] == rca()['problem']['primaryEffectId']
+    testing = t['phases'][1]['id']
+
+    def timeline():
+        return next(x for x in rca()['timelines'] if x['id'] == t['id'])
+
+    def events(phase=testing):
+        return next(ph for ph in timeline()['phases'] if ph['id'] == phase)['events']
+
+    def figure_rows():
+        """The events of the new timeline's figure, from the top, with the kind of mark each has."""
+        return b.js("""return [...document.querySelectorAll(`#records .tl-figure[data-timeline="${arguments[0]}"] .tl-row`)].map(g=>
+            [g.dataset.event, g.querySelector('rect:not(:first-child)')?'bar':g.querySelector('path')?'moment':'none'])""", [t['id']])
+
+    act('add-event', testing)
+    first = events()[0]['id']
+    assert b.js("return document.activeElement.dataset.event") == first, 'a new event is ready to name'
+    set_field('events', first, 'text', 'Ramped to duty pressure, 40 bar')
+    set_field('events', first, 'start', '2026-10-20T10:00')
+    set_field('events', first, 'end', '2026-10-20T10:30')
+    # Enter adds the next event, starting where this one ended.
+    b.js("const f=document.querySelector(`#records textarea[data-event='${arguments[0]}']`);f.focus();f.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));return true", [first])
+    second = events()[1]['id']
+    assert events()[1]['start'] == '2026-10-20T10:30' and b.js("return document.activeElement.dataset.event") == second
+    set_field('events', second, 'text', 'Leakage rose to 12 ml/min')
+    # An event earlier in time is drawn above, whatever order it was added in.
+    act('add-event', testing)
+    third = events()[2]['id']
+    set_field('events', third, 'text', 'Seal chamber filled and vented')
+    set_field('events', third, 'start', '2026-10-20T09:40')
+    page('timeline')
+    assert figure_rows() == [[third, 'moment'], [first, 'bar'], [second, 'moment']], figure_rows()
+    # An end before the start is flagged, and drawn as a moment.
+    set_field('events', third, 'end', '2026-10-20T09:00')
+    page('timeline')
+    assert 'ends before it starts' in b.js("return document.querySelector('#records .tl-warn').textContent") and figure_rows()[0][1] == 'moment'
+    set_field('events', third, 'end', '')
+
+    # Deviations go to the chart under the timeline's effect; on the chart, an event is its node.
+    act('event-deviation', second)
+    act('event-kind', second, v='condition')
+    e3 = rca()['evidence'][2]['id']
+    pick('event-add-evidence', second, e3)
+    nodes_before = len(rca()['nodes'])
+    act('deviations-to-chart', t['id'])
+    node = next(n for n in rca()['nodes'] if n['id'] == events()[1]['nodeId'])
+    assert len(rca()['nodes']) == nodes_before + 1 and node['title'] == 'Leakage rose to 12 ml/min' and node['kind'] == 'condition' and node['evidenceIds'] == [e3]
+    assert {'effectId': t['effectId'], 'causeId': node['id']} in [{k: v for k, v in l.items() if k != 'id'} for l in rca()['links']]
+    set_field('node', node['id'], 'title', 'Leakage rose to 12 ml/min at 10:40')
+    assert next(n for n in rca()['nodes'] if n['id'] == node['id'])['title'] == 'Leakage rose to 12 ml/min at 10:40', 'an event on the chart is its node'
+    act('event-to-chart', first)
+    assert events()[0]['nodeId'] and len(rca()['nodes']) == nodes_before + 2
+
+    # Deleting the node keeps the event, with its words; deleting evidence removes its citation.
+    page('chart')
+    select('Leakage rose to 12 ml/min at 10:40')
+    click('deleteNode')
+    assert events()[1]['nodeId'] is None and events()[1]['text'] == 'Leakage rose to 12 ml/min at 10:40' and events()[1]['evidenceIds'] == [e3]
+    page('evidence')
+    b.js('__dialogs.length=0;return true')
+    act('delete-evidence', e3)
+    assert events()[1]['evidenceIds'] == [], 'deleting evidence removes it from events'
+    click('undo')
+
+    # Phases: add, rename, remove.
+    page('timeline')
+    act('add-phase', t['id'])
+    new_phase = timeline()['phases'][-1]['id']
+    set_field('phases', new_phase, 'name', 'Teardown')
+    assert timeline()['phases'][-1]['name'] == 'Teardown'
+    act('delete-phase', new_phase)
+    assert len(timeline()['phases']) == 4
+
+    # Export, the report, and the file.
+    b.js('__downloads.length=0;return true')
+    act('timeline-export', t['id'], v='svg')
+    exported = b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)')
+    assert exported.startswith('<?xml') and '<title>Sequence of events: ' in exported and 'Ramped to duty pressure' in exported
+    b.js("window.print=()=>{};return true")
+    click('printReport')
+    report = b.js("return document.getElementById('report').textContent")
+    assert 'Sequence of events' in report and 'Ramped to duty pressure, 40 bar' in report and '2026-10-20 10:00 to 2026-10-20 10:30' in report
+    data = rca()
+    broken = json.loads(json.dumps(data))
+    ev = broken['timelines'][-1]['phases'][1]['events'][0]
+    ev.update(start='yesterday', end=5, kind='other', deviation='yes', nodeId='missing')
+    broken['timelines'][-1]['effectId'] = 'missing'
+    load(broken)
+    ev = rca()['timelines'][-1]['phases'][1]['events'][0]
+    assert ev['start'] == '' and ev['end'] == '' and ev['kind'] == 'action' and ev['deviation'] is False and ev['nodeId'] is None
+    assert rca()['timelines'][-1]['effectId'] == rca()['problem']['primaryEffectId'], 'odd values in a file are checked'
+
+    page('timeline')
+    b.js('__dialogs.length=0;return true')
+    act('delete-timeline', rca()['timelines'][-1]['id'])
+    assert len(b.js('return __dialogs')) == 1 and len(rca()['timelines']) == 1
+    load(before_timeline)
+    page('chart')
+    print('PASS: sequence of events: phases, events in time order, deviations to the chart, export, report, and files', flush=True)
+
     # ---- Files ----
     b.js('__downloads.length=0;return true')
     click('saveProject')
@@ -1077,15 +1190,17 @@ def run_tests(b):
 
     b.js('window.dispatchEvent(new Event("beforeprint"));return true')
     report = b.js('''const r=document.getElementById("report");return {h2:[...r.querySelectorAll("h2")].map(h=>h.textContent),
-        figures:r.querySelectorAll("figure:not(.r-fish)").length,nodes:[...r.querySelectorAll("figure:not(.r-fish) svg")].map(s=>s.querySelectorAll(".node").length),
+        figures:r.querySelectorAll("figure:not(.r-fish):not(.r-timeline)").length,nodes:[...r.querySelectorAll("figure:not(.r-fish):not(.r-timeline) svg")].map(s=>s.querySelectorAll(".node").length),
         fish:[...r.querySelectorAll("figure.r-fish svg")].map(s=>s.querySelectorAll(".fish-row").length),
         evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
+        events:[...r.querySelectorAll("figure.r-timeline svg")].map(s=>s.querySelectorAll(".tl-row").length),
         whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'
     assert report['fish'] == [len(fish_causes(i)) for i in range(len(rca()['fishbones']))], 'the report draws every fishbone'
+    assert report['events'] == [sum(len(ph['events']) for ph in t['phases']) for t in rca()['timelines']], 'the report draws every timeline'
     assert 'RCA-2026-014' in report['text'] and 'Add a cyclone separator' in report['text'] and 'Revise upset procedure OP-212' in report['text']
     pdf = base64.b64decode(b.call('WebDriver:Print', {'orientation': 'landscape', 'background': True})['value'])
     assert pdf.startswith(b'%PDF') and pdf.count(b'/Type /Page') - pdf.count(b'/Type /Pages') >= 5, 'the report prints over several pages'

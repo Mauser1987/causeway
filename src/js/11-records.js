@@ -1,4 +1,4 @@
-// The pages beside the chart: the 5 Whys, the fishbone, and the RCA records (problem definition, team and dates,
+// The pages beside the chart: the 5 Whys, the fishbone, the sequence of events, and the RCA records (problem definition, team and dates,
 // evidence log, causes ruled out, solutions, and the action plan).
 //
 // Fields are bound by data attributes: data-list names the record (or "meta", "problem", "node"),
@@ -30,7 +30,7 @@ const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${tex
 
 // Moves to a page: 'chart' or one of the records.
 function setRecord(name) {
-  record = name; fishOn = null;
+  record = name; fishOn = null; eventOn = null;
   $('app').dataset.record = name;
   document.querySelectorAll('.rail [data-record]').forEach(b => {
     b.classList.toggle('active', b.dataset.record === name);
@@ -57,11 +57,11 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {whys: whysPage, fishbone: fishbonePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
-  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone', 'timeline'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
   box.querySelectorAll('textarea.answer').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
@@ -199,6 +199,88 @@ function refreshFishFigures() {
   for (const el of document.querySelectorAll('#records .fish-figure')) {
     const f = state.fishbones.find(x => x.id === el.dataset.fishbone);
     if (f) el.innerHTML = fishboneSvg(f, {colors: pageColors(), on: fishOn});
+  }
+}
+
+// The phases a new timeline starts with: the last ones chosen.
+let timelinePreset = 'test';
+let eventOn = null;          // the event being edited, lit in its figure
+
+function timelinePage() {
+  return `${pageHead('Sequence of events', 'Lay out what happened, in order, phase by phase: what was done, what was seen, and when. Mark the deviations, the events that departed from what should have happened. They are candidate causes: add them to the cause-and-effect chart.',
+    `<div class="head-actions"><label class="starts">Phases <select class="picker" id="timelinePreset">${Object.entries(TIMELINE_PRESETS).map(([k, p]) =>
+      `<option value="${k}" ${k === timelinePreset ? 'selected' : ''}>${p.name}</option>`).join('')}</select></label><button class="button primary" data-act="add-timeline">+ New timeline</button></div>`)}
+    ${state.timelines.length ? state.timelines.map(timelineCard).join('') : '<p class="empty-card">No timelines yet. Choose the phases, then <b>+ New timeline</b>.</p>'}
+    <p class="note">Give an event an end to draw it as a bar; without one it is a moment. Within a phase, events are in time order. Click an event in the figure to edit it. In an event, <kbd>Enter</kbd> adds the next one; <kbd>Shift+Enter</kbd> starts a new line.</p>`;
+}
+
+function timelineCard(t) {
+  const events = t.phases.flatMap(p => p.events), deviations = events.filter(ev => ev.deviation), off = deviations.filter(ev => !eventNode(ev)).length;
+  return `<article class="card timeline">
+    <div class="card-head">
+      <h2>Events leading to “${escapeHtml(shorten(byId(t.effectId)?.title || '', 90))}”</h2>
+      <button class="button small" data-act="timeline-export" data-id="${t.id}" data-v="svg" title="Save the figure as an SVG image">SVG</button>
+      <button class="button small" data-act="timeline-export" data-id="${t.id}" data-v="png" title="Save the figure as a PNG image">PNG</button>
+      <button class="unlink" data-act="delete-timeline" data-id="${t.id}" aria-label="Delete this timeline">×</button>
+    </div>
+    <label class="starts">Leads to <select class="picker" data-act="timeline-effect" data-id="${t.id}" aria-label="The effect the events lead to; deviations are added to the chart as its causes">${state.nodes.map(n =>
+      `<option value="${n.id}" ${n.id === t.effectId ? 'selected' : ''}>${escapeHtml(shorten(n.title, 70))}</option>`).join('')}</select></label>
+    <div class="fish-figure tl-figure" data-timeline="${t.id}">${timelineSvg(t, {colors: pageColors(), on: eventOn})}</div>
+    <div class="decision-row tl-tally">
+      <span class="muted">${events.length ? `${plural(events.length, 'event')}, ${plural(deviations.length, 'deviation')}${deviations.length ? `: ${deviations.length - off} on the chart` : ''}` : 'No events yet: add them under the phases below.'}</span>
+      <span class="spacer"></span>
+      ${off ? `<button class="button" data-act="deviations-to-chart" data-id="${t.id}">Add ${plural(off, 'deviation')} to chart</button>` : ''}
+    </div>
+    <div class="tl-phases">${t.phases.map(phaseCard).join('')}
+      <button class="fish-add-cat" data-act="add-phase" data-id="${t.id}">+ Phase</button></div>
+  </article>`;
+}
+
+function phaseCard(p) {
+  return `<section class="fish-cat tl-phase-card">
+    <div class="fish-cat-head">
+      <input class="cell title" ${bind('phases', p.id, 'name')} value="${escapeHtml(p.name)}" aria-label="Phase" placeholder="Phase">
+      <button class="unlink" data-act="delete-phase" data-id="${p.id}" aria-label="Remove the ${escapeHtml(p.name.trim() || 'unnamed')} phase">×</button>
+    </div>
+    <ul class="fish-causes">${eventsInOrder(p).map(eventRow).join('')}</ul>
+    <button class="button small" data-act="add-event" data-id="${p.id}">+ Event</button>
+  </section>`;
+}
+
+function eventRow(ev) {
+  const n = eventNode(ev), src = eventSource(ev), kind = eventKind(ev);
+  const cited = src.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !src.evidenceIds.includes(e.id));
+  const backwards = ev.end && eventMinutes(ev.end) <= eventMinutes(ev.start);
+  return `<li class="fish-cause tl-event${n ? ' chart' : ''}${ev.deviation ? ' deviation' : ''}">
+    <div class="tl-when">
+      <input class="cell" type="datetime-local" ${bind('events', ev.id, 'start')} value="${escapeHtml(ev.start)}" aria-label="Start">
+      <span class="muted">to</span>
+      <input class="cell" type="datetime-local" ${bind('events', ev.id, 'end')} value="${escapeHtml(ev.end)}" aria-label="End, if it lasted">
+      ${backwards ? '<span class="tl-warn">ends before it starts</span>' : ''}
+    </div>
+    <div class="fish-line">
+      <textarea class="cell answer" rows="1" ${n ? bind('node', n.id, 'title') : bind('events', ev.id, 'text')} data-event="${ev.id}" aria-label="Event" placeholder="What happened, or was done or seen">${escapeHtml(eventText(ev))}</textarea>
+      <button class="unlink" data-act="delete-event" data-id="${ev.id}" aria-label="Remove this event${n ? '; it stays on the chart' : ''}">×</button>
+    </div>
+    <div class="why-meta">
+      <button class="button small tl-deviation" data-act="event-deviation" data-id="${ev.id}" ${pressed(ev.deviation)} title="It departed from what should have happened: a candidate cause">Deviation</button>
+      ${treeStyle() ? '' : `<div class="seg" role="group" aria-label="Event type">${['action', 'condition'].map(k =>
+        `<button class="kind" data-act="event-kind" data-id="${ev.id}" data-v="${k}" ${pressed(kind === k)}>${KINDS[k].name}</button>`).join('')}</div>`}
+      <div class="chips">${cited.map(e => evidenceChip(e, 'event-remove-evidence', ev.id)).join('')}
+        ${rest.length ? `<select class="picker" data-act="event-add-evidence" data-id="${ev.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
+          `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div>
+      <span class="spacer"></span>
+      ${n ? `<button class="link" data-act="goto-node" data-node="${n.id}" title="Show it on the chart">On the chart</button>`
+        : `<button class="button small" data-act="event-to-chart" data-id="${ev.id}">Add to chart</button>`}
+    </div>
+  </li>`;
+}
+
+// Redraws the figures alone, so typing keeps its place.
+function refreshTimelineFigures() {
+  for (const el of document.querySelectorAll('#records .tl-figure')) {
+    const t = state.timelines.find(x => x.id === el.dataset.timeline);
+    if (t) el.innerHTML = timelineSvg(t, {colors: pageColors(), on: eventOn});
   }
 }
 
@@ -380,6 +462,8 @@ function boundObject(el) {
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
   if (list === 'fishCats') return fishCategory(id);
+  if (list === 'events') return eventFind(id)?.event;
+  if (list === 'phases') return timelinePhase(id);
   return (list === 'team' ? state.meta.team : state[list]).find(r => r.id === id);
 }
 function setPath(obj, path, value) {
@@ -397,6 +481,7 @@ $('records').addEventListener('input', e => {
   if (el.matches('textarea.answer')) fitArea(el);
   renderTitle();
   if (record === 'fishbone') refreshFishFigures();
+  if (record === 'timeline') refreshTimelineFigures();
   if (el.hasAttribute('data-refresh') || el.tagName === 'SELECT') { render(); persist(); }
   else persist(`${el.dataset.list}:${el.dataset.id}:${el.dataset.field}`);
 });
@@ -412,9 +497,14 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'chain-effect') state.fiveWhys.find(c => c.id === el.dataset.id).effectId = value;
     if (el.dataset.act === 'fish-add-evidence') fishSource(fishFind(el.dataset.id).cause).evidenceIds.push(value);
     if (el.dataset.act === 'fish-effect') state.fishbones.find(f => f.id === el.dataset.id).effectId = value;
+    if (el.dataset.act === 'event-add-evidence') eventSource(eventFind(el.dataset.id).event).evidenceIds.push(value);
+    if (el.dataset.act === 'timeline-effect') state.timelines.find(t => t.id === el.dataset.id).effectId = value;
     render(); persist();
   }
   if (e.target.id === 'fishPreset') fishPreset = e.target.value;
+  if (e.target.id === 'timelinePreset') timelinePreset = e.target.value;
+  // A changed time puts the event in its place; after the focus has moved, so it stays where it went.
+  if (e.target.type === 'datetime-local') setTimeout(render);
   const radio = e.target.closest('input[data-act="lead"]');
   if (radio) { state.meta.leadId = radio.dataset.id; persist(); }
 });
@@ -537,6 +627,56 @@ $('records').addEventListener('click', e => {
       fishRestore(id);
       break;
     }
+    case 'add-timeline': focusId = addTimeline(timelinePreset, state.problem.primaryEffectId).phases[0]?.id; break;
+    case 'delete-timeline': {
+      const t = state.timelines.find(x => x.id === id), n = t.phases.flatMap(p => p.events).length;
+      if (n && !confirm(`Delete this timeline and its ${plural(n, 'event')}? Events on the chart stay there.`)) return;
+      state.timelines = state.timelines.filter(x => x !== t);
+      break;
+    }
+    case 'timeline-export': exportTimeline(state.timelines.find(t => t.id === id), el.dataset.v); return;
+    case 'add-phase': {
+      const p = {id: uuid(), name: '', events: []};
+      state.timelines.find(t => t.id === id).phases.push(p); focusId = p.id;
+      break;
+    }
+    case 'delete-phase': {
+      const p = timelinePhase(id), t = state.timelines.find(x => x.phases.includes(p));
+      if (p.events.length && !confirm(`Remove the ${p.name.trim() || 'unnamed'} phase and its ${plural(p.events.length, 'event')}? Events on the chart stay there.`)) return;
+      t.phases = t.phases.filter(x => x !== p);
+      break;
+    }
+    case 'add-event': {
+      const p = timelinePhase(id), ev = blankEvent(eventsInOrder(p).filter(x => x.start).at(-1)?.start ?? '');
+      p.events.push(ev); focusId = ev.id;
+      break;
+    }
+    case 'delete-event': {
+      const {phase} = eventFind(id);
+      phase.events = phase.events.filter(ev => ev.id !== id);
+      break;
+    }
+    case 'event-kind': {
+      const ev = eventFind(id).event;
+      eventSource(ev).kind = el.dataset.v;
+      ev.kind = el.dataset.v;
+      break;
+    }
+    case 'event-deviation': eventFind(id).event.deviation = !eventFind(id).event.deviation; break;
+    case 'event-remove-evidence': {
+      const src = eventSource(eventFind(id).event);
+      src.evidenceIds = src.evidenceIds.filter(x => x !== el.dataset.evidence);
+      break;
+    }
+    case 'event-to-chart':
+      eventToChart(id);
+      setStatus(`Added "${eventText(eventFind(id).event)}" to the chart`);
+      break;
+    case 'deviations-to-chart': {
+      const added = deviationsToChart(state.timelines.find(t => t.id === id));
+      setStatus(`Added ${plural(added, 'deviation')} to the chart`);
+      break;
+    }
     case 'show-ruled': showRecord('ruledOut', id); return;
     case 'add-member': {
       const m = {id: uuid(), name: '', role: ''};
@@ -588,18 +728,26 @@ $('records').addEventListener('click', e => {
   }
   render(); persist();
   if (focusId) {
-    const target = document.querySelector(`#records [data-id="${focusId}"][data-field]`);
+    // A new event is named first; its time is filled in from the event before it.
+    const target = document.querySelector(`#records textarea[data-event="${focusId}"]`) ?? document.querySelector(`#records [data-id="${focusId}"][data-field]`);
     target?.scrollIntoView({block: 'center'});
     target?.focus();
   }
 });
 
 // Enter in a why's answer goes to the next why, adding one after the last. In a fishbone, it adds
-// the next possible cause beside this one.
+// the next possible cause beside this one; in a timeline, the next event, at this one's end or start.
 $('records').addEventListener('keydown', e => {
   const field = e.target.closest('textarea.answer');
   if (!field || e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
   e.preventDefault();
+  if (field.dataset.event) {
+    const {phase, event} = eventFind(field.dataset.event), next = blankEvent(event.end || event.start);
+    phase.events.push(next);
+    render(); persist();
+    document.querySelector(`#records textarea[data-event="${next.id}"]`)?.focus();
+    return;
+  }
   if (field.dataset.fish) {
     const {category, cause} = fishFind(field.dataset.fish), next = blankFishCause(cause.parentId);
     category.causes.splice(category.causes.indexOf(cause) + 1, 0, next);
@@ -613,21 +761,28 @@ $('records').addEventListener('keydown', e => {
   document.querySelector(`#records [data-step="${next.id}"]`)?.focus();
 });
 
-// The diagram: clicking a cause or a category goes to its field; the cause being edited is lit.
+// The figures: clicking a cause, a category, an event, or a phase goes to its field; the one being edited is lit.
 $('records').addEventListener('click', e => {
   const row = e.target.closest('.fish-row'), cat = e.target.closest('.fish-cat[data-fish-cat]');
-  const target = row ? `textarea[data-fish="${row.dataset.fish}"]` : cat ? `[data-list="fishCats"][data-id="${cat.dataset.fishCat}"]` : null;
+  const event = e.target.closest('.tl-row'), phase = e.target.closest('.tl-phase');
+  const target = row ? `textarea[data-fish="${row.dataset.fish}"]` : cat ? `[data-list="fishCats"][data-id="${cat.dataset.fishCat}"]`
+    : event ? `textarea[data-event="${event.dataset.event}"]` : phase ? `[data-list="phases"][data-id="${phase.dataset.phase}"]` : null;
   const field = target && document.querySelector(`#records ${target}`);
   if (!field) return;
   field.scrollIntoView({block: 'nearest'});
   field.focus();
 });
+// An event is lit while any of its fields has the focus.
+const eventOf = el => el?.closest?.('.tl-event')?.querySelector('[data-event]')?.dataset.event ?? null;
 $('records').addEventListener('focusin', e => {
   const id = e.target.dataset?.fish ?? null;
   if (id !== fishOn) { fishOn = id; refreshFishFigures(); }
+  const ev = eventOf(e.target);
+  if (ev !== eventOn) { eventOn = ev; refreshTimelineFigures(); }
 });
 $('records').addEventListener('focusout', e => {
   if (fishOn && !e.relatedTarget?.dataset?.fish) { fishOn = null; refreshFishFigures(); }
+  if (eventOn && eventOf(e.relatedTarget) !== eventOn) { eventOn = null; refreshTimelineFigures(); }
 });
 
 document.querySelectorAll('.rail [data-record]').forEach(b => b.onclick = () => showRecord(b.dataset.record));

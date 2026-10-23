@@ -1,4 +1,4 @@
-// Output: chart and fishbone export as SVG and PNG, the printed report, and the light and dark themes.
+// Output: chart, fishbone, and timeline export as SVG and PNG, the printed report, and the light and dark themes.
 
 // ---- Chart images ----
 // Exports and print show the whole chart, with every branch expanded, in the light palette.
@@ -65,6 +65,11 @@ async function savePng(svgText, name) {
 }
 
 // Each fishbone is exported on its own; a second one is numbered.
+function exportTimeline(t, format) {
+  const i = state.timelines.indexOf(t), name = `${baseName()}-timeline${i ? '-' + (i + 1) : ''}.${format}`;
+  if (format === 'png') { savePng(timelineSvg(t), name); return; }
+  download(name, new Blob(['<?xml version="1.0" encoding="UTF-8"?>\n' + timelineSvg(t)], {type: 'image/svg+xml'}));
+}
 function exportFishbone(f, format) {
   const i = state.fishbones.indexOf(f), name = `${baseName()}-fishbone${i ? '-' + (i + 1) : ''}.${format}`;
   if (format === 'png') { savePng(fishboneSvg(f), name); return; }
@@ -167,6 +172,19 @@ function buildReport() {
           ${table(['Category', 'Possible cause', 'Type', 'Evidence', 'Status'], rows, 'No possible causes recorded.')}`;
       }).join('')}
     </section>` : ''}
+    ${state.timelines.length ? `<section class="r-page">
+      <h2>Sequence of events</h2>
+      ${state.timelines.map(t => {
+        const svg = timelineSvg(t), [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svg).map(Number);
+        const when = ev => [ev.start, ev.end].filter(Boolean).map(v => v.replace('T', ' ')).join(' to ');
+        const rows = t.phases.flatMap(p => eventsInOrder(p).map(ev => `<tr><td>${escapeHtml(p.name)}</td><td class="r-crit">${text(when(ev))}</td>
+          <td>${ev.deviation ? '<b>' + text(eventText(ev)) + '</b>' : text(eventText(ev))}</td><td>${ev.deviation ? '<b>Deviation</b>' : ''}</td>
+          <td>${codes(eventSource(ev).evidenceIds)}</td><td>${eventNode(ev) ? 'On the chart' : ''}</td></tr>`));
+        return `<h3>Events leading to “${escapeHtml(byId(t.effectId)?.title || '')}”</h3>
+          <figure class="r-timeline">${timelineSvg(t, {scale: Math.min(1, PRINT_W / w, PRINT_H / h)})}</figure>
+          ${table(['Phase', 'When', 'Event', 'Deviation', 'Evidence', 'Chart'], rows, 'No events recorded.')}`;
+      }).join('')}
+    </section>` : ''}
     <section class="r-page">
       <h2>Evidence log</h2>
       ${table(['Code', 'Description', 'Type', 'Source / location', 'Collected by', 'Date', 'Cited by'], state.evidence.map(e => `<tr>
@@ -225,6 +243,7 @@ function applyTheme() {
   $('themeButton').setAttribute('aria-label', `Theme: ${THEMES[theme]}`);
   if (layout && record === 'chart') renderCanvas();
   if (record === 'fishbone') refreshFishFigures();
+  if (record === 'timeline') refreshTimelineFigures();
 }
 $('themeButton').onclick = () => {
   theme = {system: 'light', light: 'dark', dark: 'system'}[theme];

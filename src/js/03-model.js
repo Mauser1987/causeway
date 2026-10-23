@@ -127,7 +127,7 @@ const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
 const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
 function deleteEvidence(id) {
   state.evidence = state.evidence.filter(e => e.id !== id);
-  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses()]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses(), ...timelineEvents()]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
   if (highlight === id) highlight = null;
 }
 // ---- 5 Whys ----
@@ -221,6 +221,54 @@ function fishRuleOut(id) {
   cause.ruledOutId = r.id;
   return r;
 }
+// ---- Sequence of events ----
+// A timeline lays out what happened, in order, in phases such as a test run's pre-test work, testing,
+// post-test work, and report. An event has a start, and an end when it lasted; times are local, as
+// YYYY-MM-DDTHH:MM, and may be left out. A deviation is an event that departed from what should have
+// happened: a candidate cause. An event added to the chart, under the timeline's effect, is that node,
+// as a 5 Whys step is: its words, type, and evidence are the node's.
+
+const blankEvent = (start = '') => ({id: uuid(), text: '', start, end: '', kind: 'action', deviation: false, evidenceIds: [], nodeId: null});
+function addTimeline(preset = 'test', effectId = state.problem.primaryEffectId) {
+  const t = {id: uuid(), effectId, phases: TIMELINE_PRESETS[preset].phases.map(name => ({id: uuid(), name, events: []}))};
+  state.timelines.push(t);
+  return t;
+}
+const timelineEvents = () => state.timelines.flatMap(t => t.phases.flatMap(p => p.events));
+const eventNode = ev => ev.nodeId ? byId(ev.nodeId) : null;
+const eventSource = ev => eventNode(ev) ?? ev;
+const eventText = ev => eventNode(ev)?.title ?? ev.text;
+const eventKind = ev => eventSource(ev).kind;
+const timelinePhase = id => state.timelines.flatMap(t => t.phases).find(p => p.id === id);
+function eventFind(id) {
+  for (const timeline of state.timelines) for (const phase of timeline.phases) {
+    const event = phase.events.find(ev => ev.id === id);
+    if (event) return {timeline, phase, event};
+  }
+  return null;
+}
+// Minutes since 1970 of a time, read as written, without time zones; null when there is none.
+function eventMinutes(when) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(when || '');
+  return m ? Date.UTC(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) / 60000 : null;
+}
+// A phase's events in time order; those without a time keep their order, after the others.
+const eventsInOrder = phase => [...phase.events].sort((a, b) => (eventMinutes(a.start) ?? Infinity) - (eventMinutes(b.start) ?? Infinity));
+
+function eventToChart(id) {
+  const {timeline, event} = eventFind(id);
+  if (eventNode(event)) return;
+  const n = addCause(timeline.effectId, event.kind, event.text.trim() || 'Untitled cause');
+  n.evidenceIds = [...event.evidenceIds];
+  event.nodeId = n.id;
+}
+// Adds the deviations not on the chart yet, in time order. Returns how many were added.
+function deviationsToChart(timeline) {
+  const events = timeline.phases.flatMap(eventsInOrder).filter(ev => ev.deviation && !eventNode(ev));
+  events.forEach(ev => eventToChart(ev.id));
+  return events.length;
+}
+
 // A cause that leaves the chart or the causes ruled out takes its words, type, and evidence back.
 function releaseFish(c) {
   const src = fishSource(c);
@@ -291,6 +339,14 @@ function deleteNodes(ids) {
   for (const f of state.fishbones) {
     if (gone.has(f.effectId)) f.effectId = state.problem.primaryEffectId;
     for (const c of f.categories.flatMap(g => g.causes)) if (gone.has(c.nodeId)) releaseFish(c);
+  }
+  // An event on the chart keeps its words, type, and evidence when its node goes.
+  for (const t of state.timelines) {
+    if (gone.has(t.effectId)) t.effectId = state.problem.primaryEffectId;
+    for (const ev of t.phases.flatMap(p => p.events)) {
+      const n = gone.has(ev.nodeId) && eventNode(ev);
+      if (n) Object.assign(ev, {text: n.title, kind: ['action', 'condition'].includes(n.kind) ? n.kind : ev.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
+    }
   }
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));

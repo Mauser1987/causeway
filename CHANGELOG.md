@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.5 — 2026-10-23
+
+A new method: the sequence of events, drawn as a Gantt-style timeline.
+
+- **Sequence of events** in the Analysis column lays out what happened, phase by phase. A new timeline starts with **Test run** phases (Pre-test work, Testing, Post-test work, Report), **Field failure** phases, or blank ones; phases can be renamed, added, and removed.
+- Each event has a text, a start time, and an end time if it lasted, a type (action or condition), cited evidence, and a **Deviation** switch for what departed from what should have happened. Events are shown in time order within their phase; **Enter** adds the next event, starting where this one ended.
+- The figure draws each phase as a summary bar, an event that lasted as a bar, and a moment as a diamond, with deviations in orange and evidence codes beside the marks. Click a row to edit it; the figure exports as SVG or PNG.
+- **Add to chart** makes an event a cause of the timeline's effect, and **Add N deviations to chart** adds every deviation not yet on it. An event on the chart is that node, as with 5 Whys steps.
+- The printed report draws each timeline with a table of its events, and the file saves them under `timelines`. The example RCA has a timeline.
+
 ## v1.4 — 2026-10-23
 
 Tidy the chart by hand, and copy branches.

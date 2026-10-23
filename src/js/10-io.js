@@ -70,6 +70,13 @@ function normalizeProject(p) {
         ruledOutId: !nodeIds.has(c.nodeId) && ruledIds.has(c.ruledOutId) ? c.ruledOutId : null,
         parentId: top.has(c.parentId) ? c.parentId : null}))};
     })}));
+  const when = v => typeof v === 'string' && eventMinutes(v) !== null ? v : '';
+  s.timelines = (Array.isArray(p.timelines) ? p.timelines : []).filter(t => t?.id).map(t => ({...t,
+    effectId: nodeIds.has(t.effectId) ? t.effectId : s.problem.primaryEffectId,
+    phases: (Array.isArray(t.phases) ? t.phases : []).filter(ph => ph?.id).map(ph => ({name: '', ...ph,
+      events: (Array.isArray(ph.events) ? ph.events : []).filter(ev => ev?.id).map(ev => ({text: '', ...ev,
+        start: when(ev.start), end: when(ev.end), kind: ['action', 'condition'].includes(ev.kind) ? ev.kind : 'action', deviation: ev.deviation === true,
+        evidenceIds: Array.isArray(ev.evidenceIds) ? ev.evidenceIds : [], nodeId: nodeIds.has(ev.nodeId) ? ev.nodeId : null}))}))}));
   s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', status: 'open', ...a,
     effectiveness: {date: '', result: '', ...a.effectiveness}}));
   // Links to missing nodes, duplicates, and links that would close a loop are dropped.

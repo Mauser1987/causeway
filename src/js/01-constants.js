@@ -49,6 +49,12 @@ const FISHBONE_PRESETS = {
   '6m': {name: '6M', categories: ['People', 'Method', 'Machine', 'Material', 'Measurement', 'Environment']},
   blank: {name: 'Four blank categories', categories: ['Category 1', 'Category 2', 'Category 3', 'Category 4']},
 };
+// Starting phases for a sequence of events; each can be renamed, added, or removed.
+const TIMELINE_PRESETS = {
+  test: {name: 'Test run', phases: ['Pre-test work', 'Testing', 'Post-test work', 'Report']},
+  field: {name: 'Field failure', phases: ['Before the event', 'Lead-up', 'Failure', 'Response']},
+  blank: {name: 'Three blank phases', phases: ['Phase 1', 'Phase 2', 'Phase 3']},
+};
 
 // Chart geometry, in chart units (one unit is one CSS pixel at 100 %).
 const NODE_W = 200;

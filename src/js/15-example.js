@@ -135,5 +135,25 @@ function exampleRca() {
     category('Support system', flush, fish(flush.id, '', 'condition', {key: 'orifice'}), fish(flush.id, 'Flush line not checked after the upset', 'condition', {codes: ['E8']})),
     category('Pump and equipment', fish(null, '', 'condition', {ruledOut: ruled[1]}), fish(null, 'Worn bearings letting the shaft move', 'condition')),
   ]}];
+  // The sequence of events, from the upset to the teardown; its deviations are on the chart, but one.
+  const event = (start, end, text, kind, {key, deviation = false, codes = []} = {}) =>
+    ({id: uuid(), text: key ? '' : text, start, end, kind, deviation, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});
+  const phase = (name, ...events) => ({id: uuid(), name, events});
+  s.timelines = [{id: uuid(), effectId: ids.leak, phases: [
+    phase('Before the event',
+      event('2026-09-12T13:50', '', 'Process upset in the reactor section', 'action', {codes: ['E5']}),
+      event('2026-09-12T14:05', '2026-09-12T14:45', '', 'action', {key: 'bypass', deviation: true}),
+      event('2026-09-12T15:30', '', 'Upset over; no seal-system walkdown', 'condition', {deviation: true, codes: ['E8']})),
+    phase('Lead-up',
+      event('2026-09-12T15:00', '2026-09-13T22:00', '', 'action', {key: 'solids', deviation: true}),
+      event('2026-09-13T22:00', '2026-09-14T00:30', '', 'action', {key: 'flow', deviation: true}),
+      event('2026-09-14T00:30', '2026-09-14T06:30', '', 'action', {key: 'temp', deviation: true})),
+    phase('Failure',
+      event('2026-09-14T06:30', '', 'Leakage of 15 ml/min found on the morning round', 'action', {deviation: true, codes: ['E1']}),
+      event('2026-09-14T07:10', '', 'Switched to the spare pump P-101B', 'action')),
+    phase('Response',
+      event('2026-09-15T09:00', '', 'DCS trends and the upset report reviewed', 'action', {codes: ['E3', 'E5']}),
+      event('2026-09-17T08:00', '2026-09-17T16:00', 'Seal teardown in the workshop', 'action', {codes: ['E2', 'E4']})),
+  ]}];
   return {...s, view: {collapsed: []}};
 }

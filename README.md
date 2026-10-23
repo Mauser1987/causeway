@@ -2,7 +2,7 @@
 
 A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, team, evidence log, causes ruled out, solutions, and the action plan. No installation, server, account, or network connection is needed.
 
-Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is tested: possible, confirmed, or ruled out. Alongside the chart, the 5 Whys and the fishbone diagram help find the causes, and add what they find to the chart.
+Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is tested: possible, confirmed, or ruled out. Alongside the chart, the 5 Whys, the fishbone diagram, and the sequence of events help find the causes, and add what they find to the chart.
 
 Causeway is independent. Apollo Root Cause Analysis is a trademark of its owner; Causeway is not affiliated with or endorsed by it.
 
@@ -49,12 +49,12 @@ Choose the style when you start an RCA with **New**; the RCA properties (click t
 - To a cause tree: a cause backed by evidence, and not unverified, becomes confirmed; the others become possible. Actions and conditions keep their type for a move back.
 - To Apollo: possible causes become unverified (?). Causes made in the tree ask for a type (choose **Action** or **Condition** in their properties), each effect needs an action and a condition, and each ruled-out cause asks to be moved to the causes ruled out with **Rule out**, which takes its evidence and test along.
 
-In a cause tree, the 5 Whys and the fishbone add causes without a type.
+In a cause tree, the 5 Whys, the fishbone, and the sequence of events add causes without a type.
 
 ## Screen
 
 - **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the theme, export, and print buttons; the file commands.
-- **Analysis** and **Records** on the left: the cause-and-effect chart, the 5 Whys, and the fishbone, then the six RCA records, with their counts. Below them, the legend.
+- **Analysis** and **Records** on the left: the cause-and-effect chart, the 5 Whys, the fishbone, and the sequence of events, then the six RCA records, with their counts. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
 - **Status bar** at the bottom: the last file action, the counts, and the keys.
@@ -140,6 +140,18 @@ The printed report lists every chain after the chart.
 
 The printed report draws every diagram, with a table of its causes and their status.
 
+## Sequence of events
+
+**Sequence of events** in the left column: what happened, in order, phase by phase, drawn as a Gantt chart. Each phase is a summary bar over its events; an event that lasted is a bar from its start to its end, and a moment is a diamond. **Deviations**, the events that departed from what should have happened, are drawn in orange: they are the candidate causes.
+
+- **+ New timeline** starts one with the phases chosen beside it: **Test run** (pre-test work, testing, post-test work, report), **Field failure** (before the event, lead-up, failure, response), or three blank ones. Rename, add, and remove phases as you need. **Leads to** is the effect the events lead to, the primary effect unless you choose another.
+- **+ Event** adds an event to a phase, starting at the time of the last one. Give it a start, and an end if it lasted; within a phase, events are in time order. In an event, **Enter** adds the next one, starting where this one ended. An event without a time is listed, without a mark.
+- Each event has its type (action or condition) and the evidence it cites, as on the chart. **Deviation** marks it.
+- **Add to chart** makes an event a cause of the effect it leads to; **Add N deviations to chart** adds every deviation not on it yet. An event on the chart is that node: editing its words, type, or evidence in either place changes both. Deleting the node keeps the event, with its words. On the chart, move it under the right effect by dragging it or with **Alt+M**.
+- Click an event or a phase in the figure to edit it. **SVG** and **PNG** save the figure as an image, in the light colours.
+
+Times are as written, without time zones. The printed report draws every timeline, with a table of its events.
+
 ## RCA records
 
 Choose a record in the left column; **Chart** returns to the chart. Every field saves as you type, and every change is an undo step, as on the chart. The chart keys do nothing on a record page.
@@ -202,7 +214,7 @@ Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whol
 |---|---|
 | **Export ▾ → Chart as SVG** | The chart as one self-contained SVG file: colours are attributes, with no stylesheet, font, or image to fetch. It opens in browsers, Inkscape, and Office, and can be edited further. |
 | **Export ▾ → Chart as PNG** | The chart as an image at twice screen resolution (less for very large charts, which browsers limit). |
-| **Print report** or **Ctrl/Cmd+P** | The RCA report, on landscape pages: cover (RCA number, equipment, seal type, lead and team, dates), problem definition, chart and open rule issues, 5 Whys, fishbone diagrams, evidence log, causes ruled out, solutions with the four criteria, and the action plan. Choose **Save as PDF** as the printer for a PDF. |
+| **Print report** or **Ctrl/Cmd+P** | The RCA report, on landscape pages: cover (RCA number, equipment, seal type, lead and team, dates), problem definition, chart and open rule issues, 5 Whys, fishbone diagrams, sequences of events, evidence log, causes ruled out, solutions with the four criteria, and the action plan. Choose **Save as PDF** as the printer for a PDF. |
 
 Exports and the report always show the **whole chart**, with every branch expanded, in the light colours, whatever the screen shows. On the report, a chart that fits one page at 55 % or more is scaled to fit; a larger one is split into page-sized parts, numbered by row and column, with the cuts between columns so no box is split across.
 
@@ -244,6 +256,7 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | `solutions` | {`id`, `title`, `causeIds`, `criteria` {`preventsRecurrence`, `withinControl`, `meetsGoals`, `noNewProblems`: {`v`: `yes` \| `no` \| `partly`, `c`: comment}}, `decision`: `implement` \| `reject` \| `study` \| `""` (not decided)}; criterion `v` may be `""` too |
 | `fiveWhys` | {`id`, `effectId` (the node the chain starts from), `steps` [{`id`, `answer`, `kind`: `action` \| `condition`, `evidenceIds`, `nodeId`: the node on the chart, or null}]}. While a step is on the chart, its node's title, kind, and evidence are its own. |
 | `fishbones` | {`id`, `effectId` (the head), `categories` [{`id`, `name`, `causes` [{`id`, `text`, `kind`: `action` \| `condition`, `evidenceIds`, `nodeId`: the node on the chart, or null, `ruledOutId`: the ruled-out record, or null, `parentId`: the cause it is a sub-cause of, or null}]}]}. While a cause is on the chart or ruled out, the node's or the record's words, kind, and evidence are its own. |
+| `timelines` | {`id`, `effectId` (the effect the events lead to), `phases` [{`id`, `name`, `events` [{`id`, `text`, `start`, `end`: `YYYY-MM-DDTHH:MM` or `""`, `kind`: `action` \| `condition`, `deviation`, `evidenceIds`, `nodeId`: the node on the chart, or null}]}]}. While an event is on the chart, its node's title, kind, and evidence are its own. |
 | `actions` | {`id`, `action`, `solutionId`, `owner`, `due`, `verification`, `status`: `open` \| `in-progress` \| `done` \| `cancelled`, `effectiveness` {`date`, `result`}} |
 | `counters` | `evidence`: the number of the next evidence code, so deleted codes are not reused. Files without it start after the highest code. |
 | `view` | `collapsed`: ids of nodes whose causes are hidden |
@@ -259,7 +272,7 @@ The page has no external references and uses the system fonts, and its Content S
 `index.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, and record pages), `12-fishbone` (fishbone layout and drawing), `13-output` (SVG and PNG export, the printed report, themes), `14-example`, `15-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `index.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.
@@ -269,4 +282,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
