@@ -175,7 +175,22 @@ From a solution, **+ Action** adds an action for it to the action plan.
 
 ## Issues
 
-The **issues** button in the top bar counts rule errors and warnings. Click it for the list, errors first; click an issue to select its node and bring it into view.
+The **issues** button in the top bar counts rule errors and warnings. Click it for the list, errors first, then warnings, then notes; click an issue to select its node and bring it into view, or to open the record it is about.
+
+Besides each chart style's rules, Causeway checks what good RCA practice asks for, in both styles:
+
+| Check | Level |
+|---|---|
+| A cause that ends at a human error ("operator error", "did not follow the procedure"): ask why the error was possible | Warning |
+| A cause ruled out without a reason: no test written and no evidence cited, on the tree or in **Causes ruled out** | Warning |
+| A confirmed cause backed by only one evidence item (cause tree) | Note |
+| A stop point that says a solution was found, while no solution attacks the cause | Warning |
+| A controllable cause that no solution attacks yet | Note |
+| A solution that attacks no cause, or one to implement with no action in the plan | Warning |
+| An action with no effectiveness check date (a warning once the action is done) | Note |
+| An effectiveness check whose date has passed without a result | Warning |
+
+Rejected solutions and cancelled actions are not checked. Notes are listed but not counted.
 
 ## Keyboard
 
@@ -284,4 +299,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list and its good-practice checks, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

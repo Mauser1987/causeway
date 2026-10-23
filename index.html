@@ -172,6 +172,7 @@ kbd {
 .app .popover button:hover, .app .popover button:focus-visible { background: var(--accent-soft); }
 .popover b { font-weight: 600; }
 .popover small { color: var(--muted); }
+.popover .where { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .popover small.error { color: var(--danger); }
 .popover small.warning { color: var(--warn-ink); }
 .popover .empty { padding: 10px; color: var(--muted); }
@@ -1361,7 +1362,7 @@ function convertStyle(style) {
 function issuesAfterSwitch(style) {
   const current = state;
   state = JSON.parse(JSON.stringify(state));
-  try { convertStyle(style); return ruleIssues(); } finally { state = current; }
+  try { convertStyle(style); return chartIssues(); } finally { state = current; }
 }
 
 // ---- Rule checks ----
@@ -1379,8 +1380,58 @@ const treeRuledOut = () => state.nodes.filter(isRuledOut);
 const nodeLook = n => n.id === state.problem.primaryEffectId || n.kind === 'effect' ? 'effect'
   : treeStyle() ? (n.status === 'ruled-out' ? 'ruled' : n.status) : n.kind;
 
+// Every rule issue: the chart's, by its style, and the records'. A node's issue has a nodeId; a
+// record's has the record page, the row's id, and a title.
 function ruleIssues() {
-  return treeStyle() ? treeIssues() : apolloIssues();
+  return [...chartIssues(), ...recordIssues()];
+}
+function chartIssues() {
+  return [...(treeStyle() ? treeIssues() : apolloIssues()), ...causeIssues()];
+}
+
+// A cause that ends at a person's error says what happened, not why it could. Matched on the title.
+const HUMAN_ERROR = /\b(human|operator|personnel|technician|mechanic|fitter|crew)\s+(error|mistake|fault|slip)|\bcareless|\bnegligen|\binattent|\b(did ?n[o']t|failed to|not) follow(ed|ing)?\b/i;
+const solutionsFor = id => state.solutions.filter(s => s.causeIds.includes(id) && s.decision !== 'reject');
+
+// In both styles: what good practice asks of a cause beyond its style's rules.
+function causeIssues() {
+  const issues = [], live = reachable(), tree = treeStyle();
+  for (const n of state.nodes) {
+    if (!live.has(n.id) || !isCause(n)) continue;
+    const ruled = tree && n.status === 'ruled-out';
+    if (!ruled && !causesOf(n.id).length && HUMAN_ERROR.test(n.title)) issues.push({nodeId: n.id, level: 'warning', code: 'human-error',
+      text: 'Ends at a human error: ask why the error was possible (procedure, training, design, workload)'});
+    if (ruled && !n.test.trim() && !hasEvidence(n)) issues.push({nodeId: n.id, level: 'warning', code: 'ruled-basis',
+      text: 'Ruled out without a reason: write how it was ruled out, or cite the evidence'});
+    if (tree && n.status === 'confirmed' && n.evidenceIds.filter(evidenceById).length === 1) issues.push({nodeId: n.id, level: 'info', code: 'one-evidence',
+      text: 'Confirmed on one evidence item: a second, independent one makes it firm'});
+    if (!ruled && !solutionsFor(n.id).length) {
+      if (n.stopPoint?.reason === 'solution-found') issues.push({nodeId: n.id, level: 'warning', code: 'no-solution',
+        text: 'Its stop point says a solution was found, but no solution attacks it'});
+      else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
+    }
+  }
+  return issues;
+}
+
+// The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
+// a planned effectiveness check, with its result once the date has passed.
+function recordIssues() {
+  const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
+  for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
+    'Ruled out without a reason: write the evidence or test that ruled it out');
+  for (const s of state.solutions) {
+    const title = s.title || 'Untitled solution';
+    if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');
+    if (s.decision === 'implement' && !actionsOf(s.id).length) add('solutions', s.id, title, 'warning', 'solution-actions', 'To implement, but no action in the plan');
+  }
+  for (const a of state.actions) {
+    if (a.status === 'cancelled') continue;
+    const title = a.action || 'Untitled action', check = a.effectiveness;
+    if (!check.date) add('actions', a.id, title, a.status === 'done' ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
+    else if (check.date < today() && !check.result.trim()) add('actions', a.id, title, 'warning', 'effect-due', 'The effectiveness check is due: record the result');
+  }
+  return issues;
 }
 
 // A cause tree: each confirmed cause needs evidence, each possible cause a test, and each confirmed
@@ -1673,6 +1724,7 @@ let layout = null;
 
 function setStatus(text) { $('status').textContent = text; }
 const plural = (n, word, many = word + 's') => `${n} ${n === 1 ? word : many}`;
+const issueTitle = i => i.nodeId ? byId(i.nodeId)?.title || 'Untitled' : i.title;
 
 // A modal dialog. A button with data-choice closes it; a non-empty choice is passed to onChoice.
 function openDialog(html, onChoice) {
@@ -1823,7 +1875,7 @@ function dragMarkup(l, d, C) {
 
 function issueMap(issues) {
   const map = new Map(), weight = {error: 3, warning: 2, info: 1};
-  for (const i of issues) if (!map.has(i.nodeId) || weight[i.level] > weight[map.get(i.nodeId)]) map.set(i.nodeId, i.level);
+  for (const i of issues) if (i.nodeId && !map.has(i.nodeId) || weight[i.level] > weight[map.get(i.nodeId)]) map.set(i.nodeId, i.level);
   return map;
 }
 
@@ -2148,6 +2200,10 @@ const NEEDS = {
   evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
   untested: n => `${plural(n, 'hypothesis', 'hypotheses')} still to test`,
   'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
+  'human-error': n => `${plural(n, 'cause')} ending at a human error`,
+  'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
+  'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
+  'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
 };
 
 // Asks before moving the RCA to the other style, with what that style will still need.
@@ -2195,6 +2251,7 @@ function refreshChart() {
 // The issues list in the top bar: every rule issue, and a click selects its node.
 
 const ISSUE_ORDER = {error: 0, warning: 1, info: 2};
+const RECORD_NAMES = {ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
 
 function renderIssues(issues) {
   const open = issues.filter(i => i.level !== 'info');
@@ -2206,12 +2263,16 @@ function renderIssues(issues) {
 function fillIssues(issues = ruleIssues()) {
   const sorted = [...issues].sort((a, b) => ISSUE_ORDER[a.level] - ISSUE_ORDER[b.level]);
   $('issuesList').innerHTML = sorted.length
-    ? sorted.map(i => `<button role="menuitem" data-node="${i.nodeId}"><b>${escapeHtml(byId(i.nodeId)?.title || 'Untitled')}</b><small class="${i.level}">${escapeHtml(i.text)}</small></button>`).join('')
+    ? sorted.map(i => `<button role="menuitem" ${i.nodeId ? `data-node="${i.nodeId}"` : `data-record="${i.record}" data-id="${i.id}"`}><b>${escapeHtml(shorten(issueTitle(i), 90))}</b>${i.nodeId ? '' : `<span class="where">${RECORD_NAMES[i.record]}</span>`}<small class="${i.level}">${escapeHtml(i.text)}</small></button>`).join('')
     : `<div class="empty">No issues: ${treeStyle() ? 'every cause is tested, and every confirmed cause has evidence' : 'every effect has an action and a condition, and every cause has evidence'}.</div>`;
   $('issuesList').querySelectorAll('[data-node]').forEach(b => b.onclick = () => {
     showIssues(false);
     select(b.dataset.node);
     scrollToNode(b.dataset.node);
+  });
+  $('issuesList').querySelectorAll('[data-record]').forEach(b => b.onclick = () => {
+    showIssues(false);
+    if (b.dataset.record === 'solutions') showSolution(b.dataset.id, true); else showRecord(b.dataset.record, b.dataset.id);
   });
 }
 
@@ -4148,7 +4209,7 @@ function buildReport() {
         ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed, H: hypothesis, still to test. Grey, struck through, ✕: ruled out. E-codes: evidence. Orange badge: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
         : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
-      ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
+      ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(issueTitle(i))}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
     </section>
     ${state.fiveWhys.length ? `<section class="r-page">
       <h2>5 Whys</h2>
@@ -4348,13 +4409,13 @@ function exampleRca() {
     solution('Larger flush orifice', ['orifice'], crit(['partly', 'Less prone to blocking'], ['yes'], ['partly'], ['partly', 'More flush flow, more heat and erosion; needs a study']), 'study'),
     solution('Train operators', ['bypass'], crit(['no', 'Does not change the conditions'], ['yes'], ['no'], ['yes']), 'reject'),
   ];
-  const action = (text, sol, owner, due, verification, status = 'open') =>
-    ({id: uuid(), action: text, solutionId: s.solutions[sol].id, owner, due, verification, status, effectiveness: {date: '', result: ''}});
+  const action = (text, sol, owner, due, verification, check, status = 'open') =>
+    ({id: uuid(), action: text, solutionId: s.solutions[sol].id, owner, due, verification, status, effectiveness: {date: check, result: ''}});
   s.actions = [
-    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'S. Varga', '2026-12-15', 'Installation check and flush flow test'),
-    action('Revise upset procedure OP-212 to require a seal-system walkdown', 1, 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset'),
-    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', 'in-progress'),
-    action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', 'done'),
+    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'S. Varga', '2026-12-15', 'Installation check and flush flow test', '2027-06-15'),
+    action('Revise upset procedure OP-212 to require a seal-system walkdown', 1, 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset', '2027-05-15'),
+    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
+    action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'done'),
   ];
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});

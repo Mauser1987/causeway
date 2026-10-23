@@ -1194,6 +1194,64 @@ def run_tests(b):
     load(saved_file)
     print('PASS: XMind mind maps open as cause trees', flush=True)
 
+    # Good-practice checks on causes and records, in both styles.
+    def all_issues():
+        click('issuesButton')
+        items = b.js('''return [...document.querySelectorAll("#issuesList button")].map(x=>({title:x.querySelector("b").textContent,
+            text:x.querySelector("small").textContent,level:x.querySelector("small").className,record:x.dataset.record||null}))''')
+        click('issuesButton')
+        return items
+    checked = json.loads(json.dumps(saved_file))
+    has_cause = {l['effectId'] for l in checked['links']}
+    leaves = [n for n in checked['nodes'] if n['id'] not in has_cause and n['id'] != checked['problem']['primaryEffectId']]
+    linked = {c for x in checked['solutions'] for c in x['causeIds']}
+    free = [n for n in leaves if n['id'] not in linked]
+    free[0]['title'] = 'Operator error during start-up'
+    free[1]['stopPoint'] = {'reason': 'solution-found', 'note': ''}
+    free[2]['controllable'] = True
+    checked['ruledOut'][0].update(test='', evidenceIds=[])
+    checked['solutions'].append({'id': 'sol-x', 'title': 'Orphan solution', 'causeIds': [], 'criteria': checked['solutions'][0]['criteria'], 'decision': 'implement'})
+    checked['actions'][0]['effectiveness'] = {'date': '2020-01-01', 'result': ''}
+    checked['actions'][1]['effectiveness'] = {'date': '', 'result': ''}; checked['actions'][1]['status'] = 'done'
+    checked['actions'][2]['effectiveness'] = {'date': '', 'result': ''}
+    load(checked)
+    got = {(i['title'], i['text'].split(':')[0], i['level'], i['record']) for i in all_issues()}
+    expected = {
+        ('Operator error during start-up', 'Ends at a human error', 'warning', None),
+        (free[1]['title'], 'Its stop point says a solution was found, but no solution attacks it', 'warning', None),
+        (free[2]['title'], 'Controllable, but no solution attacks it yet', 'info', None),
+        (checked['ruledOut'][0]['cause'], 'Ruled out without a reason', 'warning', 'ruledOut'),
+        ('Orphan solution', 'Attacks no cause', 'warning', 'solutions'),
+        ('Orphan solution', 'To implement, but no action in the plan', 'warning', 'solutions'),
+        (checked['actions'][0]['action'], 'The effectiveness check is due', 'warning', 'actions'),
+        (checked['actions'][1]['action'], 'No effectiveness check planned', 'warning', 'actions'),
+        (checked['actions'][2]['action'], 'No effectiveness check planned', 'info', 'actions'),
+    }
+    assert expected <= got, expected - got
+    assert b.js("return document.getElementById('issuesCount').textContent") == f'{sum(1 for i in all_issues() if i["level"] != "info")} issues'
+    # A record's issue opens its page at the row.
+    click('issuesButton')
+    b.js('''[...document.querySelectorAll("#issuesList [data-record=actions]")].find(x=>x.textContent.includes("is due")).click();return true''')
+    assert b.js("return document.getElementById('app').dataset.record") == 'actions'
+    assert b.js("return document.activeElement.dataset.id") == checked['actions'][0]['id']
+    click('issuesButton')
+    b.js('''document.querySelector("#issuesList [data-record=solutions]").click();return true''')
+    assert b.js("return document.getElementById('app').dataset.record") == 'solutions' and b.js("return document.activeElement.value") == 'Orphan solution'
+    page('chart')
+    # In a cause tree: a ruled-out cause needs its reason, and a confirmed cause on one item is noted.
+    tree = json.loads(json.dumps(checked))
+    tree['meta']['style'] = 'tree'
+    one = next(n for n in tree['nodes'] if len(n['evidenceIds']) == 1 and n['id'] != tree['problem']['primaryEffectId'])
+    one['status'] = 'confirmed'
+    used = {one['id'], *(n['id'] for n in free[:3])}
+    other = next(n for n in tree['nodes'] if n['id'] in {x['id'] for x in leaves} and n['id'] not in used)
+    other.update(status='ruled-out', test='', evidenceIds=[])
+    load(tree)
+    got = {(i['title'], i['text'].split(':')[0]) for i in all_issues()}
+    assert (other['title'], 'Ruled out without a reason') in got and (one['title'], 'Confirmed on one evidence item') in got, got
+    load(saved_file)
+    print('PASS: good-practice checks on causes, ruled-out causes, solutions, and actions', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'

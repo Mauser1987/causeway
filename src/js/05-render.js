@@ -5,6 +5,7 @@ let layout = null;
 
 function setStatus(text) { $('status').textContent = text; }
 const plural = (n, word, many = word + 's') => `${n} ${n === 1 ? word : many}`;
+const issueTitle = i => i.nodeId ? byId(i.nodeId)?.title || 'Untitled' : i.title;
 
 // A modal dialog. A button with data-choice closes it; a non-empty choice is passed to onChoice.
 function openDialog(html, onChoice) {
@@ -155,7 +156,7 @@ function dragMarkup(l, d, C) {
 
 function issueMap(issues) {
   const map = new Map(), weight = {error: 3, warning: 2, info: 1};
-  for (const i of issues) if (!map.has(i.nodeId) || weight[i.level] > weight[map.get(i.nodeId)]) map.set(i.nodeId, i.level);
+  for (const i of issues) if (i.nodeId && !map.has(i.nodeId) || weight[i.level] > weight[map.get(i.nodeId)]) map.set(i.nodeId, i.level);
   return map;
 }
 

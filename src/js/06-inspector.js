@@ -257,6 +257,10 @@ const NEEDS = {
   evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
   untested: n => `${plural(n, 'hypothesis', 'hypotheses')} still to test`,
   'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
+  'human-error': n => `${plural(n, 'cause')} ending at a human error`,
+  'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
+  'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
+  'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
 };
 
 // Asks before moving the RCA to the other style, with what that style will still need.

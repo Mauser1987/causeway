@@ -411,7 +411,7 @@ function convertStyle(style) {
 function issuesAfterSwitch(style) {
   const current = state;
   state = JSON.parse(JSON.stringify(state));
-  try { convertStyle(style); return ruleIssues(); } finally { state = current; }
+  try { convertStyle(style); return chartIssues(); } finally { state = current; }
 }
 
 // ---- Rule checks ----
@@ -429,8 +429,58 @@ const treeRuledOut = () => state.nodes.filter(isRuledOut);
 const nodeLook = n => n.id === state.problem.primaryEffectId || n.kind === 'effect' ? 'effect'
   : treeStyle() ? (n.status === 'ruled-out' ? 'ruled' : n.status) : n.kind;
 
+// Every rule issue: the chart's, by its style, and the records'. A node's issue has a nodeId; a
+// record's has the record page, the row's id, and a title.
 function ruleIssues() {
-  return treeStyle() ? treeIssues() : apolloIssues();
+  return [...chartIssues(), ...recordIssues()];
+}
+function chartIssues() {
+  return [...(treeStyle() ? treeIssues() : apolloIssues()), ...causeIssues()];
+}
+
+// A cause that ends at a person's error says what happened, not why it could. Matched on the title.
+const HUMAN_ERROR = /\b(human|operator|personnel|technician|mechanic|fitter|crew)\s+(error|mistake|fault|slip)|\bcareless|\bnegligen|\binattent|\b(did ?n[o']t|failed to|not) follow(ed|ing)?\b/i;
+const solutionsFor = id => state.solutions.filter(s => s.causeIds.includes(id) && s.decision !== 'reject');
+
+// In both styles: what good practice asks of a cause beyond its style's rules.
+function causeIssues() {
+  const issues = [], live = reachable(), tree = treeStyle();
+  for (const n of state.nodes) {
+    if (!live.has(n.id) || !isCause(n)) continue;
+    const ruled = tree && n.status === 'ruled-out';
+    if (!ruled && !causesOf(n.id).length && HUMAN_ERROR.test(n.title)) issues.push({nodeId: n.id, level: 'warning', code: 'human-error',
+      text: 'Ends at a human error: ask why the error was possible (procedure, training, design, workload)'});
+    if (ruled && !n.test.trim() && !hasEvidence(n)) issues.push({nodeId: n.id, level: 'warning', code: 'ruled-basis',
+      text: 'Ruled out without a reason: write how it was ruled out, or cite the evidence'});
+    if (tree && n.status === 'confirmed' && n.evidenceIds.filter(evidenceById).length === 1) issues.push({nodeId: n.id, level: 'info', code: 'one-evidence',
+      text: 'Confirmed on one evidence item: a second, independent one makes it firm'});
+    if (!ruled && !solutionsFor(n.id).length) {
+      if (n.stopPoint?.reason === 'solution-found') issues.push({nodeId: n.id, level: 'warning', code: 'no-solution',
+        text: 'Its stop point says a solution was found, but no solution attacks it'});
+      else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
+    }
+  }
+  return issues;
+}
+
+// The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
+// a planned effectiveness check, with its result once the date has passed.
+function recordIssues() {
+  const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
+  for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
+    'Ruled out without a reason: write the evidence or test that ruled it out');
+  for (const s of state.solutions) {
+    const title = s.title || 'Untitled solution';
+    if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');
+    if (s.decision === 'implement' && !actionsOf(s.id).length) add('solutions', s.id, title, 'warning', 'solution-actions', 'To implement, but no action in the plan');
+  }
+  for (const a of state.actions) {
+    if (a.status === 'cancelled') continue;
+    const title = a.action || 'Untitled action', check = a.effectiveness;
+    if (!check.date) add('actions', a.id, title, a.status === 'done' ? 'warning' : 'info', 'effect-date', 'No effectiveness check planned: set a date to check that it worked');
+    else if (check.date < today() && !check.result.trim()) add('actions', a.id, title, 'warning', 'effect-due', 'The effectiveness check is due: record the result');
+  }
+  return issues;
 }
 
 // A cause tree: each confirmed cause needs evidence, each possible cause a test, and each confirmed

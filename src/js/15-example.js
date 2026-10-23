@@ -98,13 +98,13 @@ function exampleRca() {
     solution('Larger flush orifice', ['orifice'], crit(['partly', 'Less prone to blocking'], ['yes'], ['partly'], ['partly', 'More flush flow, more heat and erosion; needs a study']), 'study'),
     solution('Train operators', ['bypass'], crit(['no', 'Does not change the conditions'], ['yes'], ['no'], ['yes']), 'reject'),
   ];
-  const action = (text, sol, owner, due, verification, status = 'open') =>
-    ({id: uuid(), action: text, solutionId: s.solutions[sol].id, owner, due, verification, status, effectiveness: {date: '', result: ''}});
+  const action = (text, sol, owner, due, verification, check, status = 'open') =>
+    ({id: uuid(), action: text, solutionId: s.solutions[sol].id, owner, due, verification, status, effectiveness: {date: check, result: ''}});
   s.actions = [
-    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'S. Varga', '2026-12-15', 'Installation check and flush flow test'),
-    action('Revise upset procedure OP-212 to require a seal-system walkdown', 1, 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset'),
-    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', 'in-progress'),
-    action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', 'done'),
+    action('Engineer and install cyclone separator on P-101A/B flush', 0, 'S. Varga', '2026-12-15', 'Installation check and flush flow test', '2027-06-15'),
+    action('Revise upset procedure OP-212 to require a seal-system walkdown', 1, 'K. Osei', '2026-11-15', 'Procedure review and a field audit after the next upset', '2027-05-15'),
+    action('Add vapour-pressure margin step to the seal selection checklist', 2, 'L. Moreau', '2026-11-01', 'Checklist audit on the next three selections', '2027-05-01', 'in-progress'),
+    action('Configure TI-104 high alarm at 85 °C', 3, 'R. Haddad', '2026-10-31', 'Alarm test from the DCS', '2027-04-30', 'done'),
   ];
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});

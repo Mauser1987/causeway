@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.8 — 2026-10-23
+
+Good-practice checks, drawn from industry RCA guidance (US DOE, Apollo, TapRooT, OEM 8D requirements).
+
+- The issues list now also flags: a cause that ends at a human error; a cause ruled out without a reason (no test, no evidence), on the tree or in the causes ruled out; a confirmed cause on a single evidence item (note); a stop point that says a solution was found while no solution attacks the cause, and a controllable cause with no solution yet (note); a solution that attacks no cause, or one to implement without actions; an action without an effectiveness check date, and a check that is due without a result.
+- Issues about records are listed with their page; clicking one opens the record at its row.
+- The example's actions have their effectiveness check dates.
+
 ## v1.7 — 2026-10-23
 
 Hypotheses, and status badges in the cause tree.
