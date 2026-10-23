@@ -1142,6 +1142,58 @@ def run_tests(b):
     assert len(rca()['nodes']) == 16, 'a rejected file leaves the RCA as it was'
     print('PASS: invalid files are refused', flush=True)
 
+    # XMind mind maps open as new cause trees: XMind 8 (content.xml) and XMind 2020 and later (content.json).
+    import io, zipfile, base64 as b64
+    def xmind(files, method=zipfile.ZIP_DEFLATED):
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, 'w', method) as z:
+            for name, text in files.items(): z.writestr(name, text)
+        return b64.b64encode(out.getvalue()).decode()
+    def open_bytes(name, data):
+        b.async_js('''const done=arguments[arguments.length-1],input=document.getElementById('projectFile'),dt=new DataTransfer();
+            dt.items.add(new File([Uint8Array.from(atob(arguments[1]),c=>c.charCodeAt(0))],arguments[0]));input.files=dt.files;
+            input.onchange({target:input}).then(()=>done(true));''', [name, data])
+    xml = ('<?xml version="1.0" encoding="UTF-8"?><xmap-content xmlns="urn:xmind:xmap:xmlns:content:2.0" version="2.0"><sheet id="s1">'
+        '<topic id="r"><title>Seal leakage </title><children><topics type="attached">'
+        '<topic id="a" branch="folded"><title>Leakage between faces\r\nPos. 14/15</title><notes><plain>Seen at the drain</plain></notes><children><topics type="attached">'
+        '<topic id="a1"><title>Faces  out of flat</title><children><topics type="attached"><topic id="e"><title>Evidence: Light band reading 4 bands</title></topic></topics></children></topic>'
+        '<topic id="a2"><title>Spring broken</title></topic></topics></children></topic>'
+        '<topic id="b"><title>Gasket leak</title></topic></topics>'
+        '<topics type="detached"><topic id="legend"><title>Terminated</title></topic></topics></children></topic></sheet></xmap-content>')
+    b.js('__dialogs.length=0;return true')
+    open_bytes('map.xmind', xmind({'content.xml': xml, 'meta.xml': '<meta/>'}))
+    r = rca(); titles = [n['title'] for n in r['nodes']]
+    assert titles == ['Seal leakage', 'Leakage between faces\nPos. 14/15', 'Faces out of flat', 'Spring broken', 'Gasket leak'], titles
+    assert r['meta']['style'] == 'tree' and r['nodes'][0]['id'] == r['problem']['primaryEffectId'] and r['nodes'][0]['kind'] == 'effect'
+    assert all(n['kind'] == 'cause' and n['status'] == 'possible' for n in r['nodes'][1:])
+    by = {n['title']: n for n in r['nodes']}
+    parent = {l['causeId']: l['effectId'] for l in r['links']}
+    assert parent[by['Spring broken']['id']] == by['Leakage between faces\nPos. 14/15']['id'] and len(r['links']) == 4
+    assert by['Leakage between faces\nPos. 14/15']['notes'] == 'Seen at the drain'
+    assert [(e['code'], e['description']) for e in r['evidence']] == [('E1', 'Light band reading 4 bands')]
+    assert by['Faces out of flat']['evidenceIds'] == [r['evidence'][0]['id']] and r['counters']['evidence'] == 2
+    assert saved()['dirty'] is True, 'an imported map is not saved yet'
+    assert 'Imported map.xmind' in b.js("return document.getElementById('status').textContent")
+    assert len(boxes()) == 5 and not b.js('return __dialogs')
+    check_layout()
+
+    zen = json.dumps([{'id': 's1', 'title': 'Sheet 1', 'rootTopic': {'id': 'r', 'title': 'Pump trip', 'children': {'attached': [
+        {'id': 'a', 'title': 'Overload', 'notes': {'plain': {'content': 'Motor current 120 %'}}, 'children': {'attached': [{'id': 'a1', 'title': 'Tight bearing'}]}},
+        {'id': 'b', 'title': 'Low suction'}], 'detached': [{'id': 'd', 'title': 'Floating'}]}}},
+        {'id': 's2', 'title': 'Sheet 2', 'rootTopic': {'id': 'r2', 'title': 'Other'}}])
+    open_bytes('trip.xmind', xmind({'content.json': zen, 'content.xml': '<old/>'}, zipfile.ZIP_STORED))
+    r = rca()
+    assert [n['title'] for n in r['nodes']] == ['Pump trip', 'Overload', 'Tight bearing', 'Low suction']
+    assert r['nodes'][1]['notes'] == 'Motor current 120 %'
+    assert 'first of its 2 sheets' in b.js("return document.getElementById('status').textContent")
+
+    open_bytes('broken.xmind', b64.b64encode(b'not a zip').decode())
+    open_bytes('empty.xmind', xmind({'meta.xml': '<meta/>'}))
+    assert ['not a zip' in d for d in b.js('return __dialogs')] == [True, False] and 'no mind map' in b.js('return __dialogs[1]')
+    assert [n['title'] for n in rca()['nodes']][0] == 'Pump trip', 'a refused map leaves the RCA as it was'
+    load(saved_file)
+    print('PASS: XMind mind maps open as cause trees', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'

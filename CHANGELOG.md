@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6 — 2026-10-23
+
+Import mind maps.
+
+- **Open** imports an XMind mind map (`.xmind`, XMind 8 or XMind 2020 and later) as a new cause tree, from its first sheet. The central topic becomes the primary effect, attached topics become possible causes, topic notes become notes, and an "Evidence: …" topic becomes an evidence item cited by its parent. The import is unsaved, and **Save** writes a new Causeway file.
+
 ## v1.5 — 2026-10-23
 
 A new method: the sequence of events, drawn as a Gantt-style timeline.

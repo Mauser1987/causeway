@@ -3,6 +3,7 @@
 let fileHandle = null;   // the file last opened or saved, where the File System Access API exists
 const canPickFiles = typeof window.showSaveFilePicker === 'function' && typeof window.showOpenFilePicker === 'function';
 const FILE_TYPES = [{description: 'Causeway RCA', accept: {'application/json': ['.json']}}];
+const OPEN_TYPES = [{description: 'Causeway RCA or XMind mind map', accept: {'application/json': ['.json'], 'application/zip': ['.xmind']}}];
 
 function download(name, blob) {
   const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -94,21 +95,101 @@ function loadProject(data, handle = null) {
   setStatus('Opened ' + (handle?.name || 'RCA'));
 }
 
+// ---- XMind mind maps ----
+// An .xmind file is a zip: XMind 8 keeps the map in content.xml, XMind 2020 and later in content.json.
+// The first sheet opens as a new, unsaved cause tree: the central topic is the primary effect and each
+// attached topic a possible cause, with its notes. A topic "Evidence: …" without subtopics becomes an
+// evidence item that its parent cites. Floating topics, relationships, markers, and styles are left out.
+
+const isZip = bytes => bytes[0] === 0x50 && bytes[1] === 0x4b;
+
+// The text of one file in a zip, or null when it is not there.
+async function zipText(buffer, name) {
+  const v = new DataView(buffer), bytes = new Uint8Array(buffer), text = new TextDecoder();
+  let end = buffer.byteLength - 22;
+  while (end >= 0 && v.getUint32(end, true) !== 0x06054b50) end--;
+  if (end < 0) throw Error('The file is not a zip archive.');
+  for (let i = 0, at = v.getUint32(end + 16, true); i < v.getUint16(end + 10, true) && v.getUint32(at, true) === 0x02014b50; i++) {
+    const method = v.getUint16(at + 10, true), size = v.getUint32(at + 20, true), local = v.getUint32(at + 42, true);
+    const nameLength = v.getUint16(at + 28, true);
+    if (text.decode(bytes.subarray(at + 46, at + 46 + nameLength)) === name) {
+      const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true), data = bytes.subarray(start, start + size);
+      if (method === 0) return text.decode(data);
+      if (method !== 8) throw Error(`${name} is packed in a way this tool cannot read.`);
+      if (typeof DecompressionStream !== 'function') throw Error('This browser cannot unpack the file; use a recent Chrome, Edge, or Firefox.');
+      return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    }
+    at += 46 + nameLength + v.getUint16(at + 30, true) + v.getUint16(at + 32, true);
+  }
+  return null;
+}
+
+// The sheets of a map, each as its central topic: {title, notes, topics}.
+async function xmindSheets(buffer) {
+  const json = await zipText(buffer, 'content.json');
+  if (json !== null) {
+    const topic = t => ({title: t?.title || '', notes: t?.notes?.plain?.content || '', topics: (t?.children?.attached || []).map(topic)});
+    return (JSON.parse(json) || []).filter(sheet => sheet?.rootTopic).map(sheet => topic(sheet.rootTopic));
+  }
+  const xml = await zipText(buffer, 'content.xml');
+  if (xml === null) throw Error('The file has no mind map in it.');
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  if (doc.querySelector('parsererror')) throw Error('The mind map could not be read.');
+  const kids = (el, name) => [...el?.children || []].filter(c => c.localName === name);
+  const topic = t => ({title: kids(t, 'title')[0]?.textContent || '', notes: kids(kids(t, 'notes')[0], 'plain')[0]?.textContent || '',
+    topics: kids(kids(t, 'children')[0], 'topics').filter(g => g.getAttribute('type') === 'attached').flatMap(g => kids(g, 'topic')).map(topic)});
+  return kids(doc.documentElement, 'sheet').map(sheet => kids(sheet, 'topic')[0]).filter(Boolean).map(topic);
+}
+
+function xmindProject(root) {
+  const s = blankState('tree'), clean = text => text.replace(/\r/g, '').split('\n').map(l => l.replace(/\s+/g, ' ').trim()).filter(Boolean).join('\n');
+  const add = (t, parent) => {
+    const title = clean(t.title), evidence = parent && !t.topics.length && /^evidence\s*:\s*(.+)$/is.exec(title);
+    if (evidence) {
+      const e = {id: uuid(), code: `E${s.counters.evidence++}`, description: evidence[1], type: 'sensed', source: '', collectedBy: '', date: ''};
+      s.evidence.push(e); parent.evidenceIds.push(e.id);
+      return;
+    }
+    const n = {...blankNode(parent ? 'cause' : 'effect', title), notes: t.notes.trim()};
+    s.nodes.push(n);
+    if (parent) s.links.push({id: uuid(), effectId: parent.id, causeId: n.id});
+    for (const kid of t.topics) add(kid, n);
+    return n;
+  };
+  s.nodes = [];
+  s.problem.primaryEffectId = add(root, null).id;
+  return s;
+}
+
+async function openFile(file, handle = null) {
+  const buffer = await file.arrayBuffer();
+  if (!/\.xmind$/i.test(file.name) && !isZip(new Uint8Array(buffer, 0, Math.min(2, buffer.byteLength)))) {
+    loadProject(JSON.parse(new TextDecoder().decode(buffer)), handle);
+    return;
+  }
+  const sheets = await xmindSheets(buffer);
+  if (!sheets.length) throw Error('The mind map is empty.');
+  // Imported, not opened: Save writes a new Causeway file and leaves the map as it was.
+  replaceState(normalizeProject(xmindProject(sheets[0])), {saved: false});
+  fileHandle = null;
+  setStatus(`Imported ${file.name}${sheets.length > 1 ? ` (the first of its ${sheets.length} sheets)` : ''} as a cause tree`);
+}
+
 async function openProject() {
   if (!confirmDiscard('Open another RCA?')) return;
   if (!canPickFiles) { $('projectFile').click(); return; }
   try {
-    const [handle] = await window.showOpenFilePicker({types: FILE_TYPES});
-    loadProject(JSON.parse(await (await handle.getFile()).text()), handle);
+    const [handle] = await window.showOpenFilePicker({types: OPEN_TYPES});
+    await openFile(await handle.getFile(), handle);
   } catch (err) {
-    if (err.name !== 'AbortError') alert('Could not open the RCA: ' + err.message);
+    if (err.name !== 'AbortError') alert('Could not open the file: ' + err.message);
   }
 }
 $('projectFile').onchange = async e => {
   const file = e.target.files[0];
   if (!file) return;
-  try { loadProject(JSON.parse(await file.text())); }
-  catch (err) { alert('Could not open the RCA: ' + err.message); }
+  try { await openFile(file); }
+  catch (err) { alert('Could not open the file: ' + err.message); }
   e.target.value = '';
 };
 
