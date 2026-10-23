@@ -220,5 +220,5 @@ function renderStyle() {
 function renderTitle() {
   $('sheetTitle').textContent = primaryEffect()?.title.trim() || 'Untitled RCA';
   document.title = `${rcaName()} · Causeway`;
-  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag].filter(s => s?.trim()).join(' · ') || 'Causeway';
+  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag, RCA_STATUS[state.meta.status]].filter(s => s?.trim()).join(' · ');
 }

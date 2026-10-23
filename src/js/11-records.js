@@ -376,12 +376,31 @@ function equipmentPage() {
     </section>`).join('')}`;
 }
 
+// Closing waits for the actions to be validated; the date closed is filled in if it is empty.
+function setRcaStatus(status) {
+  const blockers = status === 'closed' ? closeBlockers() : [];
+  if (blockers.length) {
+    render();
+    openDialog(`<h2>Not ready to close</h2><p>An RCA is closed once its actions have worked. Still open:</p>
+      <ul class="needs">${blockers.map(b => `<li class="need-warning">${escapeHtml(b)}</li>`).join('')}</ul>
+      <div class="dialog-foot"><button class="button primary" data-choice="" autofocus>OK</button></div>`, () => {});
+    return;
+  }
+  state.meta.status = status;
+  if (status === 'closed' && !state.meta.dates.closed) state.meta.dates.closed = today();
+  render(); persist();
+  setStatus(`RCA status: ${RCA_STATUS[status]}`);
+}
+
 function teamPage() {
   const m = state.meta, d = m.dates;
-  return `${pageHead('Team and dates', 'Who carries out the RCA, and its dates.')}
+  return `${pageHead('Team and sign-off', 'Who carries out the RCA, its dates, where it stands, and who signs it off.')}
     <section class="card">
       <h2>RCA</h2>
       <div class="form-grid">
+        <label class="field">Status<select class="text" data-act="rca-status" data-id="status" data-field="status" aria-label="RCA status">${optionList(RCA_STATUS, m.status)}</select></label>
+        ${formField('Customer reference <span class="muted">e.g. their 8D or complaint number</span>', 'meta', '', 'customerRef', m.customerRef, '')}
+        ${formField('Revision', 'meta', '', 'revision', m.revision, 'placeholder="e.g. A, or 1"')}
         ${formField('RCA number', 'meta', '', 'rcaNumber', m.rcaNumber, 'placeholder="e.g. RCA-2026-014"')}
         ${formField('Equipment / tag', 'meta', '', 'equipmentTag', m.equipmentTag, 'placeholder="e.g. P-101A"')}
         ${formField('Seal type', 'meta', '', 'sealType', m.sealType, 'placeholder="e.g. Single cartridge seal, API Plan 11"')}
@@ -407,6 +426,16 @@ function teamPage() {
         </tr>`).join('') : empty(4, 'No team members yet.')}</tbody>
       </table>
       <p class="note">Names entered here are offered for “collected by” and “owner” in the other records.</p>
+    </section>
+    <section class="card">
+      <h2>Sign-off</h2>
+      <table class="log compact">
+        <thead><tr><th>Role</th><th>Name</th><th>Date</th></tr></thead>
+        <tbody>${Object.entries(SIGNOFF_ROLES).map(([k, label]) => `<tr><td>${label}</td>
+          <td>${cell('meta', '', `signoff.${k}.name`, m.signoff[k].name, `${label}: name`, 'list="teamNames" placeholder="Name"')}</td>
+          <td>${cell('meta', '', `signoff.${k}.date`, m.signoff[k].date, `${label}: date`, 'type="date"')}</td></tr>`).join('')}</tbody>
+      </table>
+      <p class="note">Printed at the end of every report, with space to sign. The RCA can be closed once every corrective and preventive action is validated by its effectiveness check.</p>
     </section>`;
 }
 
@@ -555,7 +584,7 @@ function setPath(obj, path, value) {
 
 $('records').addEventListener('input', e => {
   const el = e.target.closest('[data-field]');
-  if (!el) return;
+  if (!el || el.dataset.act === 'rca-status') return;
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
@@ -569,6 +598,7 @@ $('records').addEventListener('input', e => {
 
 // Pickers: choosing an item adds it.
 $('records').addEventListener('change', e => {
+  if (e.target.dataset.act === 'rca-status') { setRcaStatus(e.target.value); return; }
   const el = e.target.closest('select[data-act]');
   if (el && el.value) {
     const value = el.value;

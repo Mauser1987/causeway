@@ -50,6 +50,9 @@ function normalizeProject(p) {
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.meta.status = p.meta?.status in RCA_STATUS ? p.meta.status : 'open';
+  for (const k of ['customerRef', 'revision']) if (typeof s.meta[k] !== 'string') s.meta[k] = '';
+  s.meta.signoff = Object.fromEntries(Object.keys(SIGNOFF_ROLES).map(k => [k, {name: String(p.meta?.signoff?.[k]?.name ?? ''), date: String(p.meta?.signoff?.[k]?.date ?? '')}]));
   s.equipment = Object.fromEntries(EQUIPMENT_KEYS.filter(k => typeof p.equipment?.[k] === 'string').map(k => [k, p.equipment[k]]));
   s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
   s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));

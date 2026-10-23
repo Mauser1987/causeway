@@ -515,6 +515,36 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report .r-whys li { margin-bottom: 1.5mm; break-inside: avoid; }
   #report .r-whys .r-none { font-style: normal; font-size: 8.5pt; }
   #report .r-foot { margin-top: 8mm; font-size: 8pt; color: #5b6b7a; }
+  #report .r-team { margin: -3mm 0 7mm; grid-template-columns: 1fr 3fr; }
+  #report .r-signoff { break-inside: avoid; }
+  #report .r-sign td { height: 11mm; vertical-align: bottom; }
+  #report .r-sign .r-signature { width: 40%; border-bottom: 1px solid #16232f; }
+  /* 8D: each discipline numbered, the chart on pages of its own. */
+  #report .r-d { margin-bottom: 6mm; }
+  #report .r-d h2 { display: flex; align-items: baseline; gap: 3mm; }
+  #report .r-dnum { display: inline-block; min-width: 9mm; padding: .4mm 1.5mm; border-radius: 1mm; background: #0b5f66; color: #fff; font-size: 10pt; text-align: center; }
+  #report .r-sub { font-weight: 400; color: #5b6b7a; }
+  #report .r-chain { font-size: 8pt; color: #3d4f60; }
+  #report .r-keep { break-inside: avoid; }
+  #report .r-chart-pages { break-before: page; }
+  /* One-page summary: two columns, small type. */
+  #report[data-layout="summary"] { font-size: 8.5pt; }
+  #report .r-cover-short { padding: 0 0 3mm; margin-bottom: 4mm; }
+  #report .r-cover-short h1 { margin: 1mm 0 0; font-size: 16pt; }
+  #report .r-summary { columns: 2; column-gap: 8mm; }
+  #report .r-summary .r-block { break-inside: avoid; }
+  #report .r-summary .r-foot { margin-top: 4mm; }
+  #report .r-summary h3 { margin: 3mm 0 1.5mm; padding-bottom: .5mm; border-bottom: 1px solid #0b5f66; color: #0b5f66; font-size: 9.5pt; }
+  #report .r-summary > .r-block:first-child h3 { margin-top: 0; }
+  #report .r-summary table { font-size: 7.5pt; }
+  #report .r-summary td:first-child { width: 42%; }
+  #report .r-summary th, #report .r-summary td { padding: 1mm 1.5mm; }
+  #report dl.r-list { display: grid; grid-template-columns: 24mm 1fr; gap: 1mm 3mm; margin: 0; }
+  #report dl.r-list div { display: contents; }
+  #report dl.r-list dd { margin: 0; }
+  #report .r-roots { margin: 0; padding-left: 5mm; }
+  #report .r-roots li { margin-bottom: 2mm; break-inside: avoid; }
+  #report .r-tagline { font-size: 7.5pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #5b6b7a; }
 }
 
 /* ---- 5 Whys ---- */

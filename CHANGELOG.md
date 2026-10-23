@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.13 — 2026-10-23
+
+Three report layouts from one RCA, and its status and sign-off.
+
+- **Print ▾** offers the **Full RCA report**, an **8D report** (D1 to D8, for a customer's 8D request: containment, root causes by occurrence, escape point, and systemic, chosen solutions, corrective and preventive actions, read-across, closure), and a **One-page summary** for management. Ctrl/Cmd+P prints the layout last chosen.
+- **Team and sign-off** (formerly Team and dates) adds the RCA status, the customer reference, the revision, and the sign-off: prepared, reviewed, and approved by, printed with room to sign. An RCA closes only once its corrective and preventive actions are validated with results; closing fills in the date.
+- The status shows in the title bar. The example is in progress, prepared and reviewed.
+
 ## v1.12 — 2026-10-23
 
 Is / Is Not, after Kepner-Tregoe.

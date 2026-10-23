@@ -35,7 +35,14 @@
           <button role="menuitem" id="exportPng"><b>Chart as PNG</b><small>Image at twice screen resolution</small></button>
         </div>
       </div>
-      <button id="printReport" title="Print the RCA report, or save it as a PDF (Ctrl/Cmd+P)">Print report</button>
+      <div class="menu-wrap">
+        <button id="printReport" aria-expanded="false" aria-controls="printMenu" title="Print a report, or save it as a PDF">Print ▾</button>
+        <div id="printMenu" class="popover right" role="menu" hidden>
+          <button role="menuitem" id="printFull"><b>Full RCA report</b><small>Every record, the chart, and the sign-off</small></button>
+          <button role="menuitem" id="print8d"><b>8D report</b><small>D1 to D8, for a customer's 8D request</small></button>
+          <button role="menuitem" id="printSummary"><b>One-page summary</b><small>Problem, root causes, actions, and status</small></button>
+        </div>
+      </div>
       <span class="divider" aria-hidden="true"></span>
       <button id="newProject" title="Start a new, empty RCA">New</button>
       <button id="openProject" title="Open a saved RCA (JSON)">Open</button>
@@ -56,7 +63,7 @@
     <div class="panel-title group-title">Records</div>
     <button class="record" data-record="problem">Problem definition</button>
     <button class="record" data-record="equipment">Equipment and duty<span id="railEquipment">0</span></button>
-    <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
+    <button class="record" data-record="team">Team and sign-off<span id="railTeam">0</span></button>
     <button class="record" data-record="evidence">Evidence log<span id="railEvidence">0</span></button>
     <button class="record" data-record="ruledOut">Causes ruled out<span id="railRuledOut">0</span></button>
     <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>

@@ -111,6 +111,10 @@ const EQUIPMENT_SECTIONS = [
 ];
 const EQUIPMENT_KEYS = EQUIPMENT_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
 
+// Where the RCA stands. It can only be closed once its actions are validated.
+const RCA_STATUS = {open: 'Open', 'root-cause': 'Root cause found', actions: 'Actions in progress', closed: 'Closed'};
+const SIGNOFF_ROLES = {prepared: 'Prepared by', reviewed: 'Reviewed by', approved: 'Approved by'};
+
 // Record values. Keys are what the file stores; values are what the page shows.
 const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
 const RULED_OUT_STATUS = {'testing': 'Being tested', 'ruled-out': 'Ruled out'};

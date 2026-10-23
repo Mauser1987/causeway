@@ -1081,7 +1081,7 @@ def run_tests(b):
     exported = b.async_js('const done=arguments[arguments.length-1];__downloads.at(-1).text().then(done)')
     assert exported.startswith('<?xml') and '<title>Sequence of events: ' in exported and 'Ramped to duty pressure' in exported
     b.js("window.print=()=>{};return true")
-    click('printReport')
+    click('printReport'); click('printFull')
     report = b.js("return document.getElementById('report').textContent")
     assert 'Sequence of events' in report and 'Ramped to duty pressure, 40 bar' in report and '2026-10-20 10:00 to 2026-10-20 10:30' in report
     data = rca()
@@ -1379,6 +1379,57 @@ def run_tests(b):
     load(saved_file)
     print('PASS: Is / Is Not specification and cause testing', flush=True)
 
+    # Status, sign-off, and closing only once the actions have worked.
+    page('team')
+    status_select = lambda v: b.js("const el=document.querySelector('#records [data-act=rca-status]');el.value=arguments[0];el.dispatchEvent(new Event('change',{bubbles:true}));return true", [v])
+    assert rca()['meta']['status'] == 'actions' and 'Actions in progress' in b.js("return document.getElementById('sheetMeta').textContent")
+    b.js('__dialogs.length=0;return true')
+    status_select('closed')
+    assert rca()['meta']['status'] == 'actions' and b.js("return document.getElementById('dialog').open"), 'closing waits for the actions'
+    assert '4 actions not validated' in b.js("return document.getElementById('dialog').textContent")
+    b.js("document.querySelector('#dialog [data-choice]').click();return true")
+    assert b.js("return document.querySelector('#records [data-act=rca-status]').value") == 'actions', 'the select shows the status kept'
+    status_select('root-cause')
+    assert rca()['meta']['status'] == 'root-cause'
+    click('undo')
+    assert rca()['meta']['status'] == 'actions'
+    set_field('meta', '', 'signoff.approved.name', 'P. Lindqvist')
+    set_field('meta', '', 'customerRef', '8D-77')
+    assert rca()['meta']['signoff']['approved']['name'] == 'P. Lindqvist' and rca()['meta']['customerRef'] == '8D-77'
+    done = json.loads(json.dumps(saved_file))
+    for a in done['actions']:
+        if a['kind'] != 'containment': a.update(status='validated', effectiveness={'date': '2026-10-01', 'result': 'No leak since'})
+    load(done)
+    page('team')
+    status_select('closed')
+    assert rca()['meta']['status'] == 'closed' and rca()['meta']['dates']['closed'] == b.js("return new Date().toISOString().slice(0,10)"), 'closed, dated today'
+    early = json.loads(json.dumps(saved_file))
+    early['meta'].update(status='closed', signoff='nonsense', revision=3)
+    load(early)
+    assert rca()['meta']['signoff']['prepared'] == {'name': '', 'date': ''} and rca()['meta']['revision'] == ''
+    assert any(i['text'].startswith('Closed, but') and i['record'] == 'team' for i in all_issues()), 'a closed file with open actions is flagged'
+    load({**saved_file, 'meta': {**saved_file['meta'], 'status': 'weird'}})
+    assert rca()['meta']['status'] == 'open'
+    load(saved_file)
+    # The three report layouts, from the Print menu.
+    page('chart')
+    b.js("window.print=()=>{};return true")
+    for layout, button, expect in [('8d', 'print8d', ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7', 'D8']), ('summary', 'printSummary', ['The problem', 'Root causes', 'Actions']), ('full', 'printFull', [])]:
+        click('printReport')
+        assert not b.js("return document.getElementById('printMenu').hidden")
+        click(button)
+        assert b.js("return document.getElementById('report').dataset.layout") == layout and b.js("return document.getElementById('printMenu').hidden")
+        text = b.js("return document.getElementById('report').textContent")
+        assert all(x in text for x in expect) and 'Sign-off' in text, (layout, text[:300])
+    b.js("document.getElementById('print8d').click();return true")
+    r8 = b.js("return document.getElementById('report').textContent")
+    assert 'Escape point' in r8 and 'No seal-system check after upset or bypass' in r8 and 'Run on P-101B' in r8 and 'P-103A/B' in r8 and 'Not ready to close' in r8
+    assert b.js("return [...document.querySelectorAll('#report .r-dnum')].map(x=>x.textContent).join()") == 'D1,D2,D3,D4,D5,D6,D7,D8'
+    b.js("window.dispatchEvent(new Event('beforeprint'));return true")
+    assert b.js("return document.getElementById('report').dataset.layout") == '8d', 'Ctrl+P prints the layout last chosen'
+    b.js("document.getElementById('printFull').click();return true")
+    print('PASS: status, sign-off, closing, and the full, 8D, and summary reports', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'
@@ -1432,7 +1483,7 @@ def run_tests(b):
         evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
         events:[...r.querySelectorAll("figure.r-timeline svg")].map(s=>s.querySelectorAll(".tl-row").length),
         whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'

@@ -63,6 +63,8 @@ function exampleRca() {
   s.meta = {
     rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump', style: 'apollo',
     leadId: '', team: [], dates: {opened: '2026-09-15', eventDate: '2026-09-14', closed: ''},
+    status: 'actions', customerRef: 'Plant incident report IR-2026-0917', revision: 'A',
+    signoff: {prepared: {name: 'L. Moreau', date: '2026-10-02'}, reviewed: {name: 'R. Haddad', date: '2026-10-05'}, approved: {name: '', date: ''}},
   };
   const team = [['L. Moreau', 'Seal specialist, test lab'], ['R. Haddad', 'Reliability engineer'], ['K. Osei', 'Operations supervisor'], ['S. Varga', 'Process engineer']];
   s.meta.team = team.map(([name, role]) => ({id: uuid(), name, role}));

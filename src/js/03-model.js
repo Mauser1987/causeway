@@ -490,6 +490,15 @@ function causeIssues() {
   return issues;
 }
 
+// What stands in the way of closing the RCA: every corrective and preventive action validated by its
+// effectiveness check, with the result recorded.
+function closeBlockers() {
+  const live = state.actions.filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
+  const open = live.filter(a => a.status !== 'validated').length, bare = live.filter(a => a.status === 'validated' && !a.effectiveness.result.trim()).length;
+  return [!live.length && 'No corrective or preventive action in the plan', open && `${plural(open, 'action')} not validated by an effectiveness check`,
+    bare && `${plural(bare, 'validated action')} without an effectiveness result`].filter(Boolean);
+}
+
 const WEAK_WORDS = /\b(re-?train(ing)?|training|brief(ing)?|remind(er)?|awareness|toolbox talk|be (more )?careful)\b/i;
 
 // The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
@@ -498,6 +507,7 @@ function recordIssues() {
   const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
+  if (state.meta.status === 'closed') for (const b of closeBlockers()) add('team', 'status', 'RCA status', 'warning', 'closed-open', `Closed, but: ${b}`);
   // Thin IS NOT data is the most common weakness of a problem specification.
   const stated = state.specification.rows.filter(r => r.is.trim()), bare = stated.filter(r => !r.isNot.trim());
   if (stated.length >= 3 && bare.length * 2 > stated.length) add('spec', bare[0].id, 'Is / Is Not', 'info', 'spec-thin',

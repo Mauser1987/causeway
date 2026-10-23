@@ -1,7 +1,7 @@
 // The issues list in the top bar: every rule issue, and a click selects its node.
 
 const ISSUE_ORDER = {error: 0, warning: 1, info: 2};
-const RECORD_NAMES = {spec: 'Is / Is Not', ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
+const RECORD_NAMES = {team: 'Team and sign-off', spec: 'Is / Is Not', ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
 
 function renderIssues(issues) {
   const open = issues.filter(i => i.level !== 'info');

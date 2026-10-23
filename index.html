@@ -527,6 +527,36 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report .r-whys li { margin-bottom: 1.5mm; break-inside: avoid; }
   #report .r-whys .r-none { font-style: normal; font-size: 8.5pt; }
   #report .r-foot { margin-top: 8mm; font-size: 8pt; color: #5b6b7a; }
+  #report .r-team { margin: -3mm 0 7mm; grid-template-columns: 1fr 3fr; }
+  #report .r-signoff { break-inside: avoid; }
+  #report .r-sign td { height: 11mm; vertical-align: bottom; }
+  #report .r-sign .r-signature { width: 40%; border-bottom: 1px solid #16232f; }
+  /* 8D: each discipline numbered, the chart on pages of its own. */
+  #report .r-d { margin-bottom: 6mm; }
+  #report .r-d h2 { display: flex; align-items: baseline; gap: 3mm; }
+  #report .r-dnum { display: inline-block; min-width: 9mm; padding: .4mm 1.5mm; border-radius: 1mm; background: #0b5f66; color: #fff; font-size: 10pt; text-align: center; }
+  #report .r-sub { font-weight: 400; color: #5b6b7a; }
+  #report .r-chain { font-size: 8pt; color: #3d4f60; }
+  #report .r-keep { break-inside: avoid; }
+  #report .r-chart-pages { break-before: page; }
+  /* One-page summary: two columns, small type. */
+  #report[data-layout="summary"] { font-size: 8.5pt; }
+  #report .r-cover-short { padding: 0 0 3mm; margin-bottom: 4mm; }
+  #report .r-cover-short h1 { margin: 1mm 0 0; font-size: 16pt; }
+  #report .r-summary { columns: 2; column-gap: 8mm; }
+  #report .r-summary .r-block { break-inside: avoid; }
+  #report .r-summary .r-foot { margin-top: 4mm; }
+  #report .r-summary h3 { margin: 3mm 0 1.5mm; padding-bottom: .5mm; border-bottom: 1px solid #0b5f66; color: #0b5f66; font-size: 9.5pt; }
+  #report .r-summary > .r-block:first-child h3 { margin-top: 0; }
+  #report .r-summary table { font-size: 7.5pt; }
+  #report .r-summary td:first-child { width: 42%; }
+  #report .r-summary th, #report .r-summary td { padding: 1mm 1.5mm; }
+  #report dl.r-list { display: grid; grid-template-columns: 24mm 1fr; gap: 1mm 3mm; margin: 0; }
+  #report dl.r-list div { display: contents; }
+  #report dl.r-list dd { margin: 0; }
+  #report .r-roots { margin: 0; padding-left: 5mm; }
+  #report .r-roots li { margin-bottom: 2mm; break-inside: avoid; }
+  #report .r-tagline { font-size: 7.5pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #5b6b7a; }
 }
 
 /* ---- 5 Whys ---- */
@@ -652,7 +682,14 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
           <button role="menuitem" id="exportPng"><b>Chart as PNG</b><small>Image at twice screen resolution</small></button>
         </div>
       </div>
-      <button id="printReport" title="Print the RCA report, or save it as a PDF (Ctrl/Cmd+P)">Print report</button>
+      <div class="menu-wrap">
+        <button id="printReport" aria-expanded="false" aria-controls="printMenu" title="Print a report, or save it as a PDF">Print ▾</button>
+        <div id="printMenu" class="popover right" role="menu" hidden>
+          <button role="menuitem" id="printFull"><b>Full RCA report</b><small>Every record, the chart, and the sign-off</small></button>
+          <button role="menuitem" id="print8d"><b>8D report</b><small>D1 to D8, for a customer's 8D request</small></button>
+          <button role="menuitem" id="printSummary"><b>One-page summary</b><small>Problem, root causes, actions, and status</small></button>
+        </div>
+      </div>
       <span class="divider" aria-hidden="true"></span>
       <button id="newProject" title="Start a new, empty RCA">New</button>
       <button id="openProject" title="Open a saved RCA (JSON)">Open</button>
@@ -673,7 +710,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
     <div class="panel-title group-title">Records</div>
     <button class="record" data-record="problem">Problem definition</button>
     <button class="record" data-record="equipment">Equipment and duty<span id="railEquipment">0</span></button>
-    <button class="record" data-record="team">Team and dates<span id="railTeam">0</span></button>
+    <button class="record" data-record="team">Team and sign-off<span id="railTeam">0</span></button>
     <button class="record" data-record="evidence">Evidence log<span id="railEvidence">0</span></button>
     <button class="record" data-record="ruledOut">Causes ruled out<span id="railRuledOut">0</span></button>
     <button class="record" data-record="solutions">Solutions<span id="railSolutions">0</span></button>
@@ -851,6 +888,10 @@ const EQUIPMENT_SECTIONS = [
 ];
 const EQUIPMENT_KEYS = EQUIPMENT_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
 
+// Where the RCA stands. It can only be closed once its actions are validated.
+const RCA_STATUS = {open: 'Open', 'root-cause': 'Root cause found', actions: 'Actions in progress', closed: 'Closed'};
+const SIGNOFF_ROLES = {prepared: 'Prepared by', reviewed: 'Reviewed by', approved: 'Approved by'};
+
 // Record values. Keys are what the file stores; values are what the page shows.
 const EVIDENCE_TYPES = {sensed: 'Sensed', inferred: 'Inferred'};
 const RULED_OUT_STATUS = {'testing': 'Being tested', 'ruled-out': 'Ruled out'};
@@ -976,6 +1017,7 @@ const blankNode = (kind, title) => ({
   unverified: false, controllable: false, causeType: '', stopPoint: null, notes: '', offsetY: 0,
 });
 
+const blankSignoff = () => Object.fromEntries(Object.keys(SIGNOFF_ROLES).map(k => [k, {name: '', date: ''}]));
 const blankSpecRow = (dim, question = '') => ({id: uuid(), dim, question, is: '', isNot: '', distinction: '', change: ''});
 const blankSpecification = () => ({rows: Object.entries(SPEC_QUESTIONS).flatMap(([dim, qs]) => qs.map(q => blankSpecRow(dim, q))), tests: []});
 
@@ -983,7 +1025,8 @@ function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
-    meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
+    meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''},
+      status: 'open', customerRef: '', revision: '', signoff: blankSignoff()},
     problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
     equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [], specification: blankSpecification(),
     counters: {evidence: 1},
@@ -1564,6 +1607,15 @@ function causeIssues() {
   return issues;
 }
 
+// What stands in the way of closing the RCA: every corrective and preventive action validated by its
+// effectiveness check, with the result recorded.
+function closeBlockers() {
+  const live = state.actions.filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
+  const open = live.filter(a => a.status !== 'validated').length, bare = live.filter(a => a.status === 'validated' && !a.effectiveness.result.trim()).length;
+  return [!live.length && 'No corrective or preventive action in the plan', open && `${plural(open, 'action')} not validated by an effectiveness check`,
+    bare && `${plural(bare, 'validated action')} without an effectiveness result`].filter(Boolean);
+}
+
 const WEAK_WORDS = /\b(re-?train(ing)?|training|brief(ing)?|remind(er)?|awareness|toolbox talk|be (more )?careful)\b/i;
 
 // The records: a ruled-out cause needs its reason, a solution its causes and actions, and an action
@@ -1572,6 +1624,7 @@ function recordIssues() {
   const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
+  if (state.meta.status === 'closed') for (const b of closeBlockers()) add('team', 'status', 'RCA status', 'warning', 'closed-open', `Closed, but: ${b}`);
   // Thin IS NOT data is the most common weakness of a problem specification.
   const stated = state.specification.rows.filter(r => r.is.trim()), bare = stated.filter(r => !r.isNot.trim());
   if (stated.length >= 3 && bare.length * 2 > stated.length) add('spec', bare[0].id, 'Is / Is Not', 'info', 'spec-thin',
@@ -2100,7 +2153,7 @@ function renderStyle() {
 function renderTitle() {
   $('sheetTitle').textContent = primaryEffect()?.title.trim() || 'Untitled RCA';
   document.title = `${rcaName()} · Causeway`;
-  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag].filter(s => s?.trim()).join(' · ') || 'Causeway';
+  $('sheetMeta').textContent = [state.meta.rcaNumber, state.meta.equipmentTag, RCA_STATUS[state.meta.status]].filter(s => s?.trim()).join(' · ');
 }
 
 // Properties panel for the selected node, or for the RCA when nothing is selected.
@@ -2422,7 +2475,7 @@ function refreshChart() {
 // The issues list in the top bar: every rule issue, and a click selects its node.
 
 const ISSUE_ORDER = {error: 0, warning: 1, info: 2};
-const RECORD_NAMES = {spec: 'Is / Is Not', ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
+const RECORD_NAMES = {team: 'Team and sign-off', spec: 'Is / Is Not', ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
 
 function renderIssues(issues) {
   const open = issues.filter(i => i.level !== 'info');
@@ -3022,6 +3075,9 @@ function normalizeProject(p) {
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
+  s.meta.status = p.meta?.status in RCA_STATUS ? p.meta.status : 'open';
+  for (const k of ['customerRef', 'revision']) if (typeof s.meta[k] !== 'string') s.meta[k] = '';
+  s.meta.signoff = Object.fromEntries(Object.keys(SIGNOFF_ROLES).map(k => [k, {name: String(p.meta?.signoff?.[k]?.name ?? ''), date: String(p.meta?.signoff?.[k]?.date ?? '')}]));
   s.equipment = Object.fromEntries(EQUIPMENT_KEYS.filter(k => typeof p.equipment?.[k] === 'string').map(k => [k, p.equipment[k]]));
   s.counters = {evidence: Number.isInteger(p.counters?.evidence) ? p.counters.evidence : 1};
   s.evidence = s.evidence.filter(e => e?.id).map(e => ({code: '', description: '', type: 'sensed', source: '', collectedBy: '', date: '', ...e}));
@@ -3583,12 +3639,31 @@ function equipmentPage() {
     </section>`).join('')}`;
 }
 
+// Closing waits for the actions to be validated; the date closed is filled in if it is empty.
+function setRcaStatus(status) {
+  const blockers = status === 'closed' ? closeBlockers() : [];
+  if (blockers.length) {
+    render();
+    openDialog(`<h2>Not ready to close</h2><p>An RCA is closed once its actions have worked. Still open:</p>
+      <ul class="needs">${blockers.map(b => `<li class="need-warning">${escapeHtml(b)}</li>`).join('')}</ul>
+      <div class="dialog-foot"><button class="button primary" data-choice="" autofocus>OK</button></div>`, () => {});
+    return;
+  }
+  state.meta.status = status;
+  if (status === 'closed' && !state.meta.dates.closed) state.meta.dates.closed = today();
+  render(); persist();
+  setStatus(`RCA status: ${RCA_STATUS[status]}`);
+}
+
 function teamPage() {
   const m = state.meta, d = m.dates;
-  return `${pageHead('Team and dates', 'Who carries out the RCA, and its dates.')}
+  return `${pageHead('Team and sign-off', 'Who carries out the RCA, its dates, where it stands, and who signs it off.')}
     <section class="card">
       <h2>RCA</h2>
       <div class="form-grid">
+        <label class="field">Status<select class="text" data-act="rca-status" data-id="status" data-field="status" aria-label="RCA status">${optionList(RCA_STATUS, m.status)}</select></label>
+        ${formField('Customer reference <span class="muted">e.g. their 8D or complaint number</span>', 'meta', '', 'customerRef', m.customerRef, '')}
+        ${formField('Revision', 'meta', '', 'revision', m.revision, 'placeholder="e.g. A, or 1"')}
         ${formField('RCA number', 'meta', '', 'rcaNumber', m.rcaNumber, 'placeholder="e.g. RCA-2026-014"')}
         ${formField('Equipment / tag', 'meta', '', 'equipmentTag', m.equipmentTag, 'placeholder="e.g. P-101A"')}
         ${formField('Seal type', 'meta', '', 'sealType', m.sealType, 'placeholder="e.g. Single cartridge seal, API Plan 11"')}
@@ -3614,6 +3689,16 @@ function teamPage() {
         </tr>`).join('') : empty(4, 'No team members yet.')}</tbody>
       </table>
       <p class="note">Names entered here are offered for “collected by” and “owner” in the other records.</p>
+    </section>
+    <section class="card">
+      <h2>Sign-off</h2>
+      <table class="log compact">
+        <thead><tr><th>Role</th><th>Name</th><th>Date</th></tr></thead>
+        <tbody>${Object.entries(SIGNOFF_ROLES).map(([k, label]) => `<tr><td>${label}</td>
+          <td>${cell('meta', '', `signoff.${k}.name`, m.signoff[k].name, `${label}: name`, 'list="teamNames" placeholder="Name"')}</td>
+          <td>${cell('meta', '', `signoff.${k}.date`, m.signoff[k].date, `${label}: date`, 'type="date"')}</td></tr>`).join('')}</tbody>
+      </table>
+      <p class="note">Printed at the end of every report, with space to sign. The RCA can be closed once every corrective and preventive action is validated by its effectiveness check.</p>
     </section>`;
 }
 
@@ -3762,7 +3847,7 @@ function setPath(obj, path, value) {
 
 $('records').addEventListener('input', e => {
   const el = e.target.closest('[data-field]');
-  if (!el) return;
+  if (!el || el.dataset.act === 'rca-status') return;
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
@@ -3776,6 +3861,7 @@ $('records').addEventListener('input', e => {
 
 // Pickers: choosing an item adds it.
 $('records').addEventListener('change', e => {
+  if (e.target.dataset.act === 'rca-status') { setRcaStatus(e.target.value); return; }
   const el = e.target.closest('select[data-act]');
   if (el && el.value) {
     const value = el.value;
@@ -4417,24 +4503,31 @@ function exportFishbone(f, format) {
   setStatus(`Exported ${name}`);
 }
 
-function showMenu(open) {
-  $('exportMenu').hidden = !open;
-  $('exportButton').setAttribute('aria-expanded', open);
-  if (open) $('exportMenu').querySelector('button').focus();
+// The Export and Print menus: one open at a time, closed by a click elsewhere or Esc.
+const MENUS = {exportMenu: 'exportButton', printMenu: 'printReport'};
+function showMenu(open, menu = 'exportMenu') {
+  for (const [id, button] of Object.entries(MENUS)) {
+    const show = open && id === menu;
+    $(id).hidden = !show;
+    $(button).setAttribute('aria-expanded', show);
+  }
+  if (open) $(menu).querySelector('button').focus();
 }
-$('exportButton').onclick = () => showMenu($('exportMenu').hidden);
+for (const [menu, button] of Object.entries(MENUS)) {
+  $(button).onclick = () => showMenu($(menu).hidden, menu);
+  $(menu).addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { showMenu(false); $(button).focus(); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const items = [...$(menu).querySelectorAll('button')], i = items.indexOf(document.activeElement);
+      items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+    }
+  });
+}
 $('exportSvg').onclick = exportSvg;
 $('exportPng').onclick = exportPng;
 document.addEventListener('pointerdown', e => { if (!e.target.closest('.menu-wrap')) showMenu(false); });
-$('exportMenu').addEventListener('keydown', e => {
-  e.stopPropagation();
-  if (e.key === 'Escape') { showMenu(false); $('exportButton').focus(); }
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-    e.preventDefault();
-    const items = [...$('exportMenu').querySelectorAll('button')], i = items.indexOf(document.activeElement);
-    items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
-  }
-});
 
 // ---- Printed report ----
 // Built just before printing, so Ctrl+P prints the current RCA as well.
@@ -4461,27 +4554,60 @@ function chartFigures() {
   return figures;
 }
 
-function buildReport() {
-  const m = state.meta, p = state.problem, sig = p.significance;
-  const text = v => v?.trim() ? escapeHtml(v) : '<span class="r-none">—</span>';
-  const item = (label, value) => `<div><dt>${label}</dt><dd>${text(value)}</dd></div>`;
-  const lead = m.team.find(t => t.id === m.leadId);
-  const table = (heads, rows, none) => rows.length
-    ? `<table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
-    : `<p class="r-none">${none}</p>`;
-  const codes = ids => ids.map(evidenceById).filter(Boolean).map(e => `<span class="r-code">${escapeHtml(e.code)}</span>`).join(' ') || '—';
-  const issues = ruleIssues().filter(i => i.level !== 'info');
+// The pieces every layout shares.
+const rText = v => v?.trim() ? escapeHtml(v) : '<span class="r-none">—</span>';
+const rItem = (label, value) => `<div><dt>${label}</dt><dd>${rText(value)}</dd></div>`;
+const rTable = (heads, rows, none) => rows.length
+  ? `<table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table>`
+  : `<p class="r-none">${none}</p>`;
+const rCodes = ids => ids.map(evidenceById).filter(Boolean).map(e => `<span class="r-code">${escapeHtml(e.code)}</span>`).join(' ') || '—';
+const rLead = () => { const m = state.meta, lead = m.team.find(t => t.id === m.leadId); return lead && `${lead.name}${lead.role ? ', ' + lead.role : ''}`; };
 
-  $('report').innerHTML = `
-    <header class="r-cover">
-      <div class="r-kicker">Root cause analysis${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}</div>
+// The cover: what, which equipment, where the RCA stands, and its references.
+function reportCover(kind) {
+  const m = state.meta;
+  return `<header class="r-cover">
+      <div class="r-kicker">${kind}${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}${m.revision ? ' · Revision ' + escapeHtml(m.revision) : ''}</div>
       <h1>${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</h1>
       <dl class="r-grid">
-        ${item('Equipment / tag', m.equipmentTag)}${item('Seal type', m.sealType)}${item('Lead', lead && `${lead.name}${lead.role ? ', ' + lead.role : ''}`)}
-        ${item('Team', m.team.filter(t => t.id !== m.leadId).map(t => `${t.name}${t.role ? ' (' + t.role + ')' : ''}`).join('\n'))}
-        ${item('Event', m.dates.eventDate)}${item('RCA opened', m.dates.opened)}${item('RCA closed', m.dates.closed)}${item('Report printed', today())}
+        ${rItem('Equipment / tag', m.equipmentTag)}${rItem('Seal type', m.sealType)}${rItem('Status', RCA_STATUS[m.status])}${rItem('Customer reference', m.customerRef)}
+        ${rItem('Event', m.dates.eventDate)}${rItem('RCA opened', m.dates.opened)}${rItem('RCA closed', m.dates.closed)}${rItem('Report printed', today())}
       </dl>
-    </header>
+    </header>`;
+}
+
+// Sign-off, with room to sign by hand.
+const reportSignoff = () => `<section class="r-signoff">
+    <h2>Sign-off</h2>
+    <table class="r-sign"><thead><tr><th>Role</th><th>Name</th><th>Date</th><th>Signature</th></tr></thead><tbody>${Object.entries(SIGNOFF_ROLES).map(([k, label]) =>
+      `<tr><td>${label}</td><td>${rText(state.meta.signoff[k].name)}</td><td class="r-crit">${rText(state.meta.signoff[k].date)}</td><td class="r-signature"></td></tr>`).join('')}</tbody></table>
+  </section>`;
+
+// The root causes, by type: typed causes, and those whose branch stops at a solution.
+function rootCauses() {
+  const live = reachable();
+  return state.nodes.filter(n => live.has(n.id) && isCause(n) && !isRuledOut(n) && (n.causeType || n.stopPoint?.reason === 'solution-found'));
+}
+// A cause's chain up to the primary effect, along its first effect.
+function causeChain(n) {
+  const chain = [n], seen = new Set([n.id]);
+  for (let e = effectsOf(n.id)[0]; e && !seen.has(e.id); e = effectsOf(e.id)[0]) { chain.push(e); seen.add(e.id); }
+  return chain;
+}
+const actionsOfKind = (...kinds) => state.actions.filter(a => kinds.includes(a.kind));
+const actionRows = actions => actions.map(a => `<tr><td>${rText(a.action)}${ACTION_STRENGTH[a.strength] ? `<small class="r-tags">${ACTION_STRENGTH[a.strength]} action</small>` : ''}</td><td>${rText(a.owner)}</td>
+  <td class="r-crit">${rText(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${rText(a.verification)}</td><td>${ACTION_STATUS[a.status] || ''}</td>
+  <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`);
+const ACTION_HEADS = ['Action', 'Owner', 'Due', 'Verification', 'Status', 'Effectiveness check'];
+
+function fullReport() {
+  const m = state.meta, p = state.problem, sig = p.significance;
+  const text = rText, item = rItem, table = rTable, codes = rCodes, lead = m.team.find(t => t.id === m.leadId);
+  const issues = ruleIssues().filter(i => i.level !== 'info');
+
+  return `
+    ${reportCover('Root cause analysis')}
+    <dl class="r-grid r-team">${item('Lead', rLead())}${item('Team', m.team.filter(t => t.id !== m.leadId).map(t => `${t.name}${t.role ? ' (' + t.role + ')' : ''}`).join('\n'))}</dl>
     <section>
       <h2>Problem definition</h2>
       <dl class="r-grid two">${item('What', primaryEffect()?.title)}${item('When', p.when)}${item('Where', p.where)}</dl>
@@ -4563,14 +4689,96 @@ function buildReport() {
         <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`), 'No actions recorded.')}
       ${state.problem.readAcross.trim() ? `<h3>Read-across</h3><p class="r-read">${escapeHtml(state.problem.readAcross)}</p>` : ''}
     </section>
+    ${reportSignoff()}
     <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · printed ${today()}</p>`;
 }
 
-function printReport() {
+// 8D: the same RCA in the eight disciplines a customer's 8D request asks for.
+function report8D() {
+  const m = state.meta, p = state.problem, e = state.equipment, facts = specFacts();
+  // The short disciplines stay whole on a page; D2 and D4 may run over.
+  const d = (n, title, body) => `<section class="r-d${[2, 4].includes(n) ? '' : ' r-keep'}"><h2><span class="r-dnum">D${n}</span>${title}</h2>${body}</section>`;
+  const roots = rootCauses(), groups = [...Object.entries(CAUSE_TYPES), ['', {name: 'Root causes, type not set'}]]
+    .map(([k, t]) => [t, roots.filter(n => n.causeType === k)]).filter(([, list]) => list.length);
+  const chosen = state.solutions.filter(s => s.decision === 'implement');
+  const ruled = [...state.ruledOut.map(r => [r.cause, r.test]), ...treeRuledOut().map(n => [n.title, n.test])];
+  const keyData = [['Machine', e.machine], ['Seal', [e.sealModel, e.arrangement].filter(Boolean).join(', ')], ['Seal piping plans', e.sealPlans], ['Product', e.product],
+    ['Run time', runTime()], ['How it was found', e.detectedBy], ['Earlier failures', e.previous]].filter(([, v]) => v?.trim());
+  return `
+    ${reportCover('8D report')}
+    ${d(1, 'Team', rTable(['Name', 'Role', ''], m.team.map(t => `<tr><td>${rText(t.name)}</td><td>${rText(t.role)}</td><td>${t.id === m.leadId ? '<b>Lead</b>' : ''}</td></tr>`), 'No team recorded.'))}
+    ${d(2, 'Problem description', `<dl class="r-grid two">${rItem('What', primaryEffect()?.title)}${rItem('When', p.when)}${rItem('Where', p.where)}${rItem('Significance',
+      Object.entries({Safety: p.significance.safety, Environment: p.significance.environment, 'Production / cost': p.significance.productionCost, Reliability: p.significance.reliability})
+        .filter(([, v]) => v.trim()).map(([k, v]) => `${k}: ${v}`).join('\n'))}</dl>
+      ${keyData.length ? `<dl class="r-grid">${keyData.map(([k, v]) => rItem(k, v)).join('')}</dl>` : ''}
+      ${facts.length ? `<h3>Is / Is Not</h3>${rTable(['Question', 'Is', 'Is not', 'Distinctive', 'Changed'], facts.map(r => `<tr><td><b>${specLabel(r)}</b> ${rText(r.question)}</td>
+        <td>${rText(r.is)}</td><td>${rText(r.isNot)}</td><td>${rText(r.distinction)}</td><td>${rText(r.change)}</td></tr>`), '')}` : ''}`)}
+    ${d(3, 'Containment actions', rTable(ACTION_HEADS, actionRows(actionsOfKind('containment')), 'No containment actions recorded.'))}
+    ${d(4, 'Root causes', `${groups.length ? groups.map(([t, list]) => `<h3>${t.name}${t.about ? ` <span class="r-sub">${t.about.toLowerCase()}</span>` : ''}</h3>
+        ${rTable(['Root cause', 'How it was verified', 'Evidence', 'Chain to the problem'], list.map(n => `<tr><td><b>${escapeHtml(n.title)}</b></td><td>${rText(n.test)}</td>
+          <td>${n.evidenceIds.map(evidenceById).filter(Boolean).map(ev => `<span class="r-code">${escapeHtml(ev.code)}</span> ${escapeHtml(ev.description)}`).join('\n') || '—'}</td>
+          <td class="r-chain">${causeChain(n).slice(1).map(x => escapeHtml(shorten(x.title, 60))).join(' → ')}</td></tr>`), '')}`).join('')
+      : '<p class="r-none">No root cause identified yet: give the causes a root cause type, or a stop point “Effective solution found”.</p>'}
+      ${ruled.length ? `<h3>Possible causes ruled out</h3>${rTable(['Cause', 'How it was ruled out'], ruled.map(([c, t]) => `<tr><td>${rText(c)}</td><td>${rText(t)}</td></tr>`), '')}` : ''}
+      <div class="r-chart-pages"><h3>Cause-and-effect chart</h3>${chartFigures().join('')}</div>`)}
+    ${d(5, 'Permanent corrective actions chosen', rTable(['Solution', 'Attacks', 'Prevents recurrence', 'Within our control', 'No new problems'], chosen.map(s => `<tr><td><b>${rText(s.title)}</b></td>
+      <td>${s.causeIds.map(byId).filter(Boolean).map(n => escapeHtml(n.title)).join('\n') || '—'}</td>
+      ${['preventsRecurrence', 'withinControl', 'noNewProblems'].map(k => `<td>${CRITERION_VALUES[s.criteria[k].v] || '—'}${s.criteria[k].c ? '\n' + escapeHtml(s.criteria[k].c) : ''}</td>`).join('')}</tr>`), 'No solution chosen yet.'))}
+    ${d(6, 'Corrective actions implemented and validated', rTable(ACTION_HEADS, actionRows(actionsOfKind('corrective')), 'No corrective actions recorded.'))}
+    ${d(7, 'Preventing recurrence', `${rTable(ACTION_HEADS, actionRows(actionsOfKind('preventive')), 'No preventive actions recorded.')}
+      <h3>Read-across</h3><p class="r-read">${rText(p.readAcross)}</p>`)}
+    ${d(8, 'Closure', `<dl class="r-grid">${rItem('Status', RCA_STATUS[m.status])}${rItem('RCA closed', m.dates.closed)}${rItem('Lead', rLead())}</dl>
+      ${closeBlockers().length ? `<p class="r-issue-error">Not ready to close: ${closeBlockers().map(escapeHtml).join('; ')}.</p>` : ''}`)}
+    ${reportSignoff()}
+    <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · 8D report · printed ${today()}</p>`;
+}
+
+// One page for management: the problem, its root causes and how they led to it, the actions, and
+// where it stands. The two columns flow, so a long RCA runs on rather than being cut.
+function reportSummary() {
+  const m = state.meta, p = state.problem, e = state.equipment, roots = rootCauses();
+  const key = [['Where', p.where], ['When', p.when], ['Machine', e.machine], ['Seal', [m.sealType || e.sealModel, e.sealPlans && !m.sealType && 'Plan ' + e.sealPlans].filter(Boolean).join(', ')], ['Run time', runTime()]].filter(([, v]) => v?.trim());
+  const impact = Object.entries({Safety: p.significance.safety, Environment: p.significance.environment, Cost: p.significance.productionCost, Reliability: p.significance.reliability}).filter(([, v]) => v.trim());
+  const live = state.actions.filter(a => a.status !== 'cancelled');
+  // The chain from a root cause, shortened: its first steps and the primary effect's own words are on the page already.
+  const chain = n => { const c = causeChain(n).slice(1, -1).map(x => escapeHtml(shorten(x.title, 44))); return c.length > 3 ? [...c.slice(0, 2), '…', c.at(-1)] : c; };
+  return `
+    <header class="r-cover r-cover-short">
+      <div class="r-kicker">RCA summary${m.rcaNumber ? ' · ' + escapeHtml(m.rcaNumber) : ''}${m.equipmentTag ? ' · ' + escapeHtml(m.equipmentTag) : ''} · ${RCA_STATUS[m.status]}</div>
+      <h1>${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</h1>
+    </header>
+    <div class="r-summary">
+      <div class="r-block"><h3>The problem</h3>
+      <dl class="r-list">${key.map(([k, v]) => rItem(k, v)).join('')}${impact.map(([k, v]) => rItem(k, v)).join('')}</dl></div>
+      <div class="r-block"><h3>Root causes</h3>
+      ${roots.length ? `<ul class="r-roots">${roots.map(n => `<li><b>${escapeHtml(n.title)}</b>${n.causeType ? ` <span class="r-tagline">${CAUSE_TYPES[n.causeType].name}</span>` : ''}
+        ${chain(n).length ? `<div class="r-chain">→ ${chain(n).join(' → ')}</div>` : ''}</li>`).join('')}</ul>` : '<p class="r-none">Not identified yet.</p>'}</div>
+      <div class="r-block"><h3>Actions</h3>
+      ${rTable(['Action', 'Kind', 'Owner', 'Due', 'Status', 'Did it work?'], live.map(a => `<tr><td>${rText(a.action)}</td><td>${ACTION_KINDS[a.kind]}${ACTION_STRENGTH[a.strength] ? '\n' + ACTION_STRENGTH[a.strength] : ''}</td>
+        <td>${rText(a.owner)}</td><td class="r-crit">${rText(a.due)}${isOverdue(a) ? '\n<b class="r-issue-error">Overdue</b>' : ''}</td><td>${ACTION_STATUS[a.status]}</td>
+        <td>${[a.effectiveness.result.trim(), a.effectiveness.date && !a.effectiveness.result.trim() && `Check ${a.effectiveness.date}`].filter(Boolean).map(escapeHtml).join('') || '—'}</td></tr>`), 'No actions yet.')}</div>
+      ${p.readAcross.trim() ? `<div class="r-block"><h3>Read-across</h3><p class="r-read">${escapeHtml(p.readAcross)}</p></div>` : ''}
+      <div class="r-block"><h3>Sign-off</h3>
+      <dl class="r-list">${Object.entries(SIGNOFF_ROLES).map(([k, label]) => rItem(label, [m.signoff[k].name, m.signoff[k].date].filter(Boolean).join(', '))).join('')}</dl>
+      <p class="r-foot">Causeway · ${escapeHtml(rcaName())} · summary · printed ${today()}</p></div>
+    </div>`;
+}
+
+const REPORTS = {full: fullReport, '8d': report8D, summary: reportSummary};
+let reportLayout = 'full';   // the layout last chosen; Ctrl+P prints it too
+function buildReport() {
+  $('report').dataset.layout = reportLayout;
+  $('report').innerHTML = REPORTS[reportLayout]();
+}
+function printReport(layout = reportLayout) {
+  reportLayout = layout;
+  showMenu(false);
   buildReport();
   window.print();
 }
-$('printReport').onclick = printReport;
+$('printFull').onclick = () => printReport('full');
+$('print8d').onclick = () => printReport('8d');
+$('printSummary').onclick = () => printReport('summary');
 window.addEventListener('beforeprint', buildReport);
 
 // ---- Theme ----
@@ -4671,6 +4879,8 @@ function exampleRca() {
   s.meta = {
     rcaNumber: 'RCA-2026-014', equipmentTag: 'P-101A', sealType: 'Single cartridge seal, API Plan 11, OH2 pump', style: 'apollo',
     leadId: '', team: [], dates: {opened: '2026-09-15', eventDate: '2026-09-14', closed: ''},
+    status: 'actions', customerRef: 'Plant incident report IR-2026-0917', revision: 'A',
+    signoff: {prepared: {name: 'L. Moreau', date: '2026-10-02'}, reviewed: {name: 'R. Haddad', date: '2026-10-05'}, approved: {name: '', date: ''}},
   };
   const team = [['L. Moreau', 'Seal specialist, test lab'], ['R. Haddad', 'Reliability engineer'], ['K. Osei', 'Operations supervisor'], ['S. Varga', 'Process engineer']];
   s.meta.team = team.map(([name, role]) => ({id: uuid(), name, role}));
