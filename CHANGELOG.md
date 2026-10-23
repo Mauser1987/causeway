@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.4 — 2026-10-23
+
+Tidy the chart by hand, and copy branches.
+
+- **Shift+drag** a cause up or down, or press **Shift+↑** and **Shift+↓**, to tidy the chart, for printing for example. It moves with its own causes and its effect stays. It moves up only into free space, and moving down it pushes the causes below it. While dragging, it snaps back to its place and level with its effect; **Esc** cancels. The Properties panel shows how far it was moved, with **Put it back**, or puts back every moved node at once. Hand moves are undo steps, saved in the file (`offsetY` on each node), and used by exports and the printed report.
+- **Ctrl+C** copies the selected node with every cause under it, **Ctrl+V** pastes the copy as a cause of the selected node, and **Ctrl+X** cuts. The copy pastes into another tab or RCA, without its evidence citations there, and into other programs as an indented list of titles. The Properties panel has **Copy branch** and **Paste as cause** too.
+
 ## v1.3 — 2026-10-22
 
 Faster keyboard editing, and confirmed causes that confirm what they lead to.
