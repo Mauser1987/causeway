@@ -268,6 +268,7 @@ const NEEDS = {
   'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
   'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
   'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
+  'spec-fails': n => `${plural(n, 'cause')} that fail a fact of the Is / Is Not`,
   'cause-types': n => `${plural(n, 'root cause type')} not used yet (escape point, systemic)`,
 };
 

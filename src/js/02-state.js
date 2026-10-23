@@ -29,13 +29,16 @@ const blankNode = (kind, title) => ({
   unverified: false, controllable: false, causeType: '', stopPoint: null, notes: '', offsetY: 0,
 });
 
+const blankSpecRow = (dim, question = '') => ({id: uuid(), dim, question, is: '', isNot: '', distinction: '', change: ''});
+const blankSpecification = () => ({rows: Object.entries(SPEC_QUESTIONS).flatMap(([dim, qs]) => qs.map(q => blankSpecRow(dim, q))), tests: []});
+
 function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [],
+    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [], specification: blankSpecification(),
     counters: {evidence: 1},
   };
 }

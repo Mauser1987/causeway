@@ -174,6 +174,15 @@ function buildReport() {
           ${table(['Category', 'Possible cause', 'Type', 'Evidence', 'Status'], rows, 'No possible causes recorded.')}`;
       }).join('')}
     </section>` : ''}
+    ${specFacts().length ? `<section class="r-page">
+      <h2>Is / Is Not</h2>
+      ${table(['Question', 'Is', 'Is not', 'Distinctive about the IS', 'Changed'], specFacts().map(r => `<tr><td><b>${specLabel(r)}</b> ${text(r.question)}</td>
+        <td>${text(r.is)}</td><td>${text(r.isNot)}</td><td>${text(r.distinction)}</td><td>${text(r.change)}</td></tr>`), '')}
+      ${state.specification.tests.some(t => byId(t.causeId)) ? `<h3>Possible causes tested against the facts</h3>
+        ${table(['Cause', ...specFacts().map(specLabel), 'Result'], state.specification.tests.filter(t => byId(t.causeId)).map(t => `<tr><td>${text(byId(t.causeId).title)}</td>
+          ${specFacts().map(f => `<td class="r-mark">${SPEC_MARKS[t.marks[f.id]]?.mark || '·'}</td>`).join('')}<td>${specSummary(specResult(t))}</td></tr>`), '')}
+        <p class="r-legend">✓ explains why the problem is here and not there; ? only if an assumption holds; ✕ does not explain it.</p>` : ''}
+    </section>` : ''}
     ${state.timelines.length ? `<section class="r-page">
       <h2>Sequence of events</h2>
       ${state.timelines.map(t => {

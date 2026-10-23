@@ -123,6 +123,27 @@ function exampleRca() {
     preserved: 'Workshop quarantine shelf, bagged and labelled', decontaminated: 'Steam-cleaned outside only; faces untouched',
     photos: 'RCA folder, teardown 16 Sep', asFound: 'Stationary SiC face heat-checked with radial cracks; carbon face chipped at the OD; O-rings intact; springs free; orifice blocked with black fines.',
   };
+  // Is / Is Not: the problem specified, and three causes tested against it.
+  s.specification = blankSpecification();
+  const facts = [
+    ['P-101A inboard seal', 'P-101B: same service, same seal, on standby', 'P-101A was running through the upset; P-101B was not', 'Flush filter bypassed on 12 Sep'],
+    ['Heat checking on the SiC face, chipped carbon', 'Worn springs, damaged O-rings, corrosion', 'Thermal damage only', ''],
+    ['Unit 2, P-101A', 'P-103A/B, the other Plan 11 pumps on the unit', 'Only P-101A takes its flush from the bypassed filter header', ''],
+    ['The faces; the carbon at its OD', 'Sleeve, gland, O-ring grooves', 'Where the film is thinnest and hottest', ''],
+    ['14 Sep 2026, two days after the upset', 'Before the upset: no leak on any round', '', 'Process upset and filter bypass, 12 Sep'],
+    ['Once; the last failure was July 2025', 'Repeated or intermittent leaks', '', ''],
+    ['Steady running, 14 months after installation', 'At start-up or shutdown', '', ''],
+    ['One seal', 'Any other seal on the unit', '', ''],
+    ['15 ml/min', 'A sudden large release', '', ''],
+    ['Steady since found', 'Rising', '', ''],
+  ];
+  s.specification.rows.forEach((row, i) => Object.assign(row, {is: facts[i][0], isNot: facts[i][1], distinction: facts[i][2], change: facts[i][3]}));
+  const marks = pattern => Object.fromEntries(s.specification.rows.map((row, i) => [row.id, pattern[i]]).filter(([, v]) => v));
+  s.specification.tests = [
+    {causeId: ids.flow, marks: marks(['yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes'])},
+    {causeId: ids.vapour, marks: marks(['if', 'yes', 'if', 'yes', 'if', 'yes', 'if', 'if', 'yes', 'yes'])},
+    {causeId: ids.dryrun, marks: marks(['if', 'yes', 'if', 'yes', 'if', 'yes', 'if', 'if', 'yes', 'yes'])},
+  ];
   s.problem.readAcross = 'P-101B and the two other Plan 11 pumps on the unit (P-103A/B) have the same 3 mm flush orifice without a strainer. Inspected on 2026-09-20: orifices clean. The cyclones are on the same work order.';
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});

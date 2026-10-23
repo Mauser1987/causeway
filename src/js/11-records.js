@@ -57,12 +57,12 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {spec: specPage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
   box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone', 'timeline'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
-  box.querySelectorAll('textarea.answer').forEach(fitArea);
+  box.querySelectorAll('textarea.answer, table.spec textarea').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
 }
@@ -205,6 +205,55 @@ function refreshFishFigures() {
 // The phases a new timeline starts with: the last ones chosen.
 let timelinePreset = 'test';
 let eventOn = null;          // the event being edited, lit in its figure
+
+// ---- Is / Is Not ----
+
+// The causes that can still be tested: on the chart, not the primary effect, not ruled out, not yet in the matrix.
+const specCandidates = () => state.nodes.filter(n => n.id !== state.problem.primaryEffectId && !specTest(n.id) && !isRuledOut(n) && reachable().has(n.id));
+
+function specPage() {
+  const sp = state.specification, facts = specFacts(), candidates = specCandidates();
+  const tests = sp.tests.filter(t => byId(t.causeId));
+  return `${pageHead('Is / Is Not', 'Specify the problem precisely before explaining it, after Kepner-Tregoe: for each question, what the problem <b>is</b>, and what it could be but <b>is not</b>. Then test each possible cause against those facts: the true cause explains why the problem is here and not there.')}
+    <section class="card">
+      <h2>Specification</h2>
+      <p class="note">For IS NOT, give the closest thing that could have the problem but does not: the other seal on the same pump, the spare pump, the same seal before the upset. Then note what is distinctive about the IS side, and what changed in or around it.</p>
+      <div class="table-wrap"><table class="log spec">
+        <colgroup><col style="width:20%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:44px"></colgroup>
+        <thead><tr><th>Question</th><th>Is</th><th>Is not</th><th>Distinctive about the IS</th><th>Changed in or around it</th><th><span class="sr">Remove</span></th></tr></thead>
+        ${Object.entries(SPEC_DIMS).map(([dim, name]) => `<tbody>
+          <tr class="spec-dim"><th colspan="6">${name}<button class="link" data-act="spec-add-row" data-dim="${dim}">+ Question</button></th></tr>
+          ${sp.rows.filter(r => r.dim === dim).map(r => `<tr>
+            <td>${cellArea('specRows', r.id, 'question', r.question, 'Question', 'placeholder="A question"')}<small class="spec-code">${specLabel(r)}</small></td>
+            <td>${cellArea('specRows', r.id, 'is', r.is, `${specLabel(r)}: is`, 'placeholder="Is"')}</td>
+            <td>${cellArea('specRows', r.id, 'isNot', r.isNot, `${specLabel(r)}: is not`, 'placeholder="Is not"')}</td>
+            <td>${cellArea('specRows', r.id, 'distinction', r.distinction, `${specLabel(r)}: distinctive`, '')}</td>
+            <td>${cellArea('specRows', r.id, 'change', r.change, `${specLabel(r)}: changes`, '')}</td>
+            <td class="row-actions"><button class="unlink" data-act="spec-delete-row" data-id="${r.id}" aria-label="Remove this question">×</button></td>
+          </tr>`).join('')}</tbody>`).join('')}
+      </table></div>
+    </section>
+    <section class="card">
+      <h2>Test the possible causes</h2>
+      <p class="note">For each cause and each fact: does the cause explain why the problem IS here and IS NOT there? Click a cell to go round
+        <b>✓</b> explains it, <b>?</b> only if an assumption holds, and <b>✕</b> does not explain it. A cause that fails a fact is flagged on the chart. The most likely cause explains every fact on the fewest assumptions.</p>
+      ${!facts.length ? '<p class="empty-card">Answer the IS or IS NOT side of a question first: each answered question is a fact to test against.</p>'
+      : tests.length ? `<div class="table-wrap"><table class="log spec-test">
+        <thead><tr><th>Cause</th><th>Result</th>${facts.map(f => `<th class="spec-fact" title="${escapeHtml(`${f.question}\nIs: ${f.is}\nIs not: ${f.isNot}`)}">${specLabel(f).replace(' ', '<br>')}</th>`).join('')}<th><span class="sr">Remove</span></th></tr></thead>
+        <tbody>${tests.map(t => {
+          const n = byId(t.causeId), res = specResult(t);
+          return `<tr><td>${causeChip(n)}</td><td class="spec-result ${res.no.length ? 'fails' : res.open.length || res.only.length ? '' : 'passes'}">${specSummary(res)}</td>${facts.map(f => {
+            const v = t.marks[f.id] || '';
+            return `<td class="spec-cell"><button class="spec-mark m-${v || 'none'}" data-act="spec-mark" data-id="${n.id}" data-row="${f.id}" title="${escapeHtml(specLabel(f))}: ${v ? SPEC_MARKS[v].name : 'not judged'}" aria-label="${escapeHtml(`${n.title}, ${specLabel(f)}: ${v ? SPEC_MARKS[v].name : 'not judged'}`)}">${v ? SPEC_MARKS[v].mark : '·'}</button></td>`;
+          }).join('')}
+          <td class="row-actions"><button class="unlink" data-act="spec-remove-test" data-id="${n.id}" aria-label="Remove ${escapeHtml(n.title)} from the test">×</button></td></tr>`;
+        }).join('')}</tbody></table></div>` : '<p class="empty-card">No causes in the test yet.</p>'}
+      ${facts.length && candidates.length ? `<div class="decision-row">
+        <select class="picker" data-act="spec-add-test" aria-label="Test a cause"><option value="">+ Test a cause…</option>${candidates.map(n => `<option value="${n.id}">${escapeHtml(shorten(n.title, 80))}</option>`).join('')}</select>
+        ${candidates.length <= 30 ? `<button class="button" data-act="spec-add-all">Test all ${candidates.length}</button>` : ''}
+      </div>` : ''}
+    </section>`;
+}
 
 function timelinePage() {
   return `${pageHead('Sequence of events', 'Lay out what happened, in order, phase by phase: what was done, what was seen, and when. Mark the deviations, the events that departed from what should have happened. They are candidate causes: add them to the cause-and-effect chart.',
@@ -489,6 +538,7 @@ function boundObject(el) {
   if (list === 'meta') return state.meta;
   if (list === 'problem') return state.problem;
   if (list === 'equipment') return state.equipment;
+  if (list === 'specRows') return specRow(id);
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
@@ -509,7 +559,7 @@ $('records').addEventListener('input', e => {
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
-  if (el.matches('textarea.answer')) fitArea(el);
+  if (el.matches('textarea.answer, table.spec textarea')) fitArea(el);
   renderTitle();
   if (record === 'fishbone') refreshFishFigures();
   if (record === 'timeline') refreshTimelineFigures();
@@ -529,6 +579,7 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'fish-add-evidence') fishSource(fishFind(el.dataset.id).cause).evidenceIds.push(value);
     if (el.dataset.act === 'fish-effect') state.fishbones.find(f => f.id === el.dataset.id).effectId = value;
     if (el.dataset.act === 'event-add-evidence') eventSource(eventFind(el.dataset.id).event).evidenceIds.push(value);
+    if (el.dataset.act === 'spec-add-test') state.specification.tests.push({causeId: value, marks: {}});
     if (el.dataset.act === 'timeline-effect') state.timelines.find(t => t.id === el.dataset.id).effectId = value;
     render(); persist();
   }
@@ -557,6 +608,26 @@ $('records').addEventListener('click', e => {
       citingNodes(id).forEach(n => reveal(n.id));
       showRecord('chart');
       return;
+    case 'spec-add-row': {
+      const rows = state.specification.rows, row = blankSpecRow(el.dataset.dim);
+      const last = rows.findLastIndex(r => r.dim === row.dim);
+      rows.splice(last < 0 ? rows.length : last + 1, 0, row); focusId = row.id;
+      break;
+    }
+    case 'spec-delete-row':
+      state.specification.rows = state.specification.rows.filter(r => r.id !== id);
+      for (const t of state.specification.tests) delete t.marks[id];
+      break;
+    case 'spec-mark': {
+      const marks = specTest(id).marks, order = ['', ...Object.keys(SPEC_MARKS)], row = el.dataset.row;
+      const next = order[(order.indexOf(marks[row] || '') + 1) % order.length];
+      if (next) marks[row] = next; else delete marks[row];
+      render(); persist();
+      document.querySelector(`#records [data-act="spec-mark"][data-id="${id}"][data-row="${row}"]`)?.focus();
+      return;
+    }
+    case 'spec-remove-test': state.specification.tests = state.specification.tests.filter(t => t.causeId !== id); break;
+    case 'spec-add-all': for (const n of specCandidates()) state.specification.tests.push({causeId: n.id, marks: {}}); break;
     case 'add-chain': focusId = addChain().steps[0].id; break;
     case 'delete-chain': {
       const chain = state.fiveWhys.find(c => c.id === id);

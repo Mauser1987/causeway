@@ -1328,6 +1328,57 @@ def run_tests(b):
     page('chart')
     print('PASS: equipment and duty record', flush=True)
 
+    # Is / Is Not: the problem specification, and causes tested against its facts.
+    page('spec')
+    spec = rca()['specification']
+    assert b.js("return document.getElementById('railSpec').textContent") == '10' and len(spec['rows']) == 10 and len(spec['tests']) == 3
+    results = b.js("return [...document.querySelectorAll('#records td.spec-result')].map(td=>td.textContent)")
+    assert results == ['Explains every fact', 'Explains all, on 5 assumptions', 'Explains all, on 5 assumptions'], results
+    vapour = by_title('Product close to its vapour pressure')['id']
+    what1 = spec['rows'][0]['id']
+    mark = lambda: b.js("document.querySelector(`#records [data-act=spec-mark][data-id='${arguments[0]}'][data-row='${arguments[1]}']`).click();return true", [vapour, what1])
+    mark()
+    assert next(t for t in rca()['specification']['tests'] if t['causeId'] == vapour)['marks'][what1] == 'no'
+    assert b.js("return document.activeElement.dataset.row") == what1, 'the cell keeps the focus'
+    assert ('Product close to its vapour pressure', 'Does not explain What 1 of the Is / Is Not') in {(i['title'], i['text'].split(':')[0]) for i in all_issues()}
+    mark()
+    assert what1 not in next(t for t in rca()['specification']['tests'] if t['causeId'] == vapour)['marks'], 'round to not judged'
+    click('undo'); click('undo')
+    assert next(t for t in rca()['specification']['tests'] if t['causeId'] == vapour)['marks'][what1] == 'if', 'each click is an undo step'
+    act('spec-add-row', dim='when')
+    rows = rca()['specification']['rows']
+    assert [r['dim'] for r in rows].index('extent') == 8 and rows[7]['dim'] == 'when' and focused() == ['specRows', rows[7]['id'], 'question']
+    assert 'When 4' in b.js("return document.querySelector('#records table.spec').textContent")
+    act('spec-delete-row', what1)
+    assert all(what1 not in t['marks'] for t in rca()['specification']['tests']) and len(rca()['specification']['rows']) == 10
+    b.js('''const el=document.querySelector('#records select[data-act=spec-add-test]');el.value=arguments[0];el.dispatchEvent(new Event("change",{bubbles:true}));return true''',
+         [by_title('Solids entered the flush line')['id']])
+    assert rca()['specification']['tests'][-1] == {'causeId': by_title('Solids entered the flush line')['id'], 'marks': {}}
+    assert '9 facts to judge' in b.js("return document.querySelector('#records tbody tr:last-child td.spec-result').textContent")
+    act('spec-remove-test', by_title('Solids entered the flush line')['id'])
+    assert len(rca()['specification']['tests']) == 3
+    # Thin IS NOT data is noted, and opens the page at the first bare fact.
+    thin = json.loads(json.dumps(saved_file))
+    for r in thin['specification']['rows'][:6]: r['isNot'] = ''
+    thin['specification']['tests'][0]['marks'] = {thin['specification']['rows'][0]['id']: 'maybe', 'nope': 'yes'}
+    thin['specification']['tests'].append({'causeId': 'missing', 'marks': {}})
+    load(thin)
+    assert rca()['specification']['tests'][0]['marks'] == {} and len(rca()['specification']['tests']) == 3, 'odd marks and missing causes are dropped'
+    page('chart')
+    click('issuesButton')
+    b.js("document.querySelector('#issuesList [data-record=spec]').click();return true")
+    assert b.js("return document.getElementById('app').dataset.record") == 'spec' and focused()[1] == thin['specification']['rows'][0]['id']
+    load({**saved_file, 'specification': None})
+    assert len(rca()['specification']['rows']) == 10 and not any(r['is'] for r in rca()['specification']['rows']), 'a file without one starts blank'
+    load(saved_file)
+    # Deleting a cause takes it out of the test.
+    page('chart')
+    select('Product close to its vapour pressure'); key('Delete')
+    b.js("document.querySelector('#dialog [data-choice]:not([data-choice=\"\"])')?.click();return true")
+    assert all(t['causeId'] != vapour for t in rca()['specification']['tests'])
+    load(saved_file)
+    print('PASS: Is / Is Not specification and cause testing', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'
@@ -1381,7 +1432,7 @@ def run_tests(b):
         evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
         events:[...r.querySelectorAll("figure.r-timeline svg")].map(s=>s.querySelectorAll(".tl-row").length),
         whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'

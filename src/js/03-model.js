@@ -348,6 +348,7 @@ function deleteNodes(ids) {
       if (n) Object.assign(ev, {text: n.title, kind: ['action', 'condition'].includes(n.kind) ? n.kind : ev.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
     }
   }
+  state.specification.tests = state.specification.tests.filter(t => !gone.has(t.causeId));
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));
   for (const s of state.solutions) s.causeIds = s.causeIds.filter(id => !gone.has(id));
@@ -414,6 +415,22 @@ function issuesAfterSwitch(style) {
   try { convertStyle(style); return chartIssues(); } finally { state = current; }
 }
 
+// ---- Is / Is Not ----
+// The problem is specified on four dimensions, each fact on two sides: what the problem is, and what
+// it could be but is not. Each candidate cause is then tested against every fact: does it explain why
+// the problem is here and not there? A fact is a question with either side answered.
+
+const specRow = id => state.specification.rows.find(r => r.id === id);
+const specFacts = () => state.specification.rows.filter(r => r.is.trim() || r.isNot.trim());
+const specLabel = r => `${SPEC_DIMS[r.dim]} ${state.specification.rows.filter(x => x.dim === r.dim).indexOf(r) + 1}`;
+const specTest = id => state.specification.tests.find(t => t.causeId === id);
+function specResult(test) {
+  const facts = specFacts(), mark = r => test.marks[r.id] || '';
+  return {facts, no: facts.filter(r => mark(r) === 'no'), only: facts.filter(r => mark(r) === 'if'), open: facts.filter(r => !mark(r))};
+}
+const specSummary = res => res.no.length ? `Fails ${plural(res.no.length, 'fact')}`
+  : res.open.length ? `${plural(res.open.length, 'fact')} to judge` : res.only.length ? `Explains all, on ${plural(res.only.length, 'assumption')}` : 'Explains every fact';
+
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one
 // action and one condition; each cause needs evidence; each branch ends in a stop point.
@@ -460,6 +477,12 @@ function causeIssues() {
       else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
     }
   }
+  // A cause that fails a fact of the Is / Is Not cannot be the cause, or the fact is wrong.
+  for (const t of state.specification.tests) {
+    const n = byId(t.causeId), fails = n && live.has(n.id) && !(tree && n.status === 'ruled-out') ? specResult(t).no : [];
+    if (fails.length) issues.push({nodeId: n.id, level: 'warning', code: 'spec-fails',
+      text: `Does not explain ${fails.map(specLabel).join(', ')} of the Is / Is Not: rule it out, or check the fact`});
+  }
   // Once root causes are typed, the 8D questions not yet answered.
   const typed = new Set(state.nodes.filter(n => live.has(n.id) && isCause(n) && !(tree && n.status === 'ruled-out')).map(n => n.causeType));
   if (typed.size > (typed.has('') ? 1 : 0)) for (const t of ['escape', 'systemic']) if (!typed.has(t))
@@ -475,6 +498,10 @@ function recordIssues() {
   const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
+  // Thin IS NOT data is the most common weakness of a problem specification.
+  const stated = state.specification.rows.filter(r => r.is.trim()), bare = stated.filter(r => !r.isNot.trim());
+  if (stated.length >= 3 && bare.length * 2 > stated.length) add('spec', bare[0].id, 'Is / Is Not', 'info', 'spec-thin',
+    `${plural(bare.length, 'fact')} without an IS NOT: for each, say where, when, or what the problem could be but is not`);
   for (const s of state.solutions) {
     const title = s.title || 'Untitled solution', actions = actionsOf(s.id).filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
     if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');

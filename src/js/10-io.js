@@ -72,6 +72,15 @@ function normalizeProject(p) {
         ruledOutId: !nodeIds.has(c.nodeId) && ruledIds.has(c.ruledOutId) ? c.ruledOutId : null,
         parentId: top.has(c.parentId) ? c.parentId : null}))};
     })}));
+  const spec = p.specification, str = v => typeof v === 'string' ? v : '';
+  if (Array.isArray(spec?.rows)) {
+    const rows = spec.rows.filter(r => r?.id).map(r => ({id: r.id, dim: r.dim in SPEC_DIMS ? r.dim : 'what', question: str(r.question), is: str(r.is), isNot: str(r.isNot),
+      distinction: str(r.distinction), change: str(r.change)}));
+    const rowIds = new Set(rows.map(r => r.id)), tested = new Set();
+    const tests = (Array.isArray(spec.tests) ? spec.tests : []).filter(t => nodeIds.has(t?.causeId) && t.causeId !== s.problem.primaryEffectId && !tested.has(t.causeId) && tested.add(t.causeId))
+      .map(t => ({causeId: t.causeId, marks: Object.fromEntries(Object.entries(t.marks || {}).filter(([k, v]) => rowIds.has(k) && v in SPEC_MARKS))}));
+    s.specification = {rows, tests};
+  } else s.specification = blankSpecification();
   const when = v => typeof v === 'string' && eventMinutes(v) !== null ? v : '';
   s.timelines = (Array.isArray(p.timelines) ? p.timelines : []).filter(t => t?.id).map(t => ({...t,
     effectId: nodeIds.has(t.effectId) ? t.effectId : s.problem.primaryEffectId,

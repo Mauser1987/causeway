@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.12 — 2026-10-23
+
+Is / Is Not, after Kepner-Tregoe.
+
+- A new analysis page specifies the problem on What, Where, When, and Extent: what it is, what it could be but is not, what is distinctive, and what changed. The starting questions can be edited and added to.
+- Causes from the chart are tested against each fact: explains it, only on an assumption, or does not. A cause that fails a fact is flagged on the chart; thin IS NOT data is noted.
+- The printed report shows the facts and the test; files keep them as `specification`. The example has a full specification with three causes tested.
+
 ## v1.11 — 2026-10-23
 
 The equipment and duty record.

@@ -374,6 +374,22 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .card-head h2 { flex: 1; margin: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
+table.spec .spec-dim th { padding-top: 14px; text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+table.spec .spec-dim .link { margin-left: 10px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.spec-code { display: block; margin: 2px 0 0 6px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
+table.log.spec-test { table-layout: auto; }
+table.spec-test td:first-child { min-width: 200px; max-width: 320px; }
+table.spec-test .cause-chip { border-radius: 8px; }
+table.spec-test .cause-chip .link { white-space: normal; text-align: left; }
+table.spec-test th.spec-fact { padding: 6px 2px; text-align: center; font-size: 10px; letter-spacing: .02em; line-height: 1.3; cursor: help; }
+table.spec-test td.spec-cell { text-align: center; }
+.spec-mark { width: 30px; height: 26px; border: 1px solid var(--field-line); border-radius: 6px; background: var(--panel); font-weight: 800; color: var(--muted); }
+.spec-mark.m-yes { background: var(--accent); border-color: var(--accent); color: #fff; }
+.spec-mark.m-if { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
+.spec-mark.m-no { background: var(--danger); border-color: var(--danger); color: #fff; }
+td.spec-result { min-width: 120px; padding-top: 10px !important; font-size: 12px; color: var(--ink-2); }
+td.spec-result.fails { color: var(--danger); font-weight: 600; }
+td.spec-result.passes { color: var(--accent); font-weight: 600; }
 .form-grid .wide { grid-column: 1 / -1; }
 .run-time { margin-top: 4px; font-weight: 600; color: var(--ink-2); }
 .form-grid.dates { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
@@ -485,6 +501,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report thead { display: table-header-group; }
   #report .r-tags { display: block; margin-top: 2px; color: #5b6b7a; font-size: 8pt; }
   #report .r-read { white-space: pre-wrap; }
+  #report .r-mark { text-align: center; font-weight: 700; }
   #report .r-code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #084f54; white-space: nowrap; }
   #report .r-none { color: #5b6b7a; font-style: italic; }
   #report figure { margin: 0; break-inside: avoid; }

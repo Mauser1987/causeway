@@ -40,6 +40,18 @@ const STOP_REASONS = {
   'no-value': 'Going further adds nothing',
 };
 
+// Is / Is Not (Kepner-Tregoe problem specification): the questions each dimension starts with.
+const SPEC_DIMS = {what: 'What', where: 'Where', when: 'When', extent: 'Extent'};
+const SPEC_QUESTIONS = {
+  what: ['What object or equipment has the problem?', 'What is wrong with it: the defect?'],
+  where: ['Where is the object: unit, site, position?', 'Where on the object is the defect?'],
+  when: ['When was it first seen?', 'When since then: pattern, frequency?', 'When in its life or operating cycle?'],
+  extent: ['How many objects have it?', 'How big is each defect?', 'What is the trend?'],
+};
+// How a cause answers one fact: it explains why the problem is here and not there, only if an
+// assumption holds, or not at all. Clicking a cell goes round them in this order.
+const SPEC_MARKS = {yes: {mark: '✓', name: 'Explains it'}, if: {mark: '?', name: 'Only if an assumption holds'}, no: {mark: '✕', name: 'Does not explain it'}};
+
 // The equipment and duty record: what a seal or pump maker asks for when a failed part comes back.
 // Each field is [key, label, placeholder, type]; the type is 'date', 'area', or a one-line text.
 const EQUIPMENT_SECTIONS = [

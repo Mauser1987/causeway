@@ -386,6 +386,22 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 .card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .card-head h2 { flex: 1; margin: 0; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 16px; }
+table.spec .spec-dim th { padding-top: 14px; text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+table.spec .spec-dim .link { margin-left: 10px; text-transform: none; letter-spacing: 0; font-weight: 600; }
+.spec-code { display: block; margin: 2px 0 0 6px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
+table.log.spec-test { table-layout: auto; }
+table.spec-test td:first-child { min-width: 200px; max-width: 320px; }
+table.spec-test .cause-chip { border-radius: 8px; }
+table.spec-test .cause-chip .link { white-space: normal; text-align: left; }
+table.spec-test th.spec-fact { padding: 6px 2px; text-align: center; font-size: 10px; letter-spacing: .02em; line-height: 1.3; cursor: help; }
+table.spec-test td.spec-cell { text-align: center; }
+.spec-mark { width: 30px; height: 26px; border: 1px solid var(--field-line); border-radius: 6px; background: var(--panel); font-weight: 800; color: var(--muted); }
+.spec-mark.m-yes { background: var(--accent); border-color: var(--accent); color: #fff; }
+.spec-mark.m-if { background: var(--warn-soft); border-color: var(--warn-line); color: var(--warn-ink); }
+.spec-mark.m-no { background: var(--danger); border-color: var(--danger); color: #fff; }
+td.spec-result { min-width: 120px; padding-top: 10px !important; font-size: 12px; color: var(--ink-2); }
+td.spec-result.fails { color: var(--danger); font-weight: 600; }
+td.spec-result.passes { color: var(--accent); font-weight: 600; }
 .form-grid .wide { grid-column: 1 / -1; }
 .run-time { margin-top: 4px; font-weight: 600; color: var(--ink-2); }
 .form-grid.dates { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
@@ -497,6 +513,7 @@ table.criteria td:nth-child(2) { width: 190px; padding-right: 10px; }
   #report thead { display: table-header-group; }
   #report .r-tags { display: block; margin-top: 2px; color: #5b6b7a; font-size: 8pt; }
   #report .r-read { white-space: pre-wrap; }
+  #report .r-mark { text-align: center; font-weight: 700; }
   #report .r-code { font-family: ui-monospace, Consolas, monospace; font-weight: 700; color: #084f54; white-space: nowrap; }
   #report .r-none { color: #5b6b7a; font-style: italic; }
   #report figure { margin: 0; break-inside: avoid; }
@@ -651,6 +668,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
     <button class="record active" data-record="chart" aria-current="page" id="railChart"><b id="railChartName">Cause &amp; effect</b><span id="railCauses">0</span></button>
     <button class="record" data-record="whys">5 Whys<span id="railWhys">0</span></button>
     <button class="record" data-record="fishbone">Fishbone<span id="railFish">0</span></button>
+    <button class="record" data-record="spec">Is / Is Not<span id="railSpec">0</span></button>
     <button class="record" data-record="timeline">Sequence of events<span id="railTimeline">0</span></button>
     <div class="panel-title group-title">Records</div>
     <button class="record" data-record="problem">Problem definition</button>
@@ -761,6 +779,18 @@ const STOP_REASONS = {
   'no-evidence': 'No further evidence',
   'no-value': 'Going further adds nothing',
 };
+
+// Is / Is Not (Kepner-Tregoe problem specification): the questions each dimension starts with.
+const SPEC_DIMS = {what: 'What', where: 'Where', when: 'When', extent: 'Extent'};
+const SPEC_QUESTIONS = {
+  what: ['What object or equipment has the problem?', 'What is wrong with it: the defect?'],
+  where: ['Where is the object: unit, site, position?', 'Where on the object is the defect?'],
+  when: ['When was it first seen?', 'When since then: pattern, frequency?', 'When in its life or operating cycle?'],
+  extent: ['How many objects have it?', 'How big is each defect?', 'What is the trend?'],
+};
+// How a cause answers one fact: it explains why the problem is here and not there, only if an
+// assumption holds, or not at all. Clicking a cell goes round them in this order.
+const SPEC_MARKS = {yes: {mark: '✓', name: 'Explains it'}, if: {mark: '?', name: 'Only if an assumption holds'}, no: {mark: '✕', name: 'Does not explain it'}};
 
 // The equipment and duty record: what a seal or pump maker asks for when a failed part comes back.
 // Each field is [key, label, placeholder, type]; the type is 'date', 'area', or a one-line text.
@@ -946,13 +976,16 @@ const blankNode = (kind, title) => ({
   unverified: false, controllable: false, causeType: '', stopPoint: null, notes: '', offsetY: 0,
 });
 
+const blankSpecRow = (dim, question = '') => ({id: uuid(), dim, question, is: '', isNot: '', distinction: '', change: ''});
+const blankSpecification = () => ({rows: Object.entries(SPEC_QUESTIONS).flatMap(([dim, qs]) => qs.map(q => blankSpecRow(dim, q))), tests: []});
+
 function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
   return {
     type: FILE_TYPE, schemaVersion: SCHEMA_VERSION, id: uuid(),
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''}},
     problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [],
+    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [], specification: blankSpecification(),
     counters: {evidence: 1},
   };
 }
@@ -1389,6 +1422,7 @@ function deleteNodes(ids) {
       if (n) Object.assign(ev, {text: n.title, kind: ['action', 'condition'].includes(n.kind) ? n.kind : ev.kind, evidenceIds: [...n.evidenceIds], nodeId: null});
     }
   }
+  state.specification.tests = state.specification.tests.filter(t => !gone.has(t.causeId));
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));
   for (const s of state.solutions) s.causeIds = s.causeIds.filter(id => !gone.has(id));
@@ -1455,6 +1489,22 @@ function issuesAfterSwitch(style) {
   try { convertStyle(style); return chartIssues(); } finally { state = current; }
 }
 
+// ---- Is / Is Not ----
+// The problem is specified on four dimensions, each fact on two sides: what the problem is, and what
+// it could be but is not. Each candidate cause is then tested against every fact: does it explain why
+// the problem is here and not there? A fact is a question with either side answered.
+
+const specRow = id => state.specification.rows.find(r => r.id === id);
+const specFacts = () => state.specification.rows.filter(r => r.is.trim() || r.isNot.trim());
+const specLabel = r => `${SPEC_DIMS[r.dim]} ${state.specification.rows.filter(x => x.dim === r.dim).indexOf(r) + 1}`;
+const specTest = id => state.specification.tests.find(t => t.causeId === id);
+function specResult(test) {
+  const facts = specFacts(), mark = r => test.marks[r.id] || '';
+  return {facts, no: facts.filter(r => mark(r) === 'no'), only: facts.filter(r => mark(r) === 'if'), open: facts.filter(r => !mark(r))};
+}
+const specSummary = res => res.no.length ? `Fails ${plural(res.no.length, 'fact')}`
+  : res.open.length ? `${plural(res.open.length, 'fact')} to judge` : res.only.length ? `Explains all, on ${plural(res.only.length, 'assumption')}` : 'Explains every fact';
+
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one
 // action and one condition; each cause needs evidence; each branch ends in a stop point.
@@ -1501,6 +1551,12 @@ function causeIssues() {
       else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
     }
   }
+  // A cause that fails a fact of the Is / Is Not cannot be the cause, or the fact is wrong.
+  for (const t of state.specification.tests) {
+    const n = byId(t.causeId), fails = n && live.has(n.id) && !(tree && n.status === 'ruled-out') ? specResult(t).no : [];
+    if (fails.length) issues.push({nodeId: n.id, level: 'warning', code: 'spec-fails',
+      text: `Does not explain ${fails.map(specLabel).join(', ')} of the Is / Is Not: rule it out, or check the fact`});
+  }
   // Once root causes are typed, the 8D questions not yet answered.
   const typed = new Set(state.nodes.filter(n => live.has(n.id) && isCause(n) && !(tree && n.status === 'ruled-out')).map(n => n.causeType));
   if (typed.size > (typed.has('') ? 1 : 0)) for (const t of ['escape', 'systemic']) if (!typed.has(t))
@@ -1516,6 +1572,10 @@ function recordIssues() {
   const issues = [], add = (record, id, title, level, code, text) => issues.push({record, id, title, level, code, text});
   for (const r of state.ruledOut) if (!r.test.trim() && !r.evidenceIds.some(evidenceById)) add('ruledOut', r.id, r.cause || 'Untitled cause', 'warning', 'ruled-basis',
     'Ruled out without a reason: write the evidence or test that ruled it out');
+  // Thin IS NOT data is the most common weakness of a problem specification.
+  const stated = state.specification.rows.filter(r => r.is.trim()), bare = stated.filter(r => !r.isNot.trim());
+  if (stated.length >= 3 && bare.length * 2 > stated.length) add('spec', bare[0].id, 'Is / Is Not', 'info', 'spec-thin',
+    `${plural(bare.length, 'fact')} without an IS NOT: for each, say where, when, or what the problem could be but is not`);
   for (const s of state.solutions) {
     const title = s.title || 'Untitled solution', actions = actionsOf(s.id).filter(a => a.status !== 'cancelled' && a.kind !== 'containment');
     if (s.decision !== 'reject' && !s.causeIds.some(byId)) add('solutions', s.id, title, 'warning', 'solution-cause', 'Attacks no cause: link the causes it removes');
@@ -1997,7 +2057,7 @@ function render() {
   if (highlight && !evidenceById(highlight)) highlight = null;
   const issues = ruleIssues(), causes = state.nodes.length - 1;
   $('count').textContent = `${causes} cause${causes === 1 ? '' : 's'} · ${state.evidence.length} evidence item${state.evidence.length === 1 ? '' : 's'}`;
-  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railTimeline', state.timelines.length], ['railEquipment', equipmentFilled()], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length + treeRuledOut().length],
+  for (const [id, n] of [['railCauses', causes], ['railWhys', state.fiveWhys.length], ['railFish', state.fishbones.length], ['railSpec', specFacts().length], ['railTimeline', state.timelines.length], ['railEquipment', equipmentFilled()], ['railTeam', state.meta.team.length], ['railEvidence', state.evidence.length], ['railRuledOut', state.ruledOut.length + treeRuledOut().length],
     ['railSolutions', state.solutions.length], ['railActions', state.actions.length]]) $(id).textContent = n;
   renderIssues(issues);
   renderTitle();
@@ -2313,6 +2373,7 @@ const NEEDS = {
   'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
   'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
   'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
+  'spec-fails': n => `${plural(n, 'cause')} that fail a fact of the Is / Is Not`,
   'cause-types': n => `${plural(n, 'root cause type')} not used yet (escape point, systemic)`,
 };
 
@@ -2361,7 +2422,7 @@ function refreshChart() {
 // The issues list in the top bar: every rule issue, and a click selects its node.
 
 const ISSUE_ORDER = {error: 0, warning: 1, info: 2};
-const RECORD_NAMES = {ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
+const RECORD_NAMES = {spec: 'Is / Is Not', ruledOut: 'Causes ruled out', solutions: 'Solutions', actions: 'Action plan'};
 
 function renderIssues(issues) {
   const open = issues.filter(i => i.level !== 'info');
@@ -2983,6 +3044,15 @@ function normalizeProject(p) {
         ruledOutId: !nodeIds.has(c.nodeId) && ruledIds.has(c.ruledOutId) ? c.ruledOutId : null,
         parentId: top.has(c.parentId) ? c.parentId : null}))};
     })}));
+  const spec = p.specification, str = v => typeof v === 'string' ? v : '';
+  if (Array.isArray(spec?.rows)) {
+    const rows = spec.rows.filter(r => r?.id).map(r => ({id: r.id, dim: r.dim in SPEC_DIMS ? r.dim : 'what', question: str(r.question), is: str(r.is), isNot: str(r.isNot),
+      distinction: str(r.distinction), change: str(r.change)}));
+    const rowIds = new Set(rows.map(r => r.id)), tested = new Set();
+    const tests = (Array.isArray(spec.tests) ? spec.tests : []).filter(t => nodeIds.has(t?.causeId) && t.causeId !== s.problem.primaryEffectId && !tested.has(t.causeId) && tested.add(t.causeId))
+      .map(t => ({causeId: t.causeId, marks: Object.fromEntries(Object.entries(t.marks || {}).filter(([k, v]) => rowIds.has(k) && v in SPEC_MARKS))}));
+    s.specification = {rows, tests};
+  } else s.specification = blankSpecification();
   const when = v => typeof v === 'string' && eventMinutes(v) !== null ? v : '';
   s.timelines = (Array.isArray(p.timelines) ? p.timelines : []).filter(t => t?.id).map(t => ({...t,
     effectId: nodeIds.has(t.effectId) ? t.effectId : s.problem.primaryEffectId,
@@ -3194,12 +3264,12 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {spec: specPage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
   box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone', 'timeline'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
-  box.querySelectorAll('textarea.answer').forEach(fitArea);
+  box.querySelectorAll('textarea.answer, table.spec textarea').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
 }
@@ -3342,6 +3412,55 @@ function refreshFishFigures() {
 // The phases a new timeline starts with: the last ones chosen.
 let timelinePreset = 'test';
 let eventOn = null;          // the event being edited, lit in its figure
+
+// ---- Is / Is Not ----
+
+// The causes that can still be tested: on the chart, not the primary effect, not ruled out, not yet in the matrix.
+const specCandidates = () => state.nodes.filter(n => n.id !== state.problem.primaryEffectId && !specTest(n.id) && !isRuledOut(n) && reachable().has(n.id));
+
+function specPage() {
+  const sp = state.specification, facts = specFacts(), candidates = specCandidates();
+  const tests = sp.tests.filter(t => byId(t.causeId));
+  return `${pageHead('Is / Is Not', 'Specify the problem precisely before explaining it, after Kepner-Tregoe: for each question, what the problem <b>is</b>, and what it could be but <b>is not</b>. Then test each possible cause against those facts: the true cause explains why the problem is here and not there.')}
+    <section class="card">
+      <h2>Specification</h2>
+      <p class="note">For IS NOT, give the closest thing that could have the problem but does not: the other seal on the same pump, the spare pump, the same seal before the upset. Then note what is distinctive about the IS side, and what changed in or around it.</p>
+      <div class="table-wrap"><table class="log spec">
+        <colgroup><col style="width:20%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:44px"></colgroup>
+        <thead><tr><th>Question</th><th>Is</th><th>Is not</th><th>Distinctive about the IS</th><th>Changed in or around it</th><th><span class="sr">Remove</span></th></tr></thead>
+        ${Object.entries(SPEC_DIMS).map(([dim, name]) => `<tbody>
+          <tr class="spec-dim"><th colspan="6">${name}<button class="link" data-act="spec-add-row" data-dim="${dim}">+ Question</button></th></tr>
+          ${sp.rows.filter(r => r.dim === dim).map(r => `<tr>
+            <td>${cellArea('specRows', r.id, 'question', r.question, 'Question', 'placeholder="A question"')}<small class="spec-code">${specLabel(r)}</small></td>
+            <td>${cellArea('specRows', r.id, 'is', r.is, `${specLabel(r)}: is`, 'placeholder="Is"')}</td>
+            <td>${cellArea('specRows', r.id, 'isNot', r.isNot, `${specLabel(r)}: is not`, 'placeholder="Is not"')}</td>
+            <td>${cellArea('specRows', r.id, 'distinction', r.distinction, `${specLabel(r)}: distinctive`, '')}</td>
+            <td>${cellArea('specRows', r.id, 'change', r.change, `${specLabel(r)}: changes`, '')}</td>
+            <td class="row-actions"><button class="unlink" data-act="spec-delete-row" data-id="${r.id}" aria-label="Remove this question">×</button></td>
+          </tr>`).join('')}</tbody>`).join('')}
+      </table></div>
+    </section>
+    <section class="card">
+      <h2>Test the possible causes</h2>
+      <p class="note">For each cause and each fact: does the cause explain why the problem IS here and IS NOT there? Click a cell to go round
+        <b>✓</b> explains it, <b>?</b> only if an assumption holds, and <b>✕</b> does not explain it. A cause that fails a fact is flagged on the chart. The most likely cause explains every fact on the fewest assumptions.</p>
+      ${!facts.length ? '<p class="empty-card">Answer the IS or IS NOT side of a question first: each answered question is a fact to test against.</p>'
+      : tests.length ? `<div class="table-wrap"><table class="log spec-test">
+        <thead><tr><th>Cause</th><th>Result</th>${facts.map(f => `<th class="spec-fact" title="${escapeHtml(`${f.question}\nIs: ${f.is}\nIs not: ${f.isNot}`)}">${specLabel(f).replace(' ', '<br>')}</th>`).join('')}<th><span class="sr">Remove</span></th></tr></thead>
+        <tbody>${tests.map(t => {
+          const n = byId(t.causeId), res = specResult(t);
+          return `<tr><td>${causeChip(n)}</td><td class="spec-result ${res.no.length ? 'fails' : res.open.length || res.only.length ? '' : 'passes'}">${specSummary(res)}</td>${facts.map(f => {
+            const v = t.marks[f.id] || '';
+            return `<td class="spec-cell"><button class="spec-mark m-${v || 'none'}" data-act="spec-mark" data-id="${n.id}" data-row="${f.id}" title="${escapeHtml(specLabel(f))}: ${v ? SPEC_MARKS[v].name : 'not judged'}" aria-label="${escapeHtml(`${n.title}, ${specLabel(f)}: ${v ? SPEC_MARKS[v].name : 'not judged'}`)}">${v ? SPEC_MARKS[v].mark : '·'}</button></td>`;
+          }).join('')}
+          <td class="row-actions"><button class="unlink" data-act="spec-remove-test" data-id="${n.id}" aria-label="Remove ${escapeHtml(n.title)} from the test">×</button></td></tr>`;
+        }).join('')}</tbody></table></div>` : '<p class="empty-card">No causes in the test yet.</p>'}
+      ${facts.length && candidates.length ? `<div class="decision-row">
+        <select class="picker" data-act="spec-add-test" aria-label="Test a cause"><option value="">+ Test a cause…</option>${candidates.map(n => `<option value="${n.id}">${escapeHtml(shorten(n.title, 80))}</option>`).join('')}</select>
+        ${candidates.length <= 30 ? `<button class="button" data-act="spec-add-all">Test all ${candidates.length}</button>` : ''}
+      </div>` : ''}
+    </section>`;
+}
 
 function timelinePage() {
   return `${pageHead('Sequence of events', 'Lay out what happened, in order, phase by phase: what was done, what was seen, and when. Mark the deviations, the events that departed from what should have happened. They are candidate causes: add them to the cause-and-effect chart.',
@@ -3626,6 +3745,7 @@ function boundObject(el) {
   if (list === 'meta') return state.meta;
   if (list === 'problem') return state.problem;
   if (list === 'equipment') return state.equipment;
+  if (list === 'specRows') return specRow(id);
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
@@ -3646,7 +3766,7 @@ $('records').addEventListener('input', e => {
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
-  if (el.matches('textarea.answer')) fitArea(el);
+  if (el.matches('textarea.answer, table.spec textarea')) fitArea(el);
   renderTitle();
   if (record === 'fishbone') refreshFishFigures();
   if (record === 'timeline') refreshTimelineFigures();
@@ -3666,6 +3786,7 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'fish-add-evidence') fishSource(fishFind(el.dataset.id).cause).evidenceIds.push(value);
     if (el.dataset.act === 'fish-effect') state.fishbones.find(f => f.id === el.dataset.id).effectId = value;
     if (el.dataset.act === 'event-add-evidence') eventSource(eventFind(el.dataset.id).event).evidenceIds.push(value);
+    if (el.dataset.act === 'spec-add-test') state.specification.tests.push({causeId: value, marks: {}});
     if (el.dataset.act === 'timeline-effect') state.timelines.find(t => t.id === el.dataset.id).effectId = value;
     render(); persist();
   }
@@ -3694,6 +3815,26 @@ $('records').addEventListener('click', e => {
       citingNodes(id).forEach(n => reveal(n.id));
       showRecord('chart');
       return;
+    case 'spec-add-row': {
+      const rows = state.specification.rows, row = blankSpecRow(el.dataset.dim);
+      const last = rows.findLastIndex(r => r.dim === row.dim);
+      rows.splice(last < 0 ? rows.length : last + 1, 0, row); focusId = row.id;
+      break;
+    }
+    case 'spec-delete-row':
+      state.specification.rows = state.specification.rows.filter(r => r.id !== id);
+      for (const t of state.specification.tests) delete t.marks[id];
+      break;
+    case 'spec-mark': {
+      const marks = specTest(id).marks, order = ['', ...Object.keys(SPEC_MARKS)], row = el.dataset.row;
+      const next = order[(order.indexOf(marks[row] || '') + 1) % order.length];
+      if (next) marks[row] = next; else delete marks[row];
+      render(); persist();
+      document.querySelector(`#records [data-act="spec-mark"][data-id="${id}"][data-row="${row}"]`)?.focus();
+      return;
+    }
+    case 'spec-remove-test': state.specification.tests = state.specification.tests.filter(t => t.causeId !== id); break;
+    case 'spec-add-all': for (const n of specCandidates()) state.specification.tests.push({causeId: n.id, marks: {}}); break;
     case 'add-chain': focusId = addChain().steps[0].id; break;
     case 'delete-chain': {
       const chain = state.fiveWhys.find(c => c.id === id);
@@ -4373,6 +4514,15 @@ function buildReport() {
           ${table(['Category', 'Possible cause', 'Type', 'Evidence', 'Status'], rows, 'No possible causes recorded.')}`;
       }).join('')}
     </section>` : ''}
+    ${specFacts().length ? `<section class="r-page">
+      <h2>Is / Is Not</h2>
+      ${table(['Question', 'Is', 'Is not', 'Distinctive about the IS', 'Changed'], specFacts().map(r => `<tr><td><b>${specLabel(r)}</b> ${text(r.question)}</td>
+        <td>${text(r.is)}</td><td>${text(r.isNot)}</td><td>${text(r.distinction)}</td><td>${text(r.change)}</td></tr>`), '')}
+      ${state.specification.tests.some(t => byId(t.causeId)) ? `<h3>Possible causes tested against the facts</h3>
+        ${table(['Cause', ...specFacts().map(specLabel), 'Result'], state.specification.tests.filter(t => byId(t.causeId)).map(t => `<tr><td>${text(byId(t.causeId).title)}</td>
+          ${specFacts().map(f => `<td class="r-mark">${SPEC_MARKS[t.marks[f.id]]?.mark || '·'}</td>`).join('')}<td>${specSummary(specResult(t))}</td></tr>`), '')}
+        <p class="r-legend">✓ explains why the problem is here and not there; ? only if an assumption holds; ✕ does not explain it.</p>` : ''}
+    </section>` : ''}
     ${state.timelines.length ? `<section class="r-page">
       <h2>Sequence of events</h2>
       ${state.timelines.map(t => {
@@ -4581,6 +4731,27 @@ function exampleRca() {
     preserved: 'Workshop quarantine shelf, bagged and labelled', decontaminated: 'Steam-cleaned outside only; faces untouched',
     photos: 'RCA folder, teardown 16 Sep', asFound: 'Stationary SiC face heat-checked with radial cracks; carbon face chipped at the OD; O-rings intact; springs free; orifice blocked with black fines.',
   };
+  // Is / Is Not: the problem specified, and three causes tested against it.
+  s.specification = blankSpecification();
+  const facts = [
+    ['P-101A inboard seal', 'P-101B: same service, same seal, on standby', 'P-101A was running through the upset; P-101B was not', 'Flush filter bypassed on 12 Sep'],
+    ['Heat checking on the SiC face, chipped carbon', 'Worn springs, damaged O-rings, corrosion', 'Thermal damage only', ''],
+    ['Unit 2, P-101A', 'P-103A/B, the other Plan 11 pumps on the unit', 'Only P-101A takes its flush from the bypassed filter header', ''],
+    ['The faces; the carbon at its OD', 'Sleeve, gland, O-ring grooves', 'Where the film is thinnest and hottest', ''],
+    ['14 Sep 2026, two days after the upset', 'Before the upset: no leak on any round', '', 'Process upset and filter bypass, 12 Sep'],
+    ['Once; the last failure was July 2025', 'Repeated or intermittent leaks', '', ''],
+    ['Steady running, 14 months after installation', 'At start-up or shutdown', '', ''],
+    ['One seal', 'Any other seal on the unit', '', ''],
+    ['15 ml/min', 'A sudden large release', '', ''],
+    ['Steady since found', 'Rising', '', ''],
+  ];
+  s.specification.rows.forEach((row, i) => Object.assign(row, {is: facts[i][0], isNot: facts[i][1], distinction: facts[i][2], change: facts[i][3]}));
+  const marks = pattern => Object.fromEntries(s.specification.rows.map((row, i) => [row.id, pattern[i]]).filter(([, v]) => v));
+  s.specification.tests = [
+    {causeId: ids.flow, marks: marks(['yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes', 'yes'])},
+    {causeId: ids.vapour, marks: marks(['if', 'yes', 'if', 'yes', 'if', 'yes', 'if', 'if', 'yes', 'yes'])},
+    {causeId: ids.dryrun, marks: marks(['if', 'yes', 'if', 'yes', 'if', 'yes', 'if', 'if', 'yes', 'yes'])},
+  ];
   s.problem.readAcross = 'P-101B and the two other Plan 11 pumps on the unit (P-103A/B) have the same 3 mm flush orifice without a strainer. Inspected on 2026-09-20: orifices clean. The cyclones are on the same work order.';
   // Two 5 Whys chains: one that led to the chart, and one not yet added to it.
   const step = (answer, kind, codes = [], key = null) => ({id: uuid(), answer: key ? '' : answer, kind, evidenceIds: key ? [] : codes.map(c => ev[c]), nodeId: key ? ids[key] : null});
