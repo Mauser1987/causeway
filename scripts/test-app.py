@@ -1252,6 +1252,31 @@ def run_tests(b):
     load(saved_file)
     print('PASS: good-practice checks on causes, ruled-out causes, solutions, and actions', flush=True)
 
+    # Root cause types: set in the properties, drawn as a tag, kept in the file, and checked for 8D.
+    by_title = lambda title: next(n for n in rca()['nodes'] if n['title'] == title)
+    rca_primary_title = lambda: next(n['title'] for n in rca()['nodes'] if n['id'] == rca()['problem']['primaryEffectId'])
+    example_types = {n['title']: n['causeType'] for n in rca()['nodes'] if n['causeType']}
+    assert sorted(example_types.values()) == ['escape', 'occurrence', 'occurrence', 'systemic'], example_types
+    node_text = lambda title: b.js("return document.querySelector(`#chart .node[data-id='${arguments[0]}']`)?.textContent", [by_title(title)['id']])
+    assert 'ESCAPE' in node_text('No seal-system check after upset or bypass')
+    select('Seal chamber temperature rose 18 °C')
+    b.js('document.querySelector("#properties [data-cause-type=escape]").click();return true')
+    assert by_title('Seal chamber temperature rose 18 °C')['causeType'] == 'escape' and 'ESCAPE' in node_text('Seal chamber temperature rose 18 °C')
+    b.js('document.querySelector("#properties [data-cause-type=escape]").click();return true')
+    assert by_title('Seal chamber temperature rose 18 °C')['causeType'] == '', 'clicking the pressed type clears it'
+    click('undo')
+    assert by_title('Seal chamber temperature rose 18 °C')['causeType'] == 'escape', 'each change is an undo step'
+    click('undo')
+    no_systemic = json.loads(json.dumps(saved_file))
+    for n in no_systemic['nodes']:
+        if n['causeType'] == 'systemic': n['causeType'] = 'nonsense'
+    load(no_systemic)
+    assert by_title('Seal selected without checking vapour-pressure margin')['causeType'] == '', 'an unknown type opens as none'
+    notes = [i['text'] for i in all_issues() if i['title'] == rca_primary_title()]
+    assert any(t.startswith('No cause is marked systemic') for t in notes) and not any('escape point' in t for t in notes), notes
+    load(saved_file)
+    print('PASS: root cause types', flush=True)
+
     # Files and browser storage from before the tool was named Causeway.
     load({**saved_file, 'type': 'apollo-rca'})
     assert rca()['type'] == 'causeway' and len(rca()['nodes']) == len(saved_file['nodes']), 'an Apollo RCA Builder file opens'

@@ -101,6 +101,18 @@ The Properties panel shows how far a cause was moved, with **Put it back**; with
 - Copying the primary effect copies the whole chart. Pasted, its top node becomes a cause without a type, for you to choose.
 - In a text field, the keys copy and paste text as usual.
 
+## Root cause types
+
+8D reports, and the supplier requirements of OEMs such as Baker Hughes, Caterpillar, and the aero-engine makers (AS13000), ask for three kinds of root cause. Set a cause's **Root cause type** in its properties:
+
+| Type | Question |
+|---|---|
+| **Occurrence** | Why did the failure happen? |
+| **Escape point** | Why was it not detected or caught earlier (monitoring, alarm, inspection, test)? |
+| **Systemic** | Why did the system (design, planning, procedures, management) allow it? |
+
+The type shows on the cause's top line, for example CONDITION · ESCAPE; in a cause tree the line appears only on typed causes. Click the pressed type again to clear it. Once any cause is typed, the issues list notes it when no cause is an escape point or systemic yet.
+
 ## Collapse branches
 
 Click the **−** circle where a node's connector leaves it, press **Space**, or choose **Collapse branch** in the Properties panel. The node then shows **+N** for the causes it hides, and its circle turns to **+**. **Space**, the **+** circle, or **→** expands it again. With nothing selected, the Properties panel offers **Expand all branches**.
@@ -189,6 +201,7 @@ Besides each chart style's rules, Causeway checks what good RCA practice asks fo
 | A solution that attacks no cause, or one to implement with no action in the plan | Warning |
 | An action with no effectiveness check date (a warning once the action is done) | Note |
 | An effectiveness check whose date has passed without a result | Warning |
+| Root causes are typed, but none is an escape point, or none is systemic (on the primary effect) | Note |
 
 Rejected solutions and cancelled actions are not checked. Notes are listed but not counted.
 
@@ -266,7 +279,7 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | `id` | The RCA's UUID |
 | `meta` | `rcaNumber`, `equipmentTag`, `sealType`, `style`: `apollo` \| `tree` (files without it are Apollo), `leadId` (a team member's id), `team` [{`id`, `name`, `role`}], `dates` {`opened`, `eventDate`, `closed`} |
 | `problem` | `primaryEffectId`, `when`, `where`, `significance` {`safety`, `environment`, `productionCost`, `reliability`}. The "what" is the primary effect node's title. |
-| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` (a hypothesis) \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`, `offsetY`: how far it is moved down by hand (negative: up) from where the layout places it, in chart units (pixels at 100 %)} |
+| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` (a hypothesis) \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `causeType`: `occurrence` \| `escape` \| `systemic` \| `""` (the root cause type), `stopPoint`: null or {`reason`, `note`}, `notes`, `offsetY`: how far it is moved down by hand (negative: up) from where the layout places it, in chart units (pixels at 100 %)} |
 | `links` | {`id`, `effectId`, `causeId`}: the cause supports the effect. Links form a directed acyclic graph rooted at the primary effect. |
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
 | `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |
@@ -299,4 +312,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list and its good-practice checks, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list and its good-practice checks, root cause types, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

@@ -43,13 +43,13 @@ function exampleRca() {
   node('dryrun', 'condition', 'Carbon/SiC pair has limited dry-run tolerance', {evidence: ['E2'], stopPoint: stop('no-value')});
   node('temp', 'action', 'Seal chamber temperature rose 18 °C', {evidence: ['E3']});
   node('vapour', 'condition', 'Product close to its vapour pressure', {evidence: ['E6']});
-  node('selection', 'condition', 'Seal selected without checking vapour-pressure margin', {evidence: ['E7'], controllable: true, stopPoint: stop('solution-found')});
+  node('selection', 'condition', 'Seal selected without checking vapour-pressure margin', {evidence: ['E7'], controllable: true, causeType: 'systemic', stopPoint: stop('solution-found')});
   node('flow', 'action', 'Plan 11 flush flow dropped to near zero', {evidence: ['E3', 'E4']});
   node('heat', 'condition', 'Heat input from face friction and pump', {stopPoint: stop('no-value')});
   node('solids', 'action', 'Solids entered the flush line', {evidence: ['E4']});
-  node('orifice', 'condition', '3 mm orifice, no strainer or cyclone', {evidence: ['E4'], controllable: true, stopPoint: stop('solution-found')});
-  node('bypass', 'action', 'Filter bypass opened during process upset', {evidence: ['E5'], controllable: true, stopPoint: stop('solution-found')});
-  node('nocheck', 'condition', 'No seal-system check after upset or bypass', {evidence: ['E8'], controllable: true, stopPoint: stop('solution-found')});
+  node('orifice', 'condition', '3 mm orifice, no strainer or cyclone', {evidence: ['E4'], controllable: true, causeType: 'occurrence', stopPoint: stop('solution-found')});
+  node('bypass', 'action', 'Filter bypass opened during process upset', {evidence: ['E5'], controllable: true, causeType: 'occurrence', stopPoint: stop('solution-found')});
+  node('nocheck', 'condition', 'No seal-system check after upset or bypass', {evidence: ['E8'], controllable: true, causeType: 'escape', stopPoint: stop('solution-found')});
 
   causes('leak', 'path', 'pressurised');
   causes('path', 'damaged', 'film');

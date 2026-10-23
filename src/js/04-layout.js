@@ -43,9 +43,10 @@ function nodeFoot(n, hidden) {
 }
 const hasFoot = f => f.codes.length || f.controllable || f.stop || f.hidden;
 
-// In a cause tree a cause has no kind label: its status badge in the corner says it.
+// In a cause tree a cause has no kind label: its status badge in the corner says it. The label line
+// stays for its root cause type, when it has one.
 const statusBadge = n => treeStyle() && isCause(n);
-const kindLine = n => statusBadge(n) ? 0 : KIND_LINE;
+const kindLine = n => statusBadge(n) && !n.causeType ? 0 : KIND_LINE;
 
 function nodeSize(n, hidden) {
   const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X - (statusBadge(n) ? BADGE_ROOM : 0), TITLE_SIZE, 600);

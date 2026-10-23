@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.9 — 2026-10-23
+
+Root cause types, as 8D asks for them.
+
+- Each cause can be typed as **Occurrence** (why it happened), **Escape point** (why it was not caught), or **Systemic** (why the system allowed it), in its properties. The type shows on the cause's top line; in a cause tree the line appears only on typed causes.
+- Once causes are typed, the issues list notes a missing escape point or systemic cause. Files keep the type as `causeType` on each node.
+- The example's four root causes are typed.
+
 ## v1.8 — 2026-10-23
 
 Good-practice checks, drawn from industry RCA guidance (US DOE, Apollo, TapRooT, OEM 8D requirements).

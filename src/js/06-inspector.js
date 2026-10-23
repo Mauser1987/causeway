@@ -106,6 +106,9 @@ function renderNodeProperties(box, n) {
         + flagBox('nodeControllable', n.controllable, 'Controllable', 'The organisation can change this cause: a candidate for a solution')}
       ${flagBox('nodeStop', !!n.stopPoint, 'Stop point', 'The branch ends here')}
     </div>
+    ${isPrimary ? '' : `<label class="field">Root cause type <span class="muted">for 8D</span></label>
+    <div class="segmented cause-type" role="group" aria-label="Root cause type">${Object.entries(CAUSE_TYPES).map(([k, t]) =>
+      `<button data-cause-type="${k}" ${pressed(n.causeType === k)} title="${t.about}${n.causeType === k ? '. Click again to clear' : ''}">${t.name}</button>`).join('')}</div>`}
     ${n.stopPoint ? `<label class="field" for="nodeStopReason">Why the branch stops</label><select class="text" id="nodeStopReason">${Object.entries(STOP_REASONS).map(([k, v]) => `<option value="${k}" ${n.stopPoint.reason === k ? 'selected' : ''}>${v}</option>`).join('')}</select>` : ''}
 
     <div class="section">
@@ -175,6 +178,10 @@ function renderNodeProperties(box, n) {
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
   $('nodeNotes').oninput = e => { n.notes = e.target.value; persist('notes:' + n.id); };
   box.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { n.kind = b.dataset.kind; render(); persist(); });
+  box.querySelectorAll('[data-cause-type]').forEach(b => b.onclick = () => {
+    n.causeType = n.causeType === b.dataset.causeType ? '' : b.dataset.causeType;
+    render(); persist();
+  });
   const flag = (id, apply) => { if ($(id)) $(id).onchange = e => { apply(e.target.checked); render(); persist(); }; };
   flag('nodeUnverified', on => { n.unverified = on; });
   flag('nodeControllable', on => { n.controllable = on; });
@@ -261,6 +268,7 @@ const NEEDS = {
   'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
   'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
   'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
+  'cause-types': n => `${plural(n, 'root cause type')} not used yet (escape point, systemic)`,
 };
 
 // Asks before moving the RCA to the other style, with what that style will still need.

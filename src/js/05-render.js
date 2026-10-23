@@ -32,8 +32,9 @@ function nodeMarkup(b, opts) {
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': c.dash || n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1, 'stroke-dasharray': c.dash})}/>`;
-  const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
-    : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label;
+  const type = CAUSE_TYPES[n.causeType]?.tag;
+  const kind = isPrimary ? KINDS.effect.label : statusBadge(n) ? type : [n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
+    : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label, type].filter(Boolean).join(' · ');
   const kl = kindLine(n);
   if (kl) s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
   s += `<text x="${NODE_PAD_X}" font-size="${TITLE_SIZE}" font-weight="600" fill="${c.text}">`;

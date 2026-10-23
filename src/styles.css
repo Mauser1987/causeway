@@ -197,6 +197,7 @@ kbd {
 .sw.code { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font: 700 10.5px var(--mono); }
 .sw.shared { height: 0; border-top: 2px dashed var(--shared); border-radius: 0; }
 .sw.stop { height: 16px; padding: 0 6px; border-radius: 8px; background: var(--stop); color: var(--stop-ink); }
+.sw.ctype { height: 16px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--wire); background: var(--panel); color: var(--ink-2); font-size: 7.5px; }
 .sw.ctrl { height: 16px; padding: 0 5px; border-radius: 8px; background: #2f7a3a; color: #fff; font-size: 7.5px; }
 
 /* ---- Canvas ---- */

@@ -97,7 +97,7 @@ function pasteBranchData(data, effectId) {
     const text = key => typeof n[key] === 'string' ? n[key] : '';
     state.nodes.push({...blankNode(kind, text('title')), id: ids.get(old),
       description: text('description'), test: text('test'), notes: text('notes'), evidenceIds: kept,
-      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true,
+      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true, causeType: n.causeType in CAUSE_TYPES ? n.causeType : '',
       stopPoint: n.stopPoint && n.stopPoint.reason in STOP_REASONS ? {reason: n.stopPoint.reason, note: typeof n.stopPoint.note === 'string' ? n.stopPoint.note : ''} : null,
       offsetY: old !== data.rootId && Number.isFinite(n.offsetY) ? n.offsetY : 0});
   }
@@ -460,6 +460,10 @@ function causeIssues() {
       else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
     }
   }
+  // Once root causes are typed, the 8D questions not yet answered.
+  const typed = new Set(state.nodes.filter(n => live.has(n.id) && isCause(n) && !(tree && n.status === 'ruled-out')).map(n => n.causeType));
+  if (typed.size > (typed.has('') ? 1 : 0)) for (const t of ['escape', 'systemic']) if (!typed.has(t))
+    issues.push({nodeId: state.problem.primaryEffectId, level: 'info', code: 'cause-types', text: CAUSE_TYPES[t].missing});
   return issues;
 }
 

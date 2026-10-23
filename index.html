@@ -209,6 +209,7 @@ kbd {
 .sw.code { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font: 700 10.5px var(--mono); }
 .sw.shared { height: 0; border-top: 2px dashed var(--shared); border-radius: 0; }
 .sw.stop { height: 16px; padding: 0 6px; border-radius: 8px; background: var(--stop); color: var(--stop-ink); }
+.sw.ctype { height: 16px; padding: 0 5px; border-radius: 8px; border: 1px solid var(--wire); background: var(--panel); color: var(--ink-2); font-size: 7.5px; }
 .sw.ctrl { height: 16px; padding: 0 5px; border-radius: 8px; background: #2f7a3a; color: #fff; font-size: 7.5px; }
 
 /* ---- Canvas ---- */
@@ -658,6 +659,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
       <li><span class="sw shared"></span>Shared cause link</li>
       <li><span class="sw stop">STOP</span>Stop point: root cause</li>
       <li><span class="sw ctrl">CONTROLLABLE</span>We can change it</li>
+      <li><span class="sw ctype">ESCAPE</span>Root cause type, top line</li>
     </ul>
     <ul class="legend apollo">
       <li><span class="sw effect"></span>Primary effect</li>
@@ -669,6 +671,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
       <li><span class="sw shared"></span>Shared cause link</li>
       <li><span class="sw stop">STOP</span>Stop point</li>
       <li><span class="sw ctrl">CONTROLLABLE</span>We can change it</li>
+      <li><span class="sw ctype">ESCAPE</span>Root cause type, top line</li>
     </ul>
   </nav>
 
@@ -732,6 +735,13 @@ const STATUSES = {
   possible: {name: 'Hypothesis', label: 'HYPOTHESIS', mark: 'H'},
   confirmed: {name: 'Confirmed', label: '✓ CONFIRMED', mark: '✓'},
   'ruled-out': {name: 'Ruled out', label: '✕ RULED OUT', mark: '✕'},
+};
+// A root cause's type, as 8D asks for it: why the failure happened, why it was not caught, and why
+// the system allowed it.
+const CAUSE_TYPES = {
+  occurrence: {name: 'Occurrence', tag: 'OCCURRENCE', about: 'Why the failure happened'},
+  escape: {name: 'Escape point', tag: 'ESCAPE', about: 'Why it was not detected or caught earlier', missing: 'No cause is marked as escape point: why was the failure not detected or caught earlier?'},
+  systemic: {name: 'Systemic', tag: 'SYSTEMIC', about: 'Why the system (design, planning, procedures, management) allowed it', missing: 'No cause is marked systemic: what in design, planning, procedures, or management allowed it?'},
 };
 const STOP_REASONS = {
   'outside-control': 'Outside our control',
@@ -849,11 +859,12 @@ function uuid() {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
-// status is used in a cause tree; test, how the cause is or was tested, in both styles. offsetY: how far
+// status is used in a cause tree; test, how the cause is or was tested, in both styles. causeType: a
+// key of CAUSE_TYPES, or ''. offsetY: how far
 // the node is moved down by hand (negative: up) from where the layout puts it.
 const blankNode = (kind, title) => ({
   id: uuid(), kind, title, description: '', evidenceIds: [], status: 'possible', test: '',
-  unverified: false, controllable: false, stopPoint: null, notes: '', offsetY: 0,
+  unverified: false, controllable: false, causeType: '', stopPoint: null, notes: '', offsetY: 0,
 });
 
 function blankState(style = 'apollo') {
@@ -1048,7 +1059,7 @@ function pasteBranchData(data, effectId) {
     const text = key => typeof n[key] === 'string' ? n[key] : '';
     state.nodes.push({...blankNode(kind, text('title')), id: ids.get(old),
       description: text('description'), test: text('test'), notes: text('notes'), evidenceIds: kept,
-      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true,
+      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true, causeType: n.causeType in CAUSE_TYPES ? n.causeType : '',
       stopPoint: n.stopPoint && n.stopPoint.reason in STOP_REASONS ? {reason: n.stopPoint.reason, note: typeof n.stopPoint.note === 'string' ? n.stopPoint.note : ''} : null,
       offsetY: old !== data.rootId && Number.isFinite(n.offsetY) ? n.offsetY : 0});
   }
@@ -1411,6 +1422,10 @@ function causeIssues() {
       else if (n.controllable) issues.push({nodeId: n.id, level: 'info', code: 'no-solution', text: 'Controllable, but no solution attacks it yet'});
     }
   }
+  // Once root causes are typed, the 8D questions not yet answered.
+  const typed = new Set(state.nodes.filter(n => live.has(n.id) && isCause(n) && !(tree && n.status === 'ruled-out')).map(n => n.causeType));
+  if (typed.size > (typed.has('') ? 1 : 0)) for (const t of ['escape', 'systemic']) if (!typed.has(t))
+    issues.push({nodeId: state.problem.primaryEffectId, level: 'info', code: 'cause-types', text: CAUSE_TYPES[t].missing});
   return issues;
 }
 
@@ -1521,9 +1536,10 @@ function nodeFoot(n, hidden) {
 }
 const hasFoot = f => f.codes.length || f.controllable || f.stop || f.hidden;
 
-// In a cause tree a cause has no kind label: its status badge in the corner says it.
+// In a cause tree a cause has no kind label: its status badge in the corner says it. The label line
+// stays for its root cause type, when it has one.
 const statusBadge = n => treeStyle() && isCause(n);
-const kindLine = n => statusBadge(n) ? 0 : KIND_LINE;
+const kindLine = n => statusBadge(n) && !n.causeType ? 0 : KIND_LINE;
 
 function nodeSize(n, hidden) {
   const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X - (statusBadge(n) ? BADGE_ROOM : 0), TITLE_SIZE, 600);
@@ -1751,8 +1767,9 @@ function nodeMarkup(b, opts) {
   if (opts.selectedId === n.id) s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.select}" stroke-width="3"/>`;
   else if (issue === 'error') s += `<rect x="-5" y="-5" width="${w + 10}" height="${h + 10}" rx="11" fill="none" stroke="${C.issue}" stroke-width="2" stroke-dasharray="5 4"/>`;
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': c.dash || n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1, 'stroke-dasharray': c.dash})}/>`;
-  const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
-    : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label;
+  const type = CAUSE_TYPES[n.causeType]?.tag;
+  const kind = isPrimary ? KINDS.effect.label : statusBadge(n) ? type : [n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
+    : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label, type].filter(Boolean).join(' · ');
   const kl = kindLine(n);
   if (kl) s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
   s += `<text x="${NODE_PAD_X}" font-size="${TITLE_SIZE}" font-weight="600" fill="${c.text}">`;
@@ -2049,6 +2066,9 @@ function renderNodeProperties(box, n) {
         + flagBox('nodeControllable', n.controllable, 'Controllable', 'The organisation can change this cause: a candidate for a solution')}
       ${flagBox('nodeStop', !!n.stopPoint, 'Stop point', 'The branch ends here')}
     </div>
+    ${isPrimary ? '' : `<label class="field">Root cause type <span class="muted">for 8D</span></label>
+    <div class="segmented cause-type" role="group" aria-label="Root cause type">${Object.entries(CAUSE_TYPES).map(([k, t]) =>
+      `<button data-cause-type="${k}" ${pressed(n.causeType === k)} title="${t.about}${n.causeType === k ? '. Click again to clear' : ''}">${t.name}</button>`).join('')}</div>`}
     ${n.stopPoint ? `<label class="field" for="nodeStopReason">Why the branch stops</label><select class="text" id="nodeStopReason">${Object.entries(STOP_REASONS).map(([k, v]) => `<option value="${k}" ${n.stopPoint.reason === k ? 'selected' : ''}>${v}</option>`).join('')}</select>` : ''}
 
     <div class="section">
@@ -2118,6 +2138,10 @@ function renderNodeProperties(box, n) {
   $('nodeDescription').oninput = e => { n.description = e.target.value; persist('description:' + n.id); };
   $('nodeNotes').oninput = e => { n.notes = e.target.value; persist('notes:' + n.id); };
   box.querySelectorAll('[data-kind]').forEach(b => b.onclick = () => { n.kind = b.dataset.kind; render(); persist(); });
+  box.querySelectorAll('[data-cause-type]').forEach(b => b.onclick = () => {
+    n.causeType = n.causeType === b.dataset.causeType ? '' : b.dataset.causeType;
+    render(); persist();
+  });
   const flag = (id, apply) => { if ($(id)) $(id).onchange = e => { apply(e.target.checked); render(); persist(); }; };
   flag('nodeUnverified', on => { n.unverified = on; });
   flag('nodeControllable', on => { n.controllable = on; });
@@ -2204,6 +2228,7 @@ const NEEDS = {
   'ruled-basis': n => `${plural(n, 'ruled-out cause')} without a reason`,
   'one-evidence': n => `${plural(n, 'confirmed cause')} on one evidence item`,
   'no-solution': n => `${plural(n, 'cause')} that no solution attacks yet`,
+  'cause-types': n => `${plural(n, 'root cause type')} not used yet (escape point, systemic)`,
 };
 
 // Asks before moving the RCA to the other style, with what that style will still need.
@@ -2847,7 +2872,7 @@ function normalizeProject(p) {
   for (const key of ['evidence', 'ruledOut', 'solutions', 'actions']) s[key] = Array.isArray(p[key]) ? p[key] : [];
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
     kind: n.kind in KINDS ? n.kind : 'condition', status: n.status in STATUSES ? n.status : 'possible', test: typeof n.test === 'string' ? n.test : '',
-    offsetY: Number.isFinite(n.offsetY) ? n.offsetY : 0,
+    offsetY: Number.isFinite(n.offsetY) ? n.offsetY : 0, causeType: n.causeType in CAUSE_TYPES ? n.causeType : '',
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];
@@ -4206,8 +4231,8 @@ function buildReport() {
     <section class="r-page">
       <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
       <p class="r-legend">${treeStyle()
-        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed, H: hypothesis, still to test. Grey, struck through, ✕: ruled out. E-codes: evidence. Orange badge: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
-        : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
+        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed, H: hypothesis, still to test. Grey, struck through, ✕: ruled out. E-codes: evidence. Orange badge: no evidence. Double bar and STOP: stop point. OCCURRENCE, ESCAPE, SYSTEMIC on the top line: root cause type. Dashed purple: a further link of a shared cause.'
+        : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. OCCURRENCE, ESCAPE, SYSTEMIC on the top line: root cause type. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
       ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(issueTitle(i))}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}
     </section>
@@ -4354,13 +4379,13 @@ function exampleRca() {
   node('dryrun', 'condition', 'Carbon/SiC pair has limited dry-run tolerance', {evidence: ['E2'], stopPoint: stop('no-value')});
   node('temp', 'action', 'Seal chamber temperature rose 18 °C', {evidence: ['E3']});
   node('vapour', 'condition', 'Product close to its vapour pressure', {evidence: ['E6']});
-  node('selection', 'condition', 'Seal selected without checking vapour-pressure margin', {evidence: ['E7'], controllable: true, stopPoint: stop('solution-found')});
+  node('selection', 'condition', 'Seal selected without checking vapour-pressure margin', {evidence: ['E7'], controllable: true, causeType: 'systemic', stopPoint: stop('solution-found')});
   node('flow', 'action', 'Plan 11 flush flow dropped to near zero', {evidence: ['E3', 'E4']});
   node('heat', 'condition', 'Heat input from face friction and pump', {stopPoint: stop('no-value')});
   node('solids', 'action', 'Solids entered the flush line', {evidence: ['E4']});
-  node('orifice', 'condition', '3 mm orifice, no strainer or cyclone', {evidence: ['E4'], controllable: true, stopPoint: stop('solution-found')});
-  node('bypass', 'action', 'Filter bypass opened during process upset', {evidence: ['E5'], controllable: true, stopPoint: stop('solution-found')});
-  node('nocheck', 'condition', 'No seal-system check after upset or bypass', {evidence: ['E8'], controllable: true, stopPoint: stop('solution-found')});
+  node('orifice', 'condition', '3 mm orifice, no strainer or cyclone', {evidence: ['E4'], controllable: true, causeType: 'occurrence', stopPoint: stop('solution-found')});
+  node('bypass', 'action', 'Filter bypass opened during process upset', {evidence: ['E5'], controllable: true, causeType: 'occurrence', stopPoint: stop('solution-found')});
+  node('nocheck', 'condition', 'No seal-system check after upset or bypass', {evidence: ['E8'], controllable: true, causeType: 'escape', stopPoint: stop('solution-found')});
 
   causes('leak', 'path', 'pressurised');
   causes('path', 'damaged', 'film');

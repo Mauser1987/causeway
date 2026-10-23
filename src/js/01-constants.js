@@ -26,6 +26,13 @@ const STATUSES = {
   confirmed: {name: 'Confirmed', label: '✓ CONFIRMED', mark: '✓'},
   'ruled-out': {name: 'Ruled out', label: '✕ RULED OUT', mark: '✕'},
 };
+// A root cause's type, as 8D asks for it: why the failure happened, why it was not caught, and why
+// the system allowed it.
+const CAUSE_TYPES = {
+  occurrence: {name: 'Occurrence', tag: 'OCCURRENCE', about: 'Why the failure happened'},
+  escape: {name: 'Escape point', tag: 'ESCAPE', about: 'Why it was not detected or caught earlier', missing: 'No cause is marked as escape point: why was the failure not detected or caught earlier?'},
+  systemic: {name: 'Systemic', tag: 'SYSTEMIC', about: 'Why the system (design, planning, procedures, management) allowed it', missing: 'No cause is marked systemic: what in design, planning, procedures, or management allowed it?'},
+};
 const STOP_REASONS = {
   'outside-control': 'Outside our control',
   'solution-found': 'Effective solution found',

@@ -21,11 +21,12 @@ function uuid() {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
-// status is used in a cause tree; test, how the cause is or was tested, in both styles. offsetY: how far
+// status is used in a cause tree; test, how the cause is or was tested, in both styles. causeType: a
+// key of CAUSE_TYPES, or ''. offsetY: how far
 // the node is moved down by hand (negative: up) from where the layout puts it.
 const blankNode = (kind, title) => ({
   id: uuid(), kind, title, description: '', evidenceIds: [], status: 'possible', test: '',
-  unverified: false, controllable: false, stopPoint: null, notes: '', offsetY: 0,
+  unverified: false, controllable: false, causeType: '', stopPoint: null, notes: '', offsetY: 0,
 });
 
 function blankState(style = 'apollo') {
