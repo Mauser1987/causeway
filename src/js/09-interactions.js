@@ -23,6 +23,8 @@ svg.addEventListener('pointerdown', e => {
   if (node) {
     const id = node.dataset.id, b = layout.boxes.get(id), p = point(e);
     select(id);
+    // With Shift, a cause moves up or down; without, it is dragged to another place in the structure.
+    if (b && layout.parent.has(id) && e.shiftKey) { nodeShift = {id, start: e.clientY, kept: byId(id).offsetY, moved: false}; capture(e); return; }
     // A cause can be dragged once the pointer has moved a little; the primary effect stays put.
     if (b && layout.parent.has(id)) { nodeDrag = {id, from: layout.parent.get(id), start: {x: e.clientX, y: e.clientY}, moved: false}; capture(e); }
     return;
@@ -31,6 +33,7 @@ svg.addEventListener('pointerdown', e => {
   capture(e);
 });
 svg.addEventListener('pointermove', e => {
+  if (nodeShift) { moveShift(e); return; }
   if (nodeDrag) {
     if (!nodeDrag.moved && Math.hypot(e.clientX - nodeDrag.start.x, e.clientY - nodeDrag.start.y) < 5) return;
     nodeDrag.moved = true;
@@ -49,13 +52,14 @@ svg.addEventListener('pointermove', e => {
   renderCanvas();
 });
 svg.addEventListener('pointerup', () => {
+  if (nodeShift) { finishShift(); return; }
   if (nodeDrag) { finishNodeDrag(); return; }
   if (drag && !drag.moved && linking) cancelLinking();
   else if (drag && !drag.moved && (selected || highlight)) { highlight = null; select(null); }
   drag = null;
   svg.classList.remove('panning');
 });
-svg.addEventListener('pointercancel', () => cancelNodeDrag());
+svg.addEventListener('pointercancel', () => { cancelNodeDrag(); cancelShift(); });
 
 // What dropping the dragged node at chart point p would do. On a sibling's top or bottom 30 %, or in
 // the gap next to it, it is placed above or below that sibling (siblings of its group only);
@@ -95,6 +99,42 @@ function cancelNodeDrag() {
   renderCanvas();
 }
 
+// Shift+drag: the cause follows the pointer up and down, no higher than there is room for. It snaps
+// back to its place, and level with its effect, so the connector runs straight.
+function moveShift(e) {
+  const s = nodeShift;
+  if (!s.moved) {
+    if (Math.abs(e.clientY - s.start) < 4) return;
+    s.moved = true;
+    s.min = highestShift(s.id);
+    const b = layout.boxes.get(s.id), effect = layout.boxes.get(layout.parent.get(s.id));
+    s.snaps = [{at: 0, text: 'back in its place'}, {at: s.kept + midY(effect) - midY(b), text: 'level with its effect'}];
+    svg.classList.add('shifting');
+  }
+  let shift = Math.max(s.min, s.kept + (e.clientY - s.start) / view.k);
+  const snap = s.snaps.find(x => x.at >= s.min && Math.abs(x.at - shift) < 8 / view.k);
+  shift = Math.round(snap ? snap.at : shift);
+  byId(s.id).offsetY = shift;
+  layout = computeLayout();
+  renderCanvas();
+  setStatus(`Moving "${byId(s.id).title}": ${snap ? snap.text : shiftText(shift)}`);
+}
+function finishShift() {
+  const s = nodeShift;
+  nodeShift = null;
+  svg.classList.remove('shifting');
+  if (!s.moved) return;
+  render(); persist();
+  setStatus(`Moved "${byId(s.id).title}" ${shiftText(byId(s.id).offsetY)}`);
+}
+function cancelShift() {
+  if (!nodeShift) return;
+  byId(nodeShift.id).offsetY = nodeShift.kept;
+  nodeShift = null;
+  svg.classList.remove('shifting');
+  render();
+}
+
 svg.addEventListener('dblclick', e => { if (e.target.closest('.node')) focusTitle(); });
 
 function zoom(factor, at) {
@@ -128,6 +168,7 @@ window.addEventListener('keydown', e => {
   const key = e.key.toLowerCase(), command = (e.ctrlKey || e.metaKey) && !e.altKey;
   if ($('dialog').open) return;
   if (nodeDrag?.moved && key === 'escape') { e.preventDefault(); cancelNodeDrag(); setStatus('Drag cancelled'); return; }
+  if (nodeShift?.moved && key === 'escape') { e.preventDefault(); cancelShift(); setStatus('Move cancelled'); return; }
   if (command && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   if (command && (key === 'z' || key === 'y')) {
@@ -165,12 +206,24 @@ window.addEventListener('keydown', e => {
   else if (e.key.length === 1) focusTitle();
 });
 
+// Copy, cut, and paste on the chart, through the clipboard events, so the system clipboard is used.
+// In a field, or with text selected on the page, they act on the text as usual.
+const chartClipboard = () => record === 'chart' && !$('dialog').open && !linking
+  && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable
+  && (getSelection()?.isCollapsed ?? true);
+document.addEventListener('copy', e => { if (chartClipboard() && byId(selected)) { e.preventDefault(); copySelected(e.clipboardData); } });
+document.addEventListener('cut', e => { if (chartClipboard() && byId(selected)) { e.preventDefault(); cutSelected(e.clipboardData); } });
+document.addEventListener('paste', e => { if (chartClipboard()) { e.preventDefault(); pasteToSelected(e.clipboardData); } });
+
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
+// With Shift, up and down move the selected cause instead.
 window.addEventListener('keydown', e => {
   if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey || record !== 'chart') return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
+  // Shift+Up and Shift+Down move a cause by hand.
+  if (from && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { shiftSelected(e.key === 'ArrowUp' ? -1 : 1); return; }
   // Right on a collapsed node expands it.
   if (from && e.key === 'ArrowRight' && collapsed.has(from.id)) { toggleCollapse(from.id); return; }
   const next = from ? neighbour(from, e.key) : layout.boxes.get(state.problem.primaryEffectId);

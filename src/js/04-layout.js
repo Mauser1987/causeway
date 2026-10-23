@@ -5,6 +5,9 @@
 // effect in the column just left of it; along those links the chart is a tree, laid out with
 // subtree contours so branches pack closely without overlapping. Links to further effects of a
 // shared cause are routed separately, through gaps between the nodes of the columns they cross.
+//
+// A cause moved by hand (its offsetY) moves up or down from there, with its branch; its effect stays
+// where it was. It moves up only into free space, and moving down it pushes the causes below it.
 
 const measureContext = document.createElement('canvas').getContext('2d');
 const textWidth = (text, size, weight = 400, font = CHART_FONT) => {
@@ -106,20 +109,28 @@ function computeLayout() {
   const sizes = new Map([...visible].map(id => [id, nodeSize(byId(id), hiddenCount(id))]));
 
   // Contour packing. A subtree is {contour: [[top, bottom] per column depth], members: [[id, top]]}
-  // in coordinates relative to the subtree.
-  function subtree(id) {
+  // in coordinates relative to the subtree. With `hand`, causes are moved by hand; without, the
+  // result places each effect, centred on its causes as they would be without hand moves.
+  const plain = new Map();
+  function subtree(id, hand) {
+    if (!hand && plain.has(id)) return plain.get(id);
     const h = sizes.get(id).h, kids = children.get(id) || [];
     if (!kids.length) return {contour: [[0, h]], members: [[id, 0]]};
-    const acc = [], members = [];
+    const acc = [], members = [], offsets = [];
     let firstCenter = null, lastCenter = null;
-    for (const kid of kids) {
-      const t = subtree(kid.id);
-      let offset = 0;
+    for (const [i, kid] of kids.entries()) {
+      const t = subtree(kid.id, hand);
+      // Packed below the causes before it; the first has nothing above it, except by hand.
+      let offset = hand ? -Infinity : 0;
       if (members.length) {
         offset = -Infinity;
         for (let d = 0; d < Math.min(acc.length, t.contour.length); d++)
           offset = Math.max(offset, acc[d][1] + (d ? SUBTREE_GAP : SIBLING_GAP) - t.contour[d][0]);
       }
+      // By hand, a cause goes where it would be without hand moves, moved by its offset, unless the
+      // causes above it need the room.
+      if (hand) offset = Math.max(offset, subtree(id, false).offsets[i] + (kid.offsetY || 0));
+      offsets.push(offset);
       t.contour.forEach(([top, bottom], d) => {
         acc[d] = acc[d] ? [Math.min(acc[d][0], top + offset), Math.max(acc[d][1], bottom + offset)] : [top + offset, bottom + offset];
       });
@@ -128,20 +139,25 @@ function computeLayout() {
       const center = offset + t.members[0][1] + sizes.get(kid.id).h / 2;
       firstCenter ??= center; lastCenter = center;
     }
-    const top = (firstCenter + lastCenter) / 2 - h / 2;
-    return {contour: [[top, top + h], ...acc], members: [[id, top], ...members]};
+    const top = hand ? subtree(id, false).members[0][1] : (firstCenter + lastCenter) / 2 - h / 2;
+    const result = {contour: [[top, top + h], ...acc], members: [[id, top], ...members], offsets};
+    if (!hand) plain.set(id, result);
+    return result;
   }
 
+  // Each tree is placed below the last, its top where it would be without hand moves, so that a
+  // cause moved up into the space above does not move the rest of the chart.
   const boxes = new Map();
-  let cursor = 0;
+  let bottom = null;
   for (const root of roots) {
     if (!visible.has(root) || rank.get(root) !== 0) continue;
-    const t = subtree(root), top = Math.min(...t.contour.map(c => c[0]));
+    const t = subtree(root, true), top = Math.min(...subtree(root, false).contour.map(c => c[0]));
+    const origin = bottom === null ? 0 : bottom + SUBTREE_GAP * 2 - (Math.min(...t.contour.map(c => c[0])) - top);
     for (const [id, y] of t.members) {
       const size = sizes.get(id);
-      boxes.set(id, {id, node: byId(id), x: rank.get(id) * (NODE_W + COL_GAP), y: y - top + cursor, ...size});
+      boxes.set(id, {id, node: byId(id), x: rank.get(id) * (NODE_W + COL_GAP), y: y - top + origin, ...size});
     }
-    cursor += Math.max(...t.contour.map(c => c[1])) - top + SUBTREE_GAP * 2;
+    bottom = origin + Math.max(...t.contour.map(c => c[1])) - top;
   }
 
   const placed = links.filter(l => boxes.has(l.effectId) && boxes.has(l.causeId));

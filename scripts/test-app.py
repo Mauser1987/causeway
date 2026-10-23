@@ -111,6 +111,11 @@ def run_tests(b):
     def type_into(field, value):
         b.js('const i=document.getElementById(arguments[0]);i.focus();i.value=arguments[1];i.dispatchEvent(new Event("input",{bubbles:true}));return true', [field, value])
 
+    def load(project):
+        b.async_js('''const done=arguments[arguments.length-1],input=document.getElementById('projectFile'),dt=new DataTransfer();
+            dt.items.add(new File([JSON.stringify(arguments[0])],'test.json',{type:'application/json'}));input.files=dt.files;
+            input.onchange({target:input}).then(()=>done(true));''', [project])
+
     def boxes():
         return b.js('''return [...document.querySelectorAll('#chart .node')].map(g=>{const t=g.transform.baseVal[0].matrix,r=g.querySelector('rect:not([fill=none])');
             return {id:g.dataset.id,x:t.e,y:t.f,w:+r.getAttribute('width'),h:+r.getAttribute('height')}})''')
@@ -439,6 +444,257 @@ def run_tests(b):
     assert rca() == before_move
     print('PASS: drag to move and reorder, M, Alt+arrows, refused and cancelled drags', flush=True)
 
+    # ---- Moving causes up and down by hand ----
+    def shift_drag(title, dy, hold=False):
+        """Shift+drags a node by dy screen pixels."""
+        b.js('''const chart=document.getElementById('chart'),n=document.querySelector(`#chart .node[data-id="${arguments[0]}"] rect:not([fill=none])`);
+            const r=n.getBoundingClientRect(),x=r.x+r.width/2,y=r.y+r.height/2,o={bubbles:true,button:0,shiftKey:true,clientX:x};
+            n.dispatchEvent(new PointerEvent('pointerdown',{...o,clientY:y}));
+            chart.dispatchEvent(new PointerEvent('pointermove',{...o,clientY:y+arguments[1]/2}));
+            chart.dispatchEvent(new PointerEvent('pointermove',{...o,clientY:y+arguments[1]}));
+            if(!arguments[2]) chart.dispatchEvent(new PointerEvent('pointerup',{...o,clientY:y+arguments[1]}));return true''', [node_id(title), dy, hold])
+
+    def layout_tree():
+        """The effect each drawn cause is drawn under, and each effect's causes from the top down."""
+        placed = {x['id']: x for x in boxes()}
+        step = min({x['x'] for x in placed.values()} - {0}, default=0)
+        under = {}
+        for link in rca()['links']:
+            e, c = placed.get(link['effectId']), placed.get(link['causeId'])
+            if e and c and c['id'] not in under and c['x'] - e['x'] == step:
+                under[c['id']] = e['id']
+        kids = {}
+        for c, e in under.items():
+            kids.setdefault(e, []).append(c)
+        for e in kids:
+            kids[e].sort(key=lambda i: placed[i]['y'])
+        return kids
+
+    def branch(title):
+        kids, todo, seen = layout_tree(), [node_id(title)], set()
+        while todo:
+            i = todo.pop()
+            if i not in seen:
+                seen.add(i); todo += kids.get(i, [])
+        return seen
+
+    def offset(title):
+        return next(n['offsetY'] for n in rca()['nodes'] if n['title'] == title)
+
+    zoom_k = b.js("const s=document.getElementById('chart');return s.clientWidth/s.viewBox.baseVal.width")
+    film = 'Fluid film flashed to vapour (intermittent dry running)'
+    # A cause after the first of its effect, with causes of its own.
+    later = next([e, ks[i], ks[0]] for e, ks in layout_tree().items() for i in range(1, len(ks)) if ks[i] in layout_tree())
+    title_of = lambda i: next(n['title'] for n in rca()['nodes'] if n['id'] == i)
+    effect_title, later_title, first_title = map(title_of, later)
+    before_shift, start = rca(), {x['id']: x for x in boxes()}
+    moved = branch(later_title)
+    shift_drag(later_title, 90 * zoom_k)
+    placed = check_layout()
+    assert offset(later_title) == 90, offset(later_title)
+    for i in moved:
+        assert abs(placed[i]['y'] - start[i]['y'] - 90) < .5, 'the cause moves down with its branch'
+    for i, x in start.items():
+        if i not in moved and x['y'] < start[later[1]]['y']:
+            assert placed[i]['y'] == x['y'], 'nothing above it moves'
+    assert placed[later[0]]['y'] == start[later[0]]['y'], 'its effect stays'
+    assert 'Moved' in b.js("return document.getElementById('properties').textContent"), 'the Properties panel says it was moved by hand'
+    click('undo')
+    assert rca() == before_shift and boxes() == list(start.values()), 'a hand move is one undo step'
+
+    shift_drag(later_title, -60 * zoom_k)
+    assert offset(later_title) == 0 and {x['id']: x for x in boxes()} == start, 'a cause below another cannot move up into it'
+
+    # A cause moves up into free space, and no further than its effect allows: here the first cause of
+    # the primary effect, which has the space above the chart.
+    root = rca()['problem']['primaryEffectId']
+    top_title = title_of(layout_tree()[root][0])
+    shift_drag(top_title, -2000 * zoom_k)
+    placed = check_layout()
+    up = offset(top_title)
+    assert up < 0 and placed[root] == start[root], 'the first cause moves up, and its effect stays'
+    for i, x in start.items():
+        if i not in branch(top_title):
+            assert placed[i] == x, 'nothing else moves'
+    click('undo')
+    # Where the causes above leave no room, it cannot move up; moved down, it pushes the causes below.
+    select(later_title)
+    key('ArrowUp', shift=True)
+    assert offset(later_title) == 0 and 'no room' in b.js("return document.getElementById('status').textContent")
+    shift_drag(first_title, 40 * zoom_k)
+    placed = check_layout()
+    assert placed[later[1]]['y'] > start[later[1]]['y'] and offset(later_title) == 0, 'the cause below is pushed down'
+    click('undo')
+    assert rca() == before_shift
+
+    # Keys: Shift+Down twice is one undo step; Esc cancels a drag; a drag snaps level with the effect.
+    select(later_title)
+    key('ArrowDown', shift=True); key('ArrowDown', shift=True)
+    assert offset(later_title) == 20 and selected_title() == later_title
+    click('undo')
+    assert rca() == before_shift, 'consecutive Shift+arrows are one undo step'
+    shift_drag(later_title, 50 * zoom_k, hold=True)
+    key('Escape')
+    b.js("document.getElementById('chart').dispatchEvent(new PointerEvent('pointerup',{bubbles:true}));return true")
+    assert rca() == before_shift and {x['id']: x for x in boxes()} == start, 'Escape cancels a hand move'
+    level = start[later[0]]['y'] + start[later[0]]['h'] / 2 - start[later[1]]['y'] - start[later[1]]['h'] / 2
+    if level > 0:
+        shift_drag(later_title, (level + 5) * zoom_k)
+        placed = {x['id']: x for x in boxes()}
+        assert placed[later[1]]['y'] + placed[later[1]]['h'] / 2 == placed[later[0]]['y'] + placed[later[0]]['h'] / 2, 'it snaps level with its effect'
+        click('undo')
+
+    # Put back, one or all; moving or reordering a cause puts it back too; files keep it.
+    shift_drag(later_title, 70 * zoom_k)
+    b.js("document.getElementById('inspResetShift').click();return true")
+    assert offset(later_title) == 0 and {x['id']: x for x in boxes()} == start
+    shift_drag(later_title, 70 * zoom_k); shift_drag(first_title, 30 * zoom_k)
+    b.js("document.getElementById('chart').dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,clientX:5,clientY:5}));document.getElementById('chart').dispatchEvent(new PointerEvent('pointerup',{bubbles:true,button:0,clientX:5,clientY:5}));return true")
+    assert 'Put back 2 nodes' in b.js("return document.getElementById('resetShifts').textContent")
+    click('resetShifts')
+    assert offset(later_title) == offset(first_title) == 0 and {x['id']: x for x in boxes()} == start
+    shift_drag(later_title, 70 * zoom_k)
+    drag(later_title, first_title)
+    assert offset(later_title) == 0, 'moving a cause to another effect puts it back'
+    click('undo')
+    assert offset(later_title) == 70
+    for name in ('Hand A', 'Hand B'):
+        select(later_title); key('Insert'); type_into('nodeTitle', name)
+    select('Hand B')
+    key('ArrowDown', shift=True)
+    assert offset('Hand B') == 10
+    alt_key('ArrowUp')
+    assert offset('Hand B') == 0, 'reordering puts it back'
+    for _ in range(12):
+        if rca() == before_shift:
+            break
+        click('undo')
+    assert rca() == before_shift
+    print('PASS: move causes up and down by hand, with Shift+drag and Shift+arrows', flush=True)
+
+    # ---- Copy, cut, and paste ----
+    def ctrl(letter, on_page=True):
+        """A real Ctrl+letter key press, by default with the focus on the page, through the system clipboard."""
+        if on_page:
+            b.js('document.activeElement.blur();getSelection().removeAllRanges();return true')
+        b.call('WebDriver:PerformActions', {'actions': [{'type': 'key', 'id': 'keyboard', 'actions': [
+            {'type': 'keyDown', 'value': ''}, {'type': 'keyDown', 'value': letter},
+            {'type': 'keyUp', 'value': letter}, {'type': 'keyUp', 'value': ''}]}]})
+        b.call('WebDriver:ReleaseActions')
+
+    def status():
+        return b.js("return document.getElementById('status').textContent")
+
+    def subtree_titles(root_id, data):
+        kids, seen, todo = {}, [], [root_id]
+        for l in data['links']:
+            kids.setdefault(l['effectId'], []).append(l['causeId'])
+        while todo:
+            i = todo.pop(0)
+            if i not in seen:
+                seen.append(i); todo += kids.get(i, [])
+        titles = {n['id']: n['title'] for n in data['nodes']}
+        return sorted(titles[i] for i in seen)
+
+    before_copy = rca()
+    copied, target = film, 'Seal relies on a stable liquid film'
+    branch_size = len(subtree_titles(node_id(copied), before_copy))
+    assert branch_size > 3
+    select(copied)
+    ctrl('c')
+    assert status().startswith(f'Copied "{copied}" and {branch_size - 1} causes'), status()
+    select(target)
+    ctrl('v')
+    after = rca()
+    assert len(after['nodes']) == len(before_copy['nodes']) + branch_size, 'the node and every cause under it are pasted'
+    pasted = [n for n in after['nodes'] if n['title'] == copied and n['id'] != node_id(copied)]
+    assert len(pasted) == 1 and selected_title() == copied, 'the pasted branch is selected'
+    root = pasted[0]['id']
+    assert any(l['effectId'] == node_id(target) and l['causeId'] == root for l in after['links']), 'it is pasted as a cause of the selected node'
+    assert subtree_titles(root, after) == subtree_titles(node_id(copied), before_copy), 'the branch keeps its shape'
+    original = next(n for n in before_copy['nodes'] if n['title'] == copied)
+    assert {k: v for k, v in pasted[0].items() if k != 'id'} == {k: v for k, v in original.items() if k != 'id'}, 'fields, evidence included, are kept'
+    assert len({n['id'] for n in after['nodes']}) == len(after['nodes']) and all(uuid.match(n['id']) for n in after['nodes']), 'new ids'
+    check_layout()
+    click('undo')
+    assert rca() == before_copy, 'a paste is one undo step'
+    # In a text field, the copy pastes as the titles, indented.
+    select(target)
+    b.js("const i=document.getElementById('nodeNotes');i.focus();return true")
+    ctrl('v', on_page=False)
+    notes = b.js("return document.getElementById('nodeNotes').value")
+    assert notes.startswith(copied + '\n  ') and len(notes.strip().split('\n')) == branch_size, notes
+    click('undo')
+    assert rca() == before_copy
+    select(target)
+    ctrl('v')
+    # The Paste as cause button pastes the same branch again.
+    select(target)
+    b.js("document.getElementById('inspPaste').click();return true")
+    assert sum(n['title'] == copied for n in rca()['nodes']) == 3
+    click('undo'); click('undo')
+    assert rca() == before_copy
+
+    # Cut: copies, then deletes as Delete does.
+    leaf = 'Seal relies on a stable liquid film'
+    select(leaf)
+    ctrl('x')
+    assert leaf not in [n['title'] for n in rca()['nodes']] and status().startswith('Cut')
+    select(copied)
+    ctrl('v')
+    assert leaf in drawn_under(copied), 'a cut node pastes elsewhere'
+    click('undo'); click('undo')
+    assert rca() == before_copy
+
+    # In a field, the keys copy text as usual.
+    select(copied)
+    b.js("const i=document.getElementById('nodeTitle');i.focus();i.select();return true")
+    copy_default = b.js("const e=new ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:new DataTransfer()});document.getElementById('nodeTitle').dispatchEvent(e);return e.defaultPrevented")
+    assert copy_default is False, 'copying in a field is left to the browser'
+
+    # Copying the primary effect copies the chart; pasted, its top node is a cause without a type.
+    select(primary_title)
+    ctrl('c')
+    select(leaf)
+    ctrl('v')
+    top = next(n for n in rca()['nodes'] if n['title'] == primary_title and n['id'] != rca()['problem']['primaryEffectId'])
+    assert top['kind'] == 'cause' and len(rca()['nodes']) == 2 * len(before_copy['nodes'])
+    check_layout()
+    click('undo')
+    assert rca() == before_copy
+
+    # Into another RCA: the evidence it cited there is left out.
+    select(copied)
+    ctrl('c')
+    click('newProject')
+    b.js("document.querySelector('#dialog [data-choice=apollo]').click();return true")
+    select(rca()['nodes'][0]['title'])
+    ctrl('v')
+    other = rca()
+    assert len(other['nodes']) == 1 + branch_size and all(n['evidenceIds'] == [] for n in other['nodes'])
+    assert 'left out' in status(), status()
+
+    # The clipboard can hold anything: unknown fields, loops, and links to nodes not in it are dropped.
+    bad = {'type': 'causeway-branch', 'rcaId': 'x', 'rootId': 'a', 'nodes': [
+        {'id': 'a', 'kind': 'action', 'title': 'Pasted A', 'stopPoint': {'reason': 'nonsense'}, 'offsetY': 'far', 'evil': 1},
+        {'id': 'b', 'kind': 'weird', 'title': 7, 'status': 'gone'}, {'id': 'c', 'kind': 'condition', 'title': 'Unreached'}],
+        'links': [{'effectId': 'a', 'causeId': 'b'}, {'effectId': 'b', 'causeId': 'a'}, {'effectId': 'a', 'causeId': 'zz'}]}
+    select(rca()['nodes'][0]['title'])
+    # Put on the real clipboard by a copy the page does not see; a paste event made by a script has no data.
+    b.js("""window.addEventListener('copy',e=>{e.stopImmediatePropagation();e.preventDefault();
+        const u=document.createElement('ul');u.dataset.causewayBranch=arguments[0];u.innerHTML='<li>Pasted A</li>';
+        e.clipboardData.setData('text/html',u.outerHTML);e.clipboardData.setData('text/plain','other text')},{capture:true,once:true});return true""", [json.dumps(bad)])
+    ctrl('c')
+    ctrl('v')
+    added = [n for n in rca()['nodes'] if n['id'] not in {x['id'] for x in other['nodes']}]
+    assert sorted(n['title'] for n in added) == ['', 'Pasted A'], added
+    a = next(n for n in added if n['title'] == 'Pasted A')
+    assert a['stopPoint'] is None and a['offsetY'] == 0 and 'evil' not in a
+    assert next(n for n in added if n['title'] == '')['kind'] == 'cause'
+    check_layout()
+    load(before_copy)
+    print('PASS: copy, cut, and paste branches, within an RCA and into another', flush=True)
+
     # ---- Deleting ----
     solutions_before = sum(len(s['causeIds']) for s in rca()['solutions'])
     select('Plan 11 flush flow dropped to near zero')
@@ -740,11 +996,6 @@ def run_tests(b):
     saved_file = json.loads(text)
     assert saved_file['type'] == 'causeway' and saved_file['schemaVersion'] == 1
     assert saved()['dirty'] is False, 'saving clears the unsaved-changes flag'
-
-    def load(project):
-        b.async_js('''const done=arguments[arguments.length-1],input=document.getElementById('projectFile'),dt=new DataTransfer();
-            dt.items.add(new File([JSON.stringify(arguments[0])],'test.json',{type:'application/json'}));input.files=dt.files;
-            input.onchange({target:input}).then(()=>done(true));''', [project])
 
     click('newProject')
     assert b.js('return document.getElementById("dialog").open'), 'New asks for the chart style'
@@ -1059,6 +1310,24 @@ def run_tests(b):
                      ('Seal leaks', 'F')]
     check_shape('shared causes', chart(shared))
     check_shape('shared causes, as a cause tree', chart(shared, style='tree'), kept_order=True)
+
+    # Hand moves, up and down, including ones the layout cannot honour, never make nodes overlap.
+    def with_shifts(project, shifts):
+        for n in project['nodes']:
+            n['offsetY'] = shifts.get(n['title'], 0)
+        return project
+    hand = with_shifts(chart(deep), {long_title: -120, 'Short': 200, mid_title: -300, 'A': 40, long_title + ' C': -80, 'F': 'up', 'E': 25})
+    load(hand)
+    placed = check_layout()
+    assert [n['offsetY'] for n in rca()['nodes'] if n['title'] == 'F'] == [0], 'an offset that is not a number opens as none'
+    plain_placed = check_shape('mixed heights', chart(deep))
+    load(hand)
+    placed = check_layout()
+    assert placed[node_id('Seal leaks')]['y'] == plain_placed[node_id('Seal leaks')]['y'], 'the primary effect stays put'
+    load(with_shifts(chart(shared, style='tree'), {long_title: -100, 'Short': 90, 'C': 60}))
+    check_layout()
+    load(with_shifts(chart(deep + [('Loose node', 'Its cause')], roots=['Loose node', 'Alone']), {'Its cause': -400, long_title: 300}))
+    check_layout()
 
     # A hand-edited file: nodes no effect links to are drawn as further trees below.
     placed = check_shape('several starting nodes', chart(deep + [('Loose node', 'Its cause'), ('Its cause', long_title + ' L')],

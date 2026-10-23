@@ -205,6 +205,7 @@ main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #chart.panning { cursor: grabbing; }
 #chart.linking .node { cursor: crosshair; }
 #chart.dragging, #chart.dragging .node { cursor: grabbing; }
+#chart.shifting, #chart.shifting .node { cursor: ns-resize; }
 .toggle { cursor: pointer; }
 .banner {
   position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%);

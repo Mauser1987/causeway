@@ -45,6 +45,73 @@ function addCause(effectId, kind, title) {
   return n;
 }
 
+// ---- Copying branches ----
+// A branch is a node and every cause under it, with the links among them. On the clipboard it is
+// {type: BRANCH_TYPE, rcaId, rootId, nodes, links}: nodes as in the file, links in their order.
+
+const BRANCH_TYPE = 'causeway-branch';
+function branchIds(id) {
+  const ids = [], todo = [id];
+  while (todo.length) {
+    const next = todo.shift();
+    if (ids.includes(next)) continue;
+    ids.push(next);
+    todo.push(...causeLinks(next).map(l => l.causeId));
+  }
+  return ids;
+}
+function copyBranchData(id) {
+  const ids = new Set(branchIds(id));
+  return {
+    type: BRANCH_TYPE, rcaId: state.id, rootId: id,
+    nodes: state.nodes.filter(n => ids.has(n.id)).map(n => JSON.parse(JSON.stringify(n))),
+    links: state.links.filter(l => ids.has(l.effectId) && ids.has(l.causeId)).map(({effectId, causeId}) => ({effectId, causeId})),
+  };
+}
+// The branch as an indented list of titles, for pasting into other programs, as text and as HTML.
+function branchText(id, depth = 0, seen = new Set()) {
+  if (seen.has(id)) return '';
+  seen.add(id);
+  return '  '.repeat(depth) + byId(id).title.replace(/\s*\n\s*/g, ' ') + '\n' + causesOf(id).map(c => branchText(c.id, depth + 1, seen)).join('');
+}
+function branchHtml(id, seen = new Set()) {
+  if (seen.has(id)) return '';
+  seen.add(id);
+  const causes = causesOf(id).map(c => branchHtml(c.id, seen)).join('');
+  return `<li>${escapeHtml(byId(id).title)}${causes ? `<ul>${causes}</ul>` : ''}</li>`;
+}
+// Adds a copied branch as a cause of `effectId`, with new ids. The clipboard may hold anything, so
+// every field is checked as a file is. Evidence is kept only where this RCA has it. Returns the new
+// root node and the number of citations left out, or null when there is no branch to paste.
+function pasteBranchData(data, effectId) {
+  if (data?.type !== BRANCH_TYPE || !Array.isArray(data.nodes) || !Array.isArray(data.links)) return null;
+  const source = new Map(data.nodes.filter(n => typeof n?.id === 'string').map(n => [n.id, n]));
+  if (!source.has(data.rootId)) return null;
+  const ids = new Map([...source.keys()].map(id => [id, uuid()]));
+  let dropped = 0;
+  for (const [old, n] of source) {
+    const kind = n.kind in KINDS && n.kind !== 'effect' ? n.kind : 'cause';
+    const evidenceIds = (Array.isArray(n.evidenceIds) ? n.evidenceIds : []).filter(e => typeof e === 'string');
+    const kept = data.rcaId === state.id ? evidenceIds.filter(evidenceById) : [];
+    dropped += evidenceIds.length - kept.length;
+    const text = key => typeof n[key] === 'string' ? n[key] : '';
+    state.nodes.push({...blankNode(kind, text('title')), id: ids.get(old),
+      description: text('description'), test: text('test'), notes: text('notes'), evidenceIds: kept,
+      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true,
+      stopPoint: n.stopPoint && n.stopPoint.reason in STOP_REASONS ? {reason: n.stopPoint.reason, note: typeof n.stopPoint.note === 'string' ? n.stopPoint.note : ''} : null,
+      offsetY: old !== data.rootId && Number.isFinite(n.offsetY) ? n.offsetY : 0});
+  }
+  addLink(effectId, ids.get(data.rootId));
+  for (const l of data.links) if (ids.has(l?.effectId) && ids.has(l?.causeId)) addLink(ids.get(l.effectId), ids.get(l.causeId));
+  // Nodes the links do not reach from the root are left out.
+  const reached = new Set(branchIds(ids.get(data.rootId)));
+  const stray = new Set([...ids.values()].filter(id => !reached.has(id)));
+  state.nodes = state.nodes.filter(n => !stray.has(n.id));
+  state.links = state.links.filter(l => !stray.has(l.effectId) && !stray.has(l.causeId));
+  collapsed.delete(effectId);
+  return {root: byId(ids.get(data.rootId)), count: reached.size, dropped};
+}
+
 // Evidence codes are E1, E2, … and are never reused: the counter remembers codes of deleted items.
 const nextEvidenceNumber = () => Math.max(state.counters.evidence || 1, ...state.evidence.map(e => (+/^E(\d+)$/.exec(e.code)?.[1] || 0) + 1));
 const nextEvidenceCode = () => 'E' + nextEvidenceNumber();
@@ -236,7 +303,7 @@ function removeLink(linkId) {
 
 // Moving a cause to another effect moves the one link it is drawn along, from `fromId`; its other
 // links (a shared cause) and its own causes stay as they are. The link goes last among the new
-// effect's causes.
+// effect's causes. Moving or reordering a cause puts it back where the layout places it.
 function moveProblem(causeId, fromId, toId) {
   if (toId === fromId) return 'It is already a cause of that effect.';
   return linkProblem(toId, causeId);
@@ -248,6 +315,7 @@ function moveCause(causeId, fromId, toId) {
   state.links.splice(state.links.indexOf(link), 1);
   link.effectId = toId;
   state.links.push(link);
+  byId(causeId).offsetY = 0;
   collapsed.delete(toId);
   return null;
 }
@@ -259,6 +327,7 @@ function placeCause(effectId, causeId, siblingId, after) {
   if (!link || !anchor || link === anchor) return;
   state.links.splice(state.links.indexOf(link), 1);
   state.links.splice(state.links.indexOf(anchor) + (after ? 1 : 0), 0, link);
+  byId(causeId).offsetY = 0;
 }
 
 // Expands every collapsed branch that hides the node. Returns whether anything changed.

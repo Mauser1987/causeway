@@ -117,6 +117,93 @@ function nudgeCause(direction) {
   render(); persist();
   scrollToNode(n.id);
 }
+
+// ---- Copy, cut, and paste ----
+// Ctrl+C copies the selected node with every cause under it; Ctrl+V adds the copy as a cause of the
+// selected node. The system clipboard carries it between tabs and RCAs: as text, and as an HTML list of
+// the titles whose data-causeway-branch attribute holds the branch. Custom clipboard types are not
+// used, since not every browser keeps them.
+
+function copySelected(clipboardData) {
+  const n = byId(selected);
+  if (!n) return false;
+  clipboard = {data: copyBranchData(n.id), text: branchText(n.id)};
+  if (clipboardData) {
+    clipboardData.setData('text/plain', clipboard.text);
+    clipboardData.setData('text/html', `<ul data-${BRANCH_TYPE}="${escapeHtml(JSON.stringify(clipboard.data))}">${branchHtml(n.id)}</ul>`);
+  }
+  render();
+  const more = clipboard.data.nodes.length - 1;
+  setStatus(`Copied "${n.title}"${more ? ` and ${plural(more, 'cause')} under it` : ''}`);
+  return true;
+}
+function cutSelected(clipboardData) {
+  const n = byId(selected);
+  if (!n || n.id === state.problem.primaryEffectId || !copySelected(clipboardData)) return;
+  deleteSelected();
+  if (!byId(n.id)) setStatus(`Cut "${n.title}"; select an effect and paste it with Ctrl+V`);
+}
+// The branch from the system clipboard, or the one copied here when the clipboard has only its text.
+function clipboardBranch(clipboardData) {
+  if (!clipboardData) return clipboard?.data ?? null;
+  try {
+    const html = clipboardData.getData('text/html');
+    const data = html && new DOMParser().parseFromString(html, 'text/html').querySelector(`[data-${BRANCH_TYPE}]`)?.getAttribute(`data-${BRANCH_TYPE}`);
+    if (data) return JSON.parse(data);
+  } catch {}
+  return clipboard && clipboardData.getData('text/plain') === clipboard.text ? clipboard.data : null;
+}
+function pasteToSelected(clipboardData) {
+  const effect = byId(selected);
+  if (!effect) { setStatus('Select the node to paste under'); return; }
+  const pasted = pasteBranchData(clipboardBranch(clipboardData), effect.id);
+  if (!pasted) { setStatus('Nothing to paste: copy a node first'); return; }
+  selected = pasted.root.id;
+  render(); persist();
+  scrollToNode(selected);
+  setStatus(`Pasted "${pasted.root.title}"${pasted.count > 1 ? ` and ${plural(pasted.count - 1, 'cause')} under it` : ''} under "${effect.title}"`
+    + (pasted.dropped ? `; ${plural(pasted.dropped, 'evidence citation')} left out, from another RCA` : ''));
+}
+
+// ---- Moving a cause up or down by hand ----
+// Shift+drag, and Shift+Up and Shift+Down. The cause moves with its branch, and its effect stays.
+
+const SHIFT_STEP = 10;
+// How far up a cause can move by hand: into free space only, so that its effect stays where it is and
+// the causes above it are not in the way. Never above where it already is.
+function highestShift(id) {
+  const effect = layout.parent.get(id), n = byId(id), kept = n.offsetY;
+  const place = shift => { n.offsetY = shift; const l = computeLayout(); return {effect: l.boxes.get(effect).y, node: l.boxes.get(id).y}; };
+  try {
+    const now = place(kept), far = -Math.ceil(layout.bounds.b - layout.bounds.t) - 400;
+    // The causes above it stop it where they are; measured from its effect, which may move meanwhile.
+    const top = place(far), room = kept + (top.node - top.effect) - (now.node - now.effect);
+    const stays = shift => Math.abs(place(shift).effect - now.effect) < .01;
+    let ok = kept, bad = far;
+    if (stays(bad)) return Math.min(kept, Math.max(room, bad));
+    while (ok - bad > 1) { const m = Math.floor((ok + bad) / 2); if (stays(m)) ok = m; else bad = m; }
+    return Math.min(kept, Math.max(room, ok));
+  } finally { n.offsetY = kept; }
+}
+const shiftText = shift => shift ? `${Math.abs(shift)} ${shift > 0 ? 'down' : 'up'}` : 'back in its place';
+
+function shiftSelected(direction) {
+  const n = byId(selected);
+  if (!n || !layout.parent.has(n.id)) return;
+  const now = n.offsetY, next = Math.max(highestShift(n.id), now + direction * SHIFT_STEP);
+  if (next === now) { setStatus(`"${n.title}" cannot move up: there is no room above it`); return; }
+  n.offsetY = next;
+  render(); persist('shift:' + n.id);
+  scrollToNode(n.id);
+  setStatus(`Moved "${n.title}" ${shiftText(next)}`);
+}
+function resetShifts(ids) {
+  for (const id of ids) byId(id).offsetY = 0;
+  render(); persist();
+  setStatus(ids.length === 1 ? `Put "${byId(ids[0]).title}" back in its place` : `Put ${plural(ids.length, 'node')} back in their places`);
+}
+const shiftedNodes = () => state.nodes.filter(n => n.offsetY);
+
 function cancelLinking() {
   linking = null;
   render();

@@ -71,7 +71,7 @@ One cause can support more than one effect. To chart that:
 
 ## Move and reorder causes
 
-The chart always lays itself out; boxes are not placed by hand. Dragging a cause changes the structure instead:
+The chart lays itself out. Dragging a cause changes the structure:
 
 - **Drop it on another node** to make it a cause of that node. Its own causes move with it. A blue outline and a label show what a drop will do; a drop that would make a loop, or onto an effect that already has the cause, is refused and says why.
 - **Drop it on the top or bottom edge of a sibling, or in the gap next to it,** to place it above or below that sibling. A blue bar shows where it will go. Actions stay above conditions, so a cause is reordered among causes of its own kind.
@@ -81,6 +81,25 @@ The chart always lays itself out; boxes are not placed by hand. Dragging a cause
 Without the mouse: **Alt+M** (or **Move to another effect** in the Properties panel) asks for the new effect, the way **Link cause** does; **Alt+↑** and **Alt+↓** move a cause above or below its neighbour.
 
 For a shared cause, moving changes only the link it is drawn along (the solid one); its dashed links stay.
+
+### Move up or down by hand
+
+To tidy the chart, for printing for example, **Shift+drag** a cause up or down, or press **Shift+↑** and **Shift+↓** (10 units a press). It moves with its own causes; its effect stays where it is.
+
+- It moves up only into free space, as far as its effect can stay put; a cause right below another has no room above it.
+- Moving down, it pushes the causes below it down too.
+- While dragging, it snaps back to its place, and level with its effect, so the connector runs straight. **Esc** cancels.
+
+The Properties panel shows how far a cause was moved, with **Put it back**; with nothing selected, **Put back N nodes moved by hand** resets them all. Moving a cause to another effect, or reordering it, puts it back too. A hand move is an edit: an undo step, saved in the file, and used by exports and the printed report.
+
+## Copy and paste branches
+
+**Ctrl+C** (on a Mac, **Cmd+C**) copies the selected node with every cause under it: titles, types, statuses, evidence, tests, stop points, notes, and the links among them. **Ctrl+V** adds the copy as a cause of the selected node, with new ids, in one undo step; the pasted node is then selected. **Ctrl+X** copies and then deletes, as **Delete** does. The Properties panel has **Copy branch** and **Paste as cause** too.
+
+- The copy goes to the system clipboard, so it pastes into another tab or another RCA. There, the evidence it cited is left out, since that RCA has its own evidence log; the status line says how many citations were left out.
+- Pasted into another program, it is a list of the titles, indented by level.
+- Copying the primary effect copies the whole chart. Pasted, its top node becomes a cause without a type, for you to choose.
+- In a text field, the keys copy and paste text as usual.
 
 ## Collapse branches
 
@@ -162,6 +181,8 @@ With a node selected and no field focused:
 | **↑ ↓** | Select the node above or below in the same column |
 | **Alt+M** | Move the cause under another effect |
 | **Alt+↑ Alt+↓** | Move the cause above or below its neighbour |
+| **Shift+↑ Shift+↓** | Move the cause up or down by hand, with its branch |
+| **Ctrl+C** **Ctrl+X** **Ctrl+V** | Copy or cut the node with its causes; paste the copy as a cause of the selected node |
 | **Alt+L** | Link an existing node as a further cause |
 | **Space** | Collapse or expand the branch |
 | **Esc** | Cancel linking, moving, or a drag; or clear the selection. In the title: undo what was typed since it was focused |
@@ -216,7 +237,7 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | `id` | The RCA's UUID |
 | `meta` | `rcaNumber`, `equipmentTag`, `sealType`, `style`: `apollo` \| `tree` (files without it are Apollo), `leadId` (a team member's id), `team` [{`id`, `name`, `role`}], `dates` {`opened`, `eventDate`, `closed`} |
 | `problem` | `primaryEffectId`, `when`, `where`, `significance` {`safety`, `environment`, `productionCost`, `reliability`}. The "what" is the primary effect node's title. |
-| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`} |
+| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`, `offsetY`: how far it is moved down by hand (negative: up) from where the layout places it, in chart units (pixels at 100 %)} |
 | `links` | {`id`, `effectId`, `causeId`}: the cause supports the effect. Links form a directed acyclic graph rooted at the primary effect. |
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
 | `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |
@@ -248,4 +269,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.

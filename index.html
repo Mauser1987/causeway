@@ -217,6 +217,7 @@ main { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 #chart.panning { cursor: grabbing; }
 #chart.linking .node { cursor: crosshair; }
 #chart.dragging, #chart.dragging .node { cursor: grabbing; }
+#chart.shifting, #chart.shifting .node { cursor: ns-resize; }
 .toggle { cursor: pointer; }
 .banner {
   position: absolute; z-index: 5; left: 50%; top: 12px; transform: translateX(-50%);
@@ -681,7 +682,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
   <footer>
     <span id="status">Ready</span>
     <span id="count">0 causes · 0 evidence items</span>
-    <span class="keyhints" id="keyHints">Type to rename · <kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete</span>
+    <span class="keyhints" id="keyHints">Type to rename · <kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Shift+↑↓</kbd> nudge · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete</span>
   </footer>
 </div>
 <dialog id="dialog" class="dialog"></dialog>
@@ -826,10 +827,11 @@ function uuid() {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
-// status is used in a cause tree; test, how the cause is or was tested, in both styles.
+// status is used in a cause tree; test, how the cause is or was tested, in both styles. offsetY: how far
+// the node is moved down by hand (negative: up) from where the layout puts it.
 const blankNode = (kind, title) => ({
   id: uuid(), kind, title, description: '', evidenceIds: [], status: 'possible', test: '',
-  unverified: false, controllable: false, stopPoint: null, notes: '',
+  unverified: false, controllable: false, stopPoint: null, notes: '', offsetY: 0,
 });
 
 function blankState(style = 'apollo') {
@@ -850,6 +852,8 @@ let view = {x: 0, y: 0, k: 1}; // chart point at the top-left of the canvas, and
 let drag = null;               // the pointer gesture in progress
 let linking = null;            // while picking a node: {mode: 'link', effectId} or {mode: 'move', causeId, fromId}
 let nodeDrag = null;           // a node being dragged: {id, from, start, moved, at, drop}
+let nodeShift = null;          // a node being moved up or down by hand: {id, start, from, min, snaps, moved}
+let clipboard = null;          // the branch last copied here: {data, text}, for when the system clipboard loses it
 let highlight = null;          // evidence id whose citing nodes are highlighted on the chart
 let record = 'chart';          // the page shown: the chart or one of the RCA records
 
@@ -859,7 +863,7 @@ const evidenceById = id => state.evidence.find(e => e.id === id);
 const treeStyle = () => state.meta.style === 'tree';
 
 function resetInteraction() {
-  selected = null; drag = null; nodeDrag = null; linking = null; highlight = null;
+  selected = null; drag = null; nodeDrag = null; nodeShift = null; linking = null; highlight = null;
 }
 
 // The file and the autosave hold the RCA and the collapsed branches.
@@ -968,6 +972,73 @@ function addCause(effectId, kind, title) {
   addLink(effectId, n.id);
   collapsed.delete(effectId);
   return n;
+}
+
+// ---- Copying branches ----
+// A branch is a node and every cause under it, with the links among them. On the clipboard it is
+// {type: BRANCH_TYPE, rcaId, rootId, nodes, links}: nodes as in the file, links in their order.
+
+const BRANCH_TYPE = 'causeway-branch';
+function branchIds(id) {
+  const ids = [], todo = [id];
+  while (todo.length) {
+    const next = todo.shift();
+    if (ids.includes(next)) continue;
+    ids.push(next);
+    todo.push(...causeLinks(next).map(l => l.causeId));
+  }
+  return ids;
+}
+function copyBranchData(id) {
+  const ids = new Set(branchIds(id));
+  return {
+    type: BRANCH_TYPE, rcaId: state.id, rootId: id,
+    nodes: state.nodes.filter(n => ids.has(n.id)).map(n => JSON.parse(JSON.stringify(n))),
+    links: state.links.filter(l => ids.has(l.effectId) && ids.has(l.causeId)).map(({effectId, causeId}) => ({effectId, causeId})),
+  };
+}
+// The branch as an indented list of titles, for pasting into other programs, as text and as HTML.
+function branchText(id, depth = 0, seen = new Set()) {
+  if (seen.has(id)) return '';
+  seen.add(id);
+  return '  '.repeat(depth) + byId(id).title.replace(/\s*\n\s*/g, ' ') + '\n' + causesOf(id).map(c => branchText(c.id, depth + 1, seen)).join('');
+}
+function branchHtml(id, seen = new Set()) {
+  if (seen.has(id)) return '';
+  seen.add(id);
+  const causes = causesOf(id).map(c => branchHtml(c.id, seen)).join('');
+  return `<li>${escapeHtml(byId(id).title)}${causes ? `<ul>${causes}</ul>` : ''}</li>`;
+}
+// Adds a copied branch as a cause of `effectId`, with new ids. The clipboard may hold anything, so
+// every field is checked as a file is. Evidence is kept only where this RCA has it. Returns the new
+// root node and the number of citations left out, or null when there is no branch to paste.
+function pasteBranchData(data, effectId) {
+  if (data?.type !== BRANCH_TYPE || !Array.isArray(data.nodes) || !Array.isArray(data.links)) return null;
+  const source = new Map(data.nodes.filter(n => typeof n?.id === 'string').map(n => [n.id, n]));
+  if (!source.has(data.rootId)) return null;
+  const ids = new Map([...source.keys()].map(id => [id, uuid()]));
+  let dropped = 0;
+  for (const [old, n] of source) {
+    const kind = n.kind in KINDS && n.kind !== 'effect' ? n.kind : 'cause';
+    const evidenceIds = (Array.isArray(n.evidenceIds) ? n.evidenceIds : []).filter(e => typeof e === 'string');
+    const kept = data.rcaId === state.id ? evidenceIds.filter(evidenceById) : [];
+    dropped += evidenceIds.length - kept.length;
+    const text = key => typeof n[key] === 'string' ? n[key] : '';
+    state.nodes.push({...blankNode(kind, text('title')), id: ids.get(old),
+      description: text('description'), test: text('test'), notes: text('notes'), evidenceIds: kept,
+      status: n.status in STATUSES ? n.status : 'possible', unverified: n.unverified === true, controllable: n.controllable === true,
+      stopPoint: n.stopPoint && n.stopPoint.reason in STOP_REASONS ? {reason: n.stopPoint.reason, note: typeof n.stopPoint.note === 'string' ? n.stopPoint.note : ''} : null,
+      offsetY: old !== data.rootId && Number.isFinite(n.offsetY) ? n.offsetY : 0});
+  }
+  addLink(effectId, ids.get(data.rootId));
+  for (const l of data.links) if (ids.has(l?.effectId) && ids.has(l?.causeId)) addLink(ids.get(l.effectId), ids.get(l.causeId));
+  // Nodes the links do not reach from the root are left out.
+  const reached = new Set(branchIds(ids.get(data.rootId)));
+  const stray = new Set([...ids.values()].filter(id => !reached.has(id)));
+  state.nodes = state.nodes.filter(n => !stray.has(n.id));
+  state.links = state.links.filter(l => !stray.has(l.effectId) && !stray.has(l.causeId));
+  collapsed.delete(effectId);
+  return {root: byId(ids.get(data.rootId)), count: reached.size, dropped};
 }
 
 // Evidence codes are E1, E2, … and are never reused: the counter remembers codes of deleted items.
@@ -1161,7 +1232,7 @@ function removeLink(linkId) {
 
 // Moving a cause to another effect moves the one link it is drawn along, from `fromId`; its other
 // links (a shared cause) and its own causes stay as they are. The link goes last among the new
-// effect's causes.
+// effect's causes. Moving or reordering a cause puts it back where the layout places it.
 function moveProblem(causeId, fromId, toId) {
   if (toId === fromId) return 'It is already a cause of that effect.';
   return linkProblem(toId, causeId);
@@ -1173,6 +1244,7 @@ function moveCause(causeId, fromId, toId) {
   state.links.splice(state.links.indexOf(link), 1);
   link.effectId = toId;
   state.links.push(link);
+  byId(causeId).offsetY = 0;
   collapsed.delete(toId);
   return null;
 }
@@ -1184,6 +1256,7 @@ function placeCause(effectId, causeId, siblingId, after) {
   if (!link || !anchor || link === anchor) return;
   state.links.splice(state.links.indexOf(link), 1);
   state.links.splice(state.links.indexOf(anchor) + (after ? 1 : 0), 0, link);
+  byId(causeId).offsetY = 0;
 }
 
 // Expands every collapsed branch that hides the node. Returns whether anything changed.
@@ -1282,6 +1355,9 @@ function apolloIssues() {
 // effect in the column just left of it; along those links the chart is a tree, laid out with
 // subtree contours so branches pack closely without overlapping. Links to further effects of a
 // shared cause are routed separately, through gaps between the nodes of the columns they cross.
+//
+// A cause moved by hand (its offsetY) moves up or down from there, with its branch; its effect stays
+// where it was. It moves up only into free space, and moving down it pushes the causes below it.
 
 const measureContext = document.createElement('canvas').getContext('2d');
 const textWidth = (text, size, weight = 400, font = CHART_FONT) => {
@@ -1383,20 +1459,28 @@ function computeLayout() {
   const sizes = new Map([...visible].map(id => [id, nodeSize(byId(id), hiddenCount(id))]));
 
   // Contour packing. A subtree is {contour: [[top, bottom] per column depth], members: [[id, top]]}
-  // in coordinates relative to the subtree.
-  function subtree(id) {
+  // in coordinates relative to the subtree. With `hand`, causes are moved by hand; without, the
+  // result places each effect, centred on its causes as they would be without hand moves.
+  const plain = new Map();
+  function subtree(id, hand) {
+    if (!hand && plain.has(id)) return plain.get(id);
     const h = sizes.get(id).h, kids = children.get(id) || [];
     if (!kids.length) return {contour: [[0, h]], members: [[id, 0]]};
-    const acc = [], members = [];
+    const acc = [], members = [], offsets = [];
     let firstCenter = null, lastCenter = null;
-    for (const kid of kids) {
-      const t = subtree(kid.id);
-      let offset = 0;
+    for (const [i, kid] of kids.entries()) {
+      const t = subtree(kid.id, hand);
+      // Packed below the causes before it; the first has nothing above it, except by hand.
+      let offset = hand ? -Infinity : 0;
       if (members.length) {
         offset = -Infinity;
         for (let d = 0; d < Math.min(acc.length, t.contour.length); d++)
           offset = Math.max(offset, acc[d][1] + (d ? SUBTREE_GAP : SIBLING_GAP) - t.contour[d][0]);
       }
+      // By hand, a cause goes where it would be without hand moves, moved by its offset, unless the
+      // causes above it need the room.
+      if (hand) offset = Math.max(offset, subtree(id, false).offsets[i] + (kid.offsetY || 0));
+      offsets.push(offset);
       t.contour.forEach(([top, bottom], d) => {
         acc[d] = acc[d] ? [Math.min(acc[d][0], top + offset), Math.max(acc[d][1], bottom + offset)] : [top + offset, bottom + offset];
       });
@@ -1405,20 +1489,25 @@ function computeLayout() {
       const center = offset + t.members[0][1] + sizes.get(kid.id).h / 2;
       firstCenter ??= center; lastCenter = center;
     }
-    const top = (firstCenter + lastCenter) / 2 - h / 2;
-    return {contour: [[top, top + h], ...acc], members: [[id, top], ...members]};
+    const top = hand ? subtree(id, false).members[0][1] : (firstCenter + lastCenter) / 2 - h / 2;
+    const result = {contour: [[top, top + h], ...acc], members: [[id, top], ...members], offsets};
+    if (!hand) plain.set(id, result);
+    return result;
   }
 
+  // Each tree is placed below the last, its top where it would be without hand moves, so that a
+  // cause moved up into the space above does not move the rest of the chart.
   const boxes = new Map();
-  let cursor = 0;
+  let bottom = null;
   for (const root of roots) {
     if (!visible.has(root) || rank.get(root) !== 0) continue;
-    const t = subtree(root), top = Math.min(...t.contour.map(c => c[0]));
+    const t = subtree(root, true), top = Math.min(...subtree(root, false).contour.map(c => c[0]));
+    const origin = bottom === null ? 0 : bottom + SUBTREE_GAP * 2 - (Math.min(...t.contour.map(c => c[0])) - top);
     for (const [id, y] of t.members) {
       const size = sizes.get(id);
-      boxes.set(id, {id, node: byId(id), x: rank.get(id) * (NODE_W + COL_GAP), y: y - top + cursor, ...size});
+      boxes.set(id, {id, node: byId(id), x: rank.get(id) * (NODE_W + COL_GAP), y: y - top + origin, ...size});
     }
-    cursor += Math.max(...t.contour.map(c => c[1])) - top + SUBTREE_GAP * 2;
+    bottom = origin + Math.max(...t.contour.map(c => c[1])) - top;
   }
 
   const placed = links.filter(l => boxes.has(l.effectId) && boxes.has(l.causeId));
@@ -1698,8 +1787,8 @@ function renderStyle() {
   $('addActionName').textContent = tree ? '+ Cause' : '+ Action';
   $('addAction').title = tree ? 'Add a possible cause to the selected effect' : 'Add an action cause to the selected effect';
   $('keyHints').innerHTML = tree
-    ? 'Type to rename · <kbd>Ins</kbd> cause · <kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd> status · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete'
-    : 'Type to rename · <kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete';
+    ? 'Type to rename · <kbd>Ins</kbd> cause · <kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd> status · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Shift+↑↓</kbd> nudge · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete'
+    : 'Type to rename · <kbd>Ins</kbd> action · <kbd>Shift+Ins</kbd> condition · <kbd>Alt+L</kbd> link · <kbd>Alt+M</kbd> move · <kbd>Shift+↑↓</kbd> nudge · <kbd>Space</kbd> collapse · <kbd>←↑↓→</kbd> select · <kbd>Del</kbd> delete';
 }
 
 function renderTitle() {
@@ -1741,6 +1830,7 @@ function renderRcaProperties(box) {
     ${styleCards()}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
     ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
+    ${shiftedNodes().length ? `<button class="button block" id="resetShifts" style="margin-top:8px" title="Put the nodes moved up or down by hand back where the layout places them">Put back ${plural(shiftedNodes().length, 'node')} moved by hand</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
       <ol class="steps">${tree ? `
@@ -1769,6 +1859,8 @@ function renderRcaProperties(box) {
         <dt><kbd>Alt+M</kbd></dt><dd>Move the cause under another effect</dd>
         <dt><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd></dt><dd>Reorder among its siblings</dd>
         <dt>Drag a node</dt><dd>Onto an effect: move. Between siblings: reorder</dd>
+        <dt><kbd>Ctrl+C</kbd> <kbd>Ctrl+V</kbd></dt><dd>Copy the node with its causes; paste it as a cause of the selected node. <kbd>Ctrl+X</kbd> cuts</dd>
+        <dt><kbd>Shift+↑</kbd> <kbd>Shift+↓</kbd></dt><dd>Move the cause up or down, with its branch; or Shift+drag it</dd>
         <dt><kbd>Alt+L</kbd></dt><dd>Link an existing node as a cause</dd>
         <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
         <dt><kbd>Esc</kbd></dt><dd>Cancel linking, moving, or a drag; or clear the selection. In the title: undo what was typed</dd>
@@ -1780,6 +1872,7 @@ function renderRcaProperties(box) {
       </dl>
     </div>`;
   if ($('expandAll')) $('expandAll').onclick = expandAll;
+  if ($('resetShifts')) $('resetShifts').onclick = () => resetShifts(shiftedNodes().map(n => n.id));
   box.querySelectorAll('input[name=chartStyle]').forEach(r => r.onchange = () => { render(); askSwitchStyle(r.value); });
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
@@ -1836,6 +1929,8 @@ function renderNodeProperties(box, n) {
         <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>`}
         <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (Alt+L)">Link existing</button>
         ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
+        <button class="button" id="inspCopy" title="Copy this node and every cause under it (Ctrl+C)">Copy branch</button>
+        ${clipboard ? `<button class="button" id="inspPaste" title="Add the copied branch as a cause of this node (Ctrl+V)">Paste as cause</button>` : ''}
       </div>
     </div>
     ${isPrimary ? '' : `<div class="section">
@@ -1844,7 +1939,8 @@ function renderNodeProperties(box, n) {
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
       ${effects.length > 1 ? `<p class="note">A shared cause: it ${tree ? 'may explain' : 'is needed for'} each of these effects.</p>` : ''}
       <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (Alt+M), or drag the node onto it">Move to another effect</button>
-      <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
+      <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>). To tidy the chart, Shift+drag it up or down, with its causes (<kbd>Shift+↑</kbd> <kbd>Shift+↓</kbd>).</p>
+      ${n.offsetY ? `<p class="note">Moved ${shiftText(n.offsetY)} by hand. <button class="link" id="inspResetShift">Put it back</button></p>` : ''}
     </div>`}
 
     ${isPrimary ? '' : `<div class="section">
@@ -1890,9 +1986,12 @@ function renderNodeProperties(box, n) {
   if ($('inspAddCondition')) $('inspAddCondition').onclick = () => addCauseToSelected('condition');
   $('inspLink').onclick = startLinking;
   if ($('inspMove')) $('inspMove').onclick = startMoving;
+  if ($('inspResetShift')) $('inspResetShift').onclick = () => resetShifts([n.id]);
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
   box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
+  $('inspCopy').onclick = () => copySelected();
+  if ($('inspPaste')) $('inspPaste').onclick = () => pasteToSelected();
   if ($('inspRuleOut')) $('inspRuleOut').onclick = ruleOutSelected;
   box.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => { highlight = highlight === b.dataset.highlight ? null : b.dataset.highlight; render(); });
   box.querySelectorAll('[data-goto-record]').forEach(b => b.onclick = () => showRecord(b.dataset.gotoRecord));
@@ -2160,6 +2259,93 @@ function nudgeCause(direction) {
   render(); persist();
   scrollToNode(n.id);
 }
+
+// ---- Copy, cut, and paste ----
+// Ctrl+C copies the selected node with every cause under it; Ctrl+V adds the copy as a cause of the
+// selected node. The system clipboard carries it between tabs and RCAs: as text, and as an HTML list of
+// the titles whose data-causeway-branch attribute holds the branch. Custom clipboard types are not
+// used, since not every browser keeps them.
+
+function copySelected(clipboardData) {
+  const n = byId(selected);
+  if (!n) return false;
+  clipboard = {data: copyBranchData(n.id), text: branchText(n.id)};
+  if (clipboardData) {
+    clipboardData.setData('text/plain', clipboard.text);
+    clipboardData.setData('text/html', `<ul data-${BRANCH_TYPE}="${escapeHtml(JSON.stringify(clipboard.data))}">${branchHtml(n.id)}</ul>`);
+  }
+  render();
+  const more = clipboard.data.nodes.length - 1;
+  setStatus(`Copied "${n.title}"${more ? ` and ${plural(more, 'cause')} under it` : ''}`);
+  return true;
+}
+function cutSelected(clipboardData) {
+  const n = byId(selected);
+  if (!n || n.id === state.problem.primaryEffectId || !copySelected(clipboardData)) return;
+  deleteSelected();
+  if (!byId(n.id)) setStatus(`Cut "${n.title}"; select an effect and paste it with Ctrl+V`);
+}
+// The branch from the system clipboard, or the one copied here when the clipboard has only its text.
+function clipboardBranch(clipboardData) {
+  if (!clipboardData) return clipboard?.data ?? null;
+  try {
+    const html = clipboardData.getData('text/html');
+    const data = html && new DOMParser().parseFromString(html, 'text/html').querySelector(`[data-${BRANCH_TYPE}]`)?.getAttribute(`data-${BRANCH_TYPE}`);
+    if (data) return JSON.parse(data);
+  } catch {}
+  return clipboard && clipboardData.getData('text/plain') === clipboard.text ? clipboard.data : null;
+}
+function pasteToSelected(clipboardData) {
+  const effect = byId(selected);
+  if (!effect) { setStatus('Select the node to paste under'); return; }
+  const pasted = pasteBranchData(clipboardBranch(clipboardData), effect.id);
+  if (!pasted) { setStatus('Nothing to paste: copy a node first'); return; }
+  selected = pasted.root.id;
+  render(); persist();
+  scrollToNode(selected);
+  setStatus(`Pasted "${pasted.root.title}"${pasted.count > 1 ? ` and ${plural(pasted.count - 1, 'cause')} under it` : ''} under "${effect.title}"`
+    + (pasted.dropped ? `; ${plural(pasted.dropped, 'evidence citation')} left out, from another RCA` : ''));
+}
+
+// ---- Moving a cause up or down by hand ----
+// Shift+drag, and Shift+Up and Shift+Down. The cause moves with its branch, and its effect stays.
+
+const SHIFT_STEP = 10;
+// How far up a cause can move by hand: into free space only, so that its effect stays where it is and
+// the causes above it are not in the way. Never above where it already is.
+function highestShift(id) {
+  const effect = layout.parent.get(id), n = byId(id), kept = n.offsetY;
+  const place = shift => { n.offsetY = shift; const l = computeLayout(); return {effect: l.boxes.get(effect).y, node: l.boxes.get(id).y}; };
+  try {
+    const now = place(kept), far = -Math.ceil(layout.bounds.b - layout.bounds.t) - 400;
+    // The causes above it stop it where they are; measured from its effect, which may move meanwhile.
+    const top = place(far), room = kept + (top.node - top.effect) - (now.node - now.effect);
+    const stays = shift => Math.abs(place(shift).effect - now.effect) < .01;
+    let ok = kept, bad = far;
+    if (stays(bad)) return Math.min(kept, Math.max(room, bad));
+    while (ok - bad > 1) { const m = Math.floor((ok + bad) / 2); if (stays(m)) ok = m; else bad = m; }
+    return Math.min(kept, Math.max(room, ok));
+  } finally { n.offsetY = kept; }
+}
+const shiftText = shift => shift ? `${Math.abs(shift)} ${shift > 0 ? 'down' : 'up'}` : 'back in its place';
+
+function shiftSelected(direction) {
+  const n = byId(selected);
+  if (!n || !layout.parent.has(n.id)) return;
+  const now = n.offsetY, next = Math.max(highestShift(n.id), now + direction * SHIFT_STEP);
+  if (next === now) { setStatus(`"${n.title}" cannot move up: there is no room above it`); return; }
+  n.offsetY = next;
+  render(); persist('shift:' + n.id);
+  scrollToNode(n.id);
+  setStatus(`Moved "${n.title}" ${shiftText(next)}`);
+}
+function resetShifts(ids) {
+  for (const id of ids) byId(id).offsetY = 0;
+  render(); persist();
+  setStatus(ids.length === 1 ? `Put "${byId(ids[0]).title}" back in its place` : `Put ${plural(ids.length, 'node')} back in their places`);
+}
+const shiftedNodes = () => state.nodes.filter(n => n.offsetY);
+
 function cancelLinking() {
   linking = null;
   render();
@@ -2211,6 +2397,8 @@ svg.addEventListener('pointerdown', e => {
   if (node) {
     const id = node.dataset.id, b = layout.boxes.get(id), p = point(e);
     select(id);
+    // With Shift, a cause moves up or down; without, it is dragged to another place in the structure.
+    if (b && layout.parent.has(id) && e.shiftKey) { nodeShift = {id, start: e.clientY, kept: byId(id).offsetY, moved: false}; capture(e); return; }
     // A cause can be dragged once the pointer has moved a little; the primary effect stays put.
     if (b && layout.parent.has(id)) { nodeDrag = {id, from: layout.parent.get(id), start: {x: e.clientX, y: e.clientY}, moved: false}; capture(e); }
     return;
@@ -2219,6 +2407,7 @@ svg.addEventListener('pointerdown', e => {
   capture(e);
 });
 svg.addEventListener('pointermove', e => {
+  if (nodeShift) { moveShift(e); return; }
   if (nodeDrag) {
     if (!nodeDrag.moved && Math.hypot(e.clientX - nodeDrag.start.x, e.clientY - nodeDrag.start.y) < 5) return;
     nodeDrag.moved = true;
@@ -2237,13 +2426,14 @@ svg.addEventListener('pointermove', e => {
   renderCanvas();
 });
 svg.addEventListener('pointerup', () => {
+  if (nodeShift) { finishShift(); return; }
   if (nodeDrag) { finishNodeDrag(); return; }
   if (drag && !drag.moved && linking) cancelLinking();
   else if (drag && !drag.moved && (selected || highlight)) { highlight = null; select(null); }
   drag = null;
   svg.classList.remove('panning');
 });
-svg.addEventListener('pointercancel', () => cancelNodeDrag());
+svg.addEventListener('pointercancel', () => { cancelNodeDrag(); cancelShift(); });
 
 // What dropping the dragged node at chart point p would do. On a sibling's top or bottom 30 %, or in
 // the gap next to it, it is placed above or below that sibling (siblings of its group only);
@@ -2283,6 +2473,42 @@ function cancelNodeDrag() {
   renderCanvas();
 }
 
+// Shift+drag: the cause follows the pointer up and down, no higher than there is room for. It snaps
+// back to its place, and level with its effect, so the connector runs straight.
+function moveShift(e) {
+  const s = nodeShift;
+  if (!s.moved) {
+    if (Math.abs(e.clientY - s.start) < 4) return;
+    s.moved = true;
+    s.min = highestShift(s.id);
+    const b = layout.boxes.get(s.id), effect = layout.boxes.get(layout.parent.get(s.id));
+    s.snaps = [{at: 0, text: 'back in its place'}, {at: s.kept + midY(effect) - midY(b), text: 'level with its effect'}];
+    svg.classList.add('shifting');
+  }
+  let shift = Math.max(s.min, s.kept + (e.clientY - s.start) / view.k);
+  const snap = s.snaps.find(x => x.at >= s.min && Math.abs(x.at - shift) < 8 / view.k);
+  shift = Math.round(snap ? snap.at : shift);
+  byId(s.id).offsetY = shift;
+  layout = computeLayout();
+  renderCanvas();
+  setStatus(`Moving "${byId(s.id).title}": ${snap ? snap.text : shiftText(shift)}`);
+}
+function finishShift() {
+  const s = nodeShift;
+  nodeShift = null;
+  svg.classList.remove('shifting');
+  if (!s.moved) return;
+  render(); persist();
+  setStatus(`Moved "${byId(s.id).title}" ${shiftText(byId(s.id).offsetY)}`);
+}
+function cancelShift() {
+  if (!nodeShift) return;
+  byId(nodeShift.id).offsetY = nodeShift.kept;
+  nodeShift = null;
+  svg.classList.remove('shifting');
+  render();
+}
+
 svg.addEventListener('dblclick', e => { if (e.target.closest('.node')) focusTitle(); });
 
 function zoom(factor, at) {
@@ -2316,6 +2542,7 @@ window.addEventListener('keydown', e => {
   const key = e.key.toLowerCase(), command = (e.ctrlKey || e.metaKey) && !e.altKey;
   if ($('dialog').open) return;
   if (nodeDrag?.moved && key === 'escape') { e.preventDefault(); cancelNodeDrag(); setStatus('Drag cancelled'); return; }
+  if (nodeShift?.moved && key === 'escape') { e.preventDefault(); cancelShift(); setStatus('Move cancelled'); return; }
   if (command && key === 's') { e.preventDefault(); saveProject(e.shiftKey); return; }
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   if (command && (key === 'z' || key === 'y')) {
@@ -2353,12 +2580,24 @@ window.addEventListener('keydown', e => {
   else if (e.key.length === 1) focusTitle();
 });
 
+// Copy, cut, and paste on the chart, through the clipboard events, so the system clipboard is used.
+// In a field, or with text selected on the page, they act on the text as usual.
+const chartClipboard = () => record === 'chart' && !$('dialog').open && !linking
+  && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable
+  && (getSelection()?.isCollapsed ?? true);
+document.addEventListener('copy', e => { if (chartClipboard() && byId(selected)) { e.preventDefault(); copySelected(e.clipboardData); } });
+document.addEventListener('cut', e => { if (chartClipboard() && byId(selected)) { e.preventDefault(); cutSelected(e.clipboardData); } });
+document.addEventListener('paste', e => { if (chartClipboard()) { e.preventDefault(); pasteToSelected(e.clipboardData); } });
+
 // Arrow keys move the selection: left to the effect, right to the first cause, up and down within the column.
+// With Shift, up and down move the selected cause instead.
 window.addEventListener('keydown', e => {
   if (!e.key.startsWith('Arrow') || e.ctrlKey || e.metaKey || e.altKey || record !== 'chart') return;
   if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) || document.activeElement?.isContentEditable) return;
   e.preventDefault();
   const from = layout.boxes.get(selected);
+  // Shift+Up and Shift+Down move a cause by hand.
+  if (from && e.shiftKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) { shiftSelected(e.key === 'ArrowUp' ? -1 : 1); return; }
   // Right on a collapsed node expands it.
   if (from && e.key === 'ArrowRight' && collapsed.has(from.id)) { toggleCollapse(from.id); return; }
   const next = from ? neighbour(from, e.key) : layout.boxes.get(state.problem.primaryEffectId);
@@ -2441,6 +2680,7 @@ function normalizeProject(p) {
   for (const key of ['evidence', 'ruledOut', 'solutions', 'actions']) s[key] = Array.isArray(p[key]) ? p[key] : [];
   s.nodes = p.nodes.filter(n => n?.id).map(n => ({...blankNode(n.kind in KINDS ? n.kind : 'condition', ''), ...n,
     kind: n.kind in KINDS ? n.kind : 'condition', status: n.status in STATUSES ? n.status : 'possible', test: typeof n.test === 'string' ? n.test : '',
+    offsetY: Number.isFinite(n.offsetY) ? n.offsetY : 0,
     evidenceIds: Array.isArray(n.evidenceIds) ? n.evidenceIds : []}));
   if (!s.nodes.some(n => n.id === s.problem.primaryEffectId)) throw Error('The primary effect is missing.');
   s.meta.team = Array.isArray(s.meta.team) ? s.meta.team.filter(m => m?.id) : [];

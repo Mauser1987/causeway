@@ -31,6 +31,7 @@ function renderRcaProperties(box) {
     ${styleCards()}
     <p class="note">${state.nodes.length - 1} causes · ${state.evidence.length} evidence items · ${issues.filter(i => i.level === 'error').length} rule errors</p>
     ${collapsed.size ? `<button class="button block" id="expandAll">Expand all branches (${collapsed.size} collapsed)</button>` : ''}
+    ${shiftedNodes().length ? `<button class="button block" id="resetShifts" style="margin-top:8px" title="Put the nodes moved up or down by hand back where the layout places them">Put back ${plural(shiftedNodes().length, 'node')} moved by hand</button>` : ''}
     <div class="section">
       <div class="panel-title">How to chart</div>
       <ol class="steps">${tree ? `
@@ -59,6 +60,8 @@ function renderRcaProperties(box) {
         <dt><kbd>Alt+M</kbd></dt><dd>Move the cause under another effect</dd>
         <dt><kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd></dt><dd>Reorder among its siblings</dd>
         <dt>Drag a node</dt><dd>Onto an effect: move. Between siblings: reorder</dd>
+        <dt><kbd>Ctrl+C</kbd> <kbd>Ctrl+V</kbd></dt><dd>Copy the node with its causes; paste it as a cause of the selected node. <kbd>Ctrl+X</kbd> cuts</dd>
+        <dt><kbd>Shift+↑</kbd> <kbd>Shift+↓</kbd></dt><dd>Move the cause up or down, with its branch; or Shift+drag it</dd>
         <dt><kbd>Alt+L</kbd></dt><dd>Link an existing node as a cause</dd>
         <dt><kbd>Space</kbd></dt><dd>Collapse or expand the branch</dd>
         <dt><kbd>Esc</kbd></dt><dd>Cancel linking, moving, or a drag; or clear the selection. In the title: undo what was typed</dd>
@@ -70,6 +73,7 @@ function renderRcaProperties(box) {
       </dl>
     </div>`;
   if ($('expandAll')) $('expandAll').onclick = expandAll;
+  if ($('resetShifts')) $('resetShifts').onclick = () => resetShifts(shiftedNodes().map(n => n.id));
   box.querySelectorAll('input[name=chartStyle]').forEach(r => r.onchange = () => { render(); askSwitchStyle(r.value); });
   $('rcaNumber').oninput = e => { state.meta.rcaNumber = e.target.value; renderTitle(); persist('rcaNumber'); };
   $('equipmentTag').oninput = e => { state.meta.equipmentTag = e.target.value; renderTitle(); persist('equipmentTag'); };
@@ -126,6 +130,8 @@ function renderNodeProperties(box, n) {
         <button class="button" id="inspAddCondition" title="Shift+Insert or C">+ Condition</button>`}
         <button class="button" id="inspLink" title="Link a node already on the chart as a further cause (Alt+L)">Link existing</button>
         ${causes.length ? `<button class="button" id="inspCollapse" title="Space">${collapsed.has(n.id) ? 'Expand branch' : 'Collapse branch'}</button>` : ''}
+        <button class="button" id="inspCopy" title="Copy this node and every cause under it (Ctrl+C)">Copy branch</button>
+        ${clipboard ? `<button class="button" id="inspPaste" title="Add the copied branch as a cause of this node (Ctrl+V)">Paste as cause</button>` : ''}
       </div>
     </div>
     ${isPrimary ? '' : `<div class="section">
@@ -134,7 +140,8 @@ function renderNodeProperties(box, n) {
         ? `<button class="unlink" data-unlink-effect="${e.id}" title="Stop this being a cause of “${escapeHtml(e.title)}”" aria-label="Unlink from ${escapeHtml(e.title)}">×</button>` : ''}</li>`).join('')}</ul>
       ${effects.length > 1 ? `<p class="note">A shared cause: it ${tree ? 'may explain' : 'is needed for'} each of these effects.</p>` : ''}
       <button class="button block" id="inspMove" style="margin-top:8px" title="Move under another effect (Alt+M), or drag the node onto it">Move to another effect</button>
-      <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>).</p>
+      <p class="note">Or drag the node: onto an effect to move it, or between its siblings to reorder (<kbd>Alt+↑</kbd> <kbd>Alt+↓</kbd>). To tidy the chart, Shift+drag it up or down, with its causes (<kbd>Shift+↑</kbd> <kbd>Shift+↓</kbd>).</p>
+      ${n.offsetY ? `<p class="note">Moved ${shiftText(n.offsetY)} by hand. <button class="link" id="inspResetShift">Put it back</button></p>` : ''}
     </div>`}
 
     ${isPrimary ? '' : `<div class="section">
@@ -180,9 +187,12 @@ function renderNodeProperties(box, n) {
   if ($('inspAddCondition')) $('inspAddCondition').onclick = () => addCauseToSelected('condition');
   $('inspLink').onclick = startLinking;
   if ($('inspMove')) $('inspMove').onclick = startMoving;
+  if ($('inspResetShift')) $('inspResetShift').onclick = () => resetShifts([n.id]);
   if ($('inspCollapse')) $('inspCollapse').onclick = () => toggleCollapse(n.id);
   box.querySelectorAll('[data-unlink-effect]').forEach(b => b.onclick = () => unlinkFrom(b.dataset.unlinkEffect, n.id));
   if ($('inspDelete')) $('inspDelete').onclick = deleteSelected;
+  $('inspCopy').onclick = () => copySelected();
+  if ($('inspPaste')) $('inspPaste').onclick = () => pasteToSelected();
   if ($('inspRuleOut')) $('inspRuleOut').onclick = ruleOutSelected;
   box.querySelectorAll('[data-highlight]').forEach(b => b.onclick = () => { highlight = highlight === b.dataset.highlight ? null : b.dataset.highlight; render(); });
   box.querySelectorAll('[data-goto-record]').forEach(b => b.onclick = () => showRecord(b.dataset.gotoRecord));
