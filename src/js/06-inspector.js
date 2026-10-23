@@ -37,7 +37,7 @@ function renderRcaProperties(box) {
       <ol class="steps">${tree ? `
         <li>Select the primary effect and add its possible causes with <b>+ Cause</b>.</li>
         <li>Select a cause and add its own possible causes the same way.</li>
-        <li>Test each cause: link its evidence, and set its status to <b>Possible</b>, <b>Confirmed</b>, or <b>Ruled out</b>.</li>
+        <li>Test each cause: link its evidence, and keep it a <b>Hypothesis</b> until it is <b>Confirmed</b> or <b>Ruled out</b>.</li>
         <li>Follow the confirmed causes down to the root causes, and mark each with a stop point.</li>` : `
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
@@ -51,7 +51,7 @@ function renderRcaProperties(box) {
       <div class="panel-title">Keys</div>
       <dl class="keys">${tree ? `
         <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add a cause to the selected effect</dd>
-        <dt><kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
+        <dt><kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Hypothesis, confirmed, ruled out</dd>` : `
         <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add an action to the selected effect</dd>
         <dt><kbd>Shift+Ins</kbd> or <kbd>Alt+C</kbd></dt><dd>Add a condition</dd>`}
         <dt>Type</dt><dd>Replace the title; <kbd>Enter</kbd> finishes it</dd>
@@ -87,7 +87,7 @@ function renderNodeProperties(box, n) {
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
   const solutions = solutionsOf(n.id);
   const tree = treeStyle();
-  const kindName = isPrimary ? 'Primary effect' : tree ? (n.status === 'ruled-out' ? 'Ruled out' : `${STATUSES[n.status].name} cause`) : KINDS[n.kind].name;
+  const kindName = isPrimary ? 'Primary effect' : tree ? {possible: 'Hypothesis', confirmed: 'Confirmed cause', 'ruled-out': 'Ruled out'}[n.status] : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
   box.innerHTML = `
@@ -255,7 +255,7 @@ const NEEDS = {
   'causal-set': n => `${plural(n, 'effect')} missing an action or a condition`,
   ruled: n => `${plural(n, 'ruled-out cause')} to move to the causes ruled out`,
   evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
-  untested: n => `${plural(n, 'possible cause')} still to test`,
+  untested: n => `${plural(n, 'hypothesis', 'hypotheses')} still to test`,
   'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
 };
 
@@ -270,8 +270,8 @@ function askSwitchStyle(style) {
   const name = CHART_STYLES[style].name;
   openDialog(`<h2>Switch to ${style === 'tree' ? 'a cause tree' : 'Apollo'}?</h2>
     <p>${style === 'tree'
-      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes <b>possible</b>. Actions and conditions keep their type, for a move back.'
-      : 'Nothing is lost. <b>Possible</b> causes become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
+      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes a <b>hypothesis</b>. Actions and conditions keep their type, for a move back.'
+      : 'Nothing is lost. <b>Hypotheses</b> become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
     <div class="sub">Still needed after the switch</div>
     ${groups.size ? `<ul class="needs">${[...groups].map(([code, g]) => `<li class="need-${g.level}">${NEEDS[code]?.(g.n, style) ?? plural(g.n, 'issue')}</li>`).join('')}</ul>
       <p class="note">Each one shows in the issues list, and is outlined on the chart, so you can work through them.</p>`

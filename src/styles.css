@@ -188,6 +188,10 @@ kbd {
 .sw.action { background: var(--accent); }
 .sw.condition { background: var(--condition); border: 1.5px solid var(--accent-2); }
 .sw.and { height: 16px; padding: 0 4px; border: 1.5px solid var(--wire); border-radius: 8px; background: var(--panel); color: var(--ink-2); font-size: 8px; font-weight: 800; }
+.sw.badge { box-sizing: border-box; width: 18px; height: 18px; border-radius: 9px; margin-left: -4px; line-height: 1; font-size: 11px; font-weight: 800; }
+.sw.badge.h { background: var(--panel); border: 1.2px solid var(--muted); color: var(--ink); }
+.sw.badge.ok { background: var(--accent); color: #fff; }
+.sw.badge.no { background: var(--effect); color: #fff; }
 .sw.q { width: 18px; height: 18px; border-radius: 9px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; }
 .sw.code { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font: 700 10.5px var(--mono); }
 .sw.shared { height: 0; border-top: 2px dashed var(--shared); border-radius: 0; }

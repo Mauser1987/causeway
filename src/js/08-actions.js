@@ -48,12 +48,24 @@ function ruleOutSelected() {
 
 // A cause tree: Alt+1, Alt+2, and Alt+3 set the selected cause's status. A confirmed cause happened,
 // so the effects it leads to did too: the possible ones on the way to the primary effect are confirmed
-// with it. A ruled-out effect stops the way; the issues list flags it.
+// with it. A ruled-out effect stops the way; the issues list flags it. When a confirmed cause becomes
+// a hypothesis or is ruled out, the effects it confirmed go back to hypotheses: each one that has no
+// other confirmed cause and no evidence of its own.
 function setNodeStatus(status) {
   const n = byId(selected);
   if (!n || !isCause(n) || !treeStyle()) return;
+  const was = n.status;
   n.status = status;
-  let more = 0;
+  let more = 0, fewer = 0;
+  if (was === 'confirmed' && status !== 'confirmed') {
+    const todo = effectsOf(n.id);
+    while (todo.length) {
+      const e = todo.pop();
+      if (!isCause(e) || e.status !== 'confirmed' || hasEvidence(e) || causesOf(e.id).some(c => c.status === 'confirmed')) continue;
+      e.status = 'possible'; fewer++;
+      todo.push(...effectsOf(e.id));
+    }
+  }
   if (status === 'confirmed') {
     const seen = new Set(), todo = effectsOf(n.id);
     while (todo.length) {
@@ -65,7 +77,8 @@ function setNodeStatus(status) {
     }
   }
   render(); persist();
-  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}${more ? `, with the ${more} effect${more > 1 ? 's' : ''} it leads to` : ''}`);
+  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}${more ? `, with the ${more} effect${more > 1 ? 's' : ''} it leads to` : ''}`
+    + (fewer ? `; ${plural(fewer, 'effect')} it confirmed ${fewer > 1 ? 'are hypotheses' : 'is a hypothesis'} again` : ''));
 }
 
 // Collapsing is a view setting: saved with the file, but not an undo step.

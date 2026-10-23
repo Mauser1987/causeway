@@ -2,7 +2,7 @@
 
 A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, team, evidence log, causes ruled out, solutions, and the action plan. No installation, server, account, or network connection is needed.
 
-Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is tested: possible, confirmed, or ruled out. Alongside the chart, the 5 Whys, the fishbone diagram, and the sequence of events help find the causes, and add what they find to the chart.
+Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is a hypothesis, tested until it is confirmed or ruled out. Alongside the chart, the 5 Whys, the fishbone diagram, and the sequence of events help find the causes, and add what they find to the chart.
 
 Causeway is independent. Apollo Root Cause Analysis is a trademark of its owner; Causeway is not affiliated with or endorsed by it.
 
@@ -39,15 +39,15 @@ Choose the style when you start an RCA with **New**; the RCA properties (click t
 **Cause tree.** Each effect has its possible causes, drawn like an organisation chart lying on its side; there is no AND, because the branches are alternatives.
 
 - **+ Cause** (**Insert** or **Alt+A**) adds a possible cause. A cause has no action or condition type.
-- Each cause has a **status**, set in its properties or with **Alt+1**, **Alt+2**, **Alt+3**: **Possible** (white, dashed outline: still to test), **Confirmed** (solid teal; the path to it from the effect is drawn bold), or **Ruled out** (grey and struck through, with a dashed link). A ruled-out cause stays on the tree, so the chart shows what was eliminated; **Rule out** sets the status. The ruled-out causes are listed under **Causes ruled out** and in the report.
-- A confirmed cause happened, so the effects it leads to did too: confirming a cause also confirms the possible effects between it and the primary effect, in the same undo step. A ruled-out effect on the way is left as it is.
+- Each cause has a **status**, set in its properties or with **Alt+1**, **Alt+2**, **Alt+3**, and shown by the badge in its corner: **Hypothesis**, **H** (white, dashed outline: still to test), **Confirmed**, **✓** (solid teal; the path to it from the effect is drawn bold), or **Ruled out**, a red **✕** (grey and struck through, with a dashed link). The badge is orange while a hypothesis or a confirmed cause has no evidence. A ruled-out cause stays on the tree, so the chart shows what was eliminated; **Rule out** sets the status. The ruled-out causes are listed under **Causes ruled out** and in the report.
+- A confirmed cause happened, so the effects it leads to did too: confirming a cause also confirms the possible effects between it and the primary effect, in the same undo step. A ruled-out effect on the way is left as it is. Making a confirmed cause a hypothesis again, or ruling it out, takes back what it confirmed: each effect on the way goes back to a hypothesis, unless another of its causes is confirmed or it has evidence of its own.
 - **How it is tested**, in each cause's properties (in both styles): the check or test that will confirm it or rule it out, or that did.
-- Issues: a confirmed cause without evidence (error), a ruled-out effect of a confirmed cause (error), a possible cause not tested yet or whose cause is confirmed (warning), and a confirmed branch that ends without a stop point (note).
+- Issues: a confirmed cause without evidence (error), a ruled-out effect of a confirmed cause (error), a hypothesis not tested yet or whose cause is confirmed (warning), and a confirmed branch that ends without a stop point (note).
 
 **Switching.** Choosing the other style shows what that style will still need, before anything changes, for example *4 causes without a type*, *3 effects missing an action or a condition*, *1 ruled-out cause to move to the causes ruled out*. Switch, and each shows in the issues list, which opens, and is outlined on the chart, so you can work through them. Nothing is lost, and the switch is one undo step:
 
-- To a cause tree: a cause backed by evidence, and not unverified, becomes confirmed; the others become possible. Actions and conditions keep their type for a move back.
-- To Apollo: possible causes become unverified (?). Causes made in the tree ask for a type (choose **Action** or **Condition** in their properties), each effect needs an action and a condition, and each ruled-out cause asks to be moved to the causes ruled out with **Rule out**, which takes its evidence and test along.
+- To a cause tree: a cause backed by evidence, and not unverified, becomes confirmed; the others become hypotheses. Actions and conditions keep their type for a move back.
+- To Apollo: hypotheses become unverified (?). Causes made in the tree ask for a type (choose **Action** or **Condition** in their properties), each effect needs an action and a condition, and each ruled-out cause asks to be moved to the causes ruled out with **Rule out**, which takes its evidence and test along.
 
 In a cause tree, the 5 Whys, the fishbone, and the sequence of events add causes without a type.
 
@@ -186,7 +186,7 @@ With a node selected and no field focused:
 | Type | Replace the title: the first key starts the new one. **Enter** finishes it, back to the chart's keys; **Shift+Enter** starts a new line |
 | **Insert** or **Alt+A** | Add an action cause; in a cause tree, a cause |
 | **Shift+Insert** or **Alt+C** | Add a condition cause (Apollo) |
-| **Alt+1** **Alt+2** **Alt+3** | Cause tree: set the status to possible, confirmed, or ruled out |
+| **Alt+1** **Alt+2** **Alt+3** | Cause tree: set the status to hypothesis, confirmed, or ruled out |
 | **F2** or **Enter** | Edit the title, keeping it |
 | **←** | Select the effect |
 | **→** | Select a cause; on a collapsed node, expand it |
@@ -251,7 +251,7 @@ The file is JSON with `"type": "causeway"` and `"schemaVersion": 1`. Files saved
 | `id` | The RCA's UUID |
 | `meta` | `rcaNumber`, `equipmentTag`, `sealType`, `style`: `apollo` \| `tree` (files without it are Apollo), `leadId` (a team member's id), `team` [{`id`, `name`, `role`}], `dates` {`opened`, `eventDate`, `closed`} |
 | `problem` | `primaryEffectId`, `when`, `where`, `significance` {`safety`, `environment`, `productionCost`, `reliability`}. The "what" is the primary effect node's title. |
-| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`, `offsetY`: how far it is moved down by hand (negative: up) from where the layout places it, in chart units (pixels at 100 %)} |
+| `nodes` | {`id`, `kind`: `effect` \| `action` \| `condition` \| `cause` (no type yet: made in a cause tree), `title`, `description`, `evidenceIds`, `status`: `possible` (a hypothesis) \| `confirmed` \| `ruled-out` (used in a cause tree), `test` (how it is tested), `unverified`, `controllable`, `stopPoint`: null or {`reason`, `note`}, `notes`, `offsetY`: how far it is moved down by hand (negative: up) from where the layout places it, in chart units (pixels at 100 %)} |
 | `links` | {`id`, `effectId`, `causeId`}: the cause supports the effect. Links form a directed acyclic graph rooted at the primary effect. |
 | `evidence` | {`id`, `code` (`E1`, `E2`, …, never renumbered), `description`, `type`: `sensed` \| `inferred`, `source`, `collectedBy`, `date`} |
 | `ruledOut` | {`id`, `cause`, `kind`: `action` \| `condition` \| `""`, `test`, `evidenceIds`, `status`: `testing` \| `ruled-out`} |

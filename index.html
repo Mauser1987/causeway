@@ -200,6 +200,10 @@ kbd {
 .sw.action { background: var(--accent); }
 .sw.condition { background: var(--condition); border: 1.5px solid var(--accent-2); }
 .sw.and { height: 16px; padding: 0 4px; border: 1.5px solid var(--wire); border-radius: 8px; background: var(--panel); color: var(--ink-2); font-size: 8px; font-weight: 800; }
+.sw.badge { box-sizing: border-box; width: 18px; height: 18px; border-radius: 9px; margin-left: -4px; line-height: 1; font-size: 11px; font-weight: 800; }
+.sw.badge.h { background: var(--panel); border: 1.2px solid var(--muted); color: var(--ink); }
+.sw.badge.ok { background: var(--accent); color: #fff; }
+.sw.badge.no { background: var(--effect); color: #fff; }
 .sw.q { width: 18px; height: 18px; border-radius: 9px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 800; }
 .sw.code { height: 18px; padding: 0 6px; border-radius: 9px; background: var(--accent-soft); color: var(--accent-ink); font: 700 10.5px var(--mono); }
 .sw.shared { height: 0; border-top: 2px dashed var(--shared); border-radius: 0; }
@@ -645,10 +649,10 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
     <div class="panel-title legend-title">Legend</div>
     <ul class="legend tree">
       <li><span class="sw effect"></span>Primary effect</li>
-      <li><span class="sw confirmed"></span>Confirmed</li>
-      <li><span class="sw possible"></span>Possible, to test</li>
-      <li><span class="sw ruled"></span><s>Ruled out</s></li>
-      <li><span class="sw q">?</span>No evidence yet</li>
+      <li><span class="sw possible"></span><span class="sw badge h">H</span>Hypothesis, to test</li>
+      <li><span class="sw confirmed"></span><span class="sw badge ok">✓</span>Confirmed</li>
+      <li><span class="sw ruled"></span><span class="sw badge no">✕</span><s>Ruled out</s></li>
+      <li><span class="sw q">H</span>No evidence yet</li>
       <li><span class="sw code">E3</span>Cited evidence</li>
       <li><span class="sw shared"></span>Shared cause link</li>
       <li><span class="sw stop">STOP</span>Stop point: root cause</li>
@@ -720,11 +724,11 @@ const KINDS = {
 // needed (AND). Cause tree: each effect has its possible causes, any of which may explain it.
 const CHART_STYLES = {
   apollo: {name: 'Apollo', about: 'Each effect has at least one action and one condition, all needed (AND).'},
-  tree: {name: 'Cause tree', about: 'Each effect has its possible causes, any of which may explain it. Test each: possible, confirmed, or ruled out.'},
+  tree: {name: 'Cause tree', about: 'Each effect has its possible causes, any of which may explain it. Test each hypothesis until it is confirmed or ruled out.'},
 };
 // A cause's status in a cause tree.
 const STATUSES = {
-  possible: {name: 'Possible', label: 'POSSIBLE · TO TEST', mark: '?'},
+  possible: {name: 'Hypothesis', label: 'HYPOTHESIS', mark: 'H'},
   confirmed: {name: 'Confirmed', label: '✓ CONFIRMED', mark: '✓'},
   'ruled-out': {name: 'Ruled out', label: '✕ RULED OUT', mark: '✕'},
 };
@@ -763,6 +767,7 @@ const NODE_W = 200;
 const NODE_PAD_X = 12;
 const NODE_PAD_Y = 9;
 const KIND_LINE = 15;        // the small kind label above the title
+const BADGE_ROOM = 14;       // in a cause tree, what the title leaves free for the status badge
 const TITLE_LINE = 16;
 const TITLE_SIZE = 12.5;
 const FOOT_LINE = 20;        // evidence codes and tags under the title
@@ -1465,10 +1470,14 @@ function nodeFoot(n, hidden) {
 }
 const hasFoot = f => f.codes.length || f.controllable || f.stop || f.hidden;
 
+// In a cause tree a cause has no kind label: its status badge in the corner says it.
+const statusBadge = n => treeStyle() && isCause(n);
+const kindLine = n => statusBadge(n) ? 0 : KIND_LINE;
+
 function nodeSize(n, hidden) {
-  const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X, TITLE_SIZE, 600);
+  const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X - (statusBadge(n) ? BADGE_ROOM : 0), TITLE_SIZE, 600);
   const foot = nodeFoot(n, hidden);
-  const h = NODE_PAD_Y * 2 + KIND_LINE + lines.length * TITLE_LINE + (hasFoot(foot) ? FOOT_LINE : 0);
+  const h = NODE_PAD_Y * 2 + kindLine(n) + lines.length * TITLE_LINE + (hasFoot(foot) ? FOOT_LINE : 0);
   return {w: NODE_W, h, lines, foot};
 }
 
@@ -1692,13 +1701,14 @@ function nodeMarkup(b, opts) {
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': c.dash || n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1, 'stroke-dasharray': c.dash})}/>`;
   const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
     : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label;
-  s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
+  const kl = kindLine(n);
+  if (kl) s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
   s += `<text x="${NODE_PAD_X}" font-size="${TITLE_SIZE}" font-weight="600" fill="${c.text}">`;
-  b.lines.forEach((line, i) => { s += `<tspan x="${NODE_PAD_X}" y="${NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 12}">${escapeHtml(line)}</tspan>`; });
+  b.lines.forEach((line, i) => { s += `<tspan x="${NODE_PAD_X}" y="${NODE_PAD_Y + kl + TITLE_LINE * i + 12}">${escapeHtml(line)}</tspan>`; });
   s += '</text>';
   // A ruled-out cause in a cause tree is struck through.
   if (isRuledOut(n)) b.lines.forEach((line, i) => {
-    const y = NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 8;
+    const y = NODE_PAD_Y + kl + TITLE_LINE * i + 8;
     s += `<line x1="${NODE_PAD_X}" y1="${y}" x2="${NODE_PAD_X + textWidth(line, TITLE_SIZE, 600)}" y2="${y}" stroke="${c.text}" stroke-width="1.2"/>`;
   });
 
@@ -1735,7 +1745,17 @@ function nodeMarkup(b, opts) {
     const open = !collapsed.has(n.id);
     s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${C.stop}" stroke-width="1.6"/></g>`;
   }
-  if (isCause(n) && needsEvidence(n)) {
+  // A cause tree's status badge: H for a hypothesis, a tick for confirmed, a cross for ruled out.
+  // Orange while a hypothesis or a confirmed cause has no evidence.
+  if (statusBadge(n)) {
+    const bare = needsEvidence(n), mark = STATUSES[n.status].mark;
+    const look = bare ? {fill: C.unverified.fill, stroke: C.unverified.fill, text: C.unverified.text}
+      : n.status === 'confirmed' ? {fill: C.confirmedWire, stroke: C.confirmedWire, text: '#ffffff'}
+      : n.status === 'ruled-out' ? {fill: C.effect.fill, stroke: C.effect.fill, text: '#ffffff'}
+      : {fill: C.panel, stroke: C.possible.stroke, text: C.possible.text};
+    s += `<g class="status-badge" transform="translate(${w - 3} 3)"><title>${STATUSES[n.status].name}${bare ? ': no evidence linked' : ''}</title><circle r="11" fill="${look.fill}" stroke="${C.panel}" stroke-width="2"/>`
+      + `<circle r="9.5" fill="none" stroke="${look.stroke}" stroke-width="1.2"/><text y="${mark === 'H' ? 4.5 : 4.8}" font-size="${mark === 'H' ? 12.5 : 13}" font-weight="800" text-anchor="middle" fill="${look.text}">${mark}</text></g>`;
+  } else if (isCause(n) && needsEvidence(n)) {
     s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified && !treeStyle() ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${C.unverified.fill}" stroke="${C.panel}" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${C.unverified.text}">?</text></g>`;
   }
   return s + '</g>';
@@ -1854,7 +1874,7 @@ function renderStyle() {
   $('app').dataset.style = state.meta.style;
   $('railChartName').textContent = tree ? 'Cause tree' : 'Cause & effect';
   $('railChart').title = tree ? 'Cause tree' : 'Cause-and-effect chart';
-  $('chartHint').textContent = tree ? 'Read left to right: each effect, then its possible causes. Test each until a confirmed branch reaches a root cause.'
+  $('chartHint').textContent = tree ? 'Read left to right: each effect, then its hypotheses. Test each until a confirmed branch reaches a root cause.'
     : 'Read left to right: each effect, then the causes that were all needed for it (AND).';
   $('addActionName').textContent = tree ? '+ Cause' : '+ Action';
   $('addAction').title = tree ? 'Add a possible cause to the selected effect' : 'Add an action cause to the selected effect';
@@ -1908,7 +1928,7 @@ function renderRcaProperties(box) {
       <ol class="steps">${tree ? `
         <li>Select the primary effect and add its possible causes with <b>+ Cause</b>.</li>
         <li>Select a cause and add its own possible causes the same way.</li>
-        <li>Test each cause: link its evidence, and set its status to <b>Possible</b>, <b>Confirmed</b>, or <b>Ruled out</b>.</li>
+        <li>Test each cause: link its evidence, and keep it a <b>Hypothesis</b> until it is <b>Confirmed</b> or <b>Ruled out</b>.</li>
         <li>Follow the confirmed causes down to the root causes, and mark each with a stop point.</li>` : `
         <li>Select the primary effect and add its causes with <b>+ Action</b> and <b>+ Condition</b>.</li>
         <li>Select a cause and add its own causes the same way.</li>
@@ -1922,7 +1942,7 @@ function renderRcaProperties(box) {
       <div class="panel-title">Keys</div>
       <dl class="keys">${tree ? `
         <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add a cause to the selected effect</dd>
-        <dt><kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Possible, confirmed, ruled out</dd>` : `
+        <dt><kbd>Alt+1</kbd> <kbd>2</kbd> <kbd>3</kbd></dt><dd>Hypothesis, confirmed, ruled out</dd>` : `
         <dt><kbd>Ins</kbd> or <kbd>Alt+A</kbd></dt><dd>Add an action to the selected effect</dd>
         <dt><kbd>Shift+Ins</kbd> or <kbd>Alt+C</kbd></dt><dd>Add a condition</dd>`}
         <dt>Type</dt><dd>Replace the title; <kbd>Enter</kbd> finishes it</dd>
@@ -1958,7 +1978,7 @@ function renderNodeProperties(box, n) {
   const evidence = n.evidenceIds.map(evidenceById).filter(Boolean);
   const solutions = solutionsOf(n.id);
   const tree = treeStyle();
-  const kindName = isPrimary ? 'Primary effect' : tree ? (n.status === 'ruled-out' ? 'Ruled out' : `${STATUSES[n.status].name} cause`) : KINDS[n.kind].name;
+  const kindName = isPrimary ? 'Primary effect' : tree ? {possible: 'Hypothesis', confirmed: 'Confirmed cause', 'ruled-out': 'Ruled out'}[n.status] : KINDS[n.kind].name;
   const about = [causes.length && !isPrimary ? 'also an effect' : '', causes.length ? `${causes.length} cause${causes.length > 1 ? 's' : ''}` : '',
     effects.length > 1 ? `supports ${effects.length} effects` : ''].filter(Boolean).join(' · ');
   box.innerHTML = `
@@ -2126,7 +2146,7 @@ const NEEDS = {
   'causal-set': n => `${plural(n, 'effect')} missing an action or a condition`,
   ruled: n => `${plural(n, 'ruled-out cause')} to move to the causes ruled out`,
   evidence: (n, style) => style === 'tree' ? `${plural(n, 'confirmed cause')} without evidence` : `${plural(n, 'cause')} without evidence, or unverified`,
-  untested: n => `${plural(n, 'possible cause')} still to test`,
+  untested: n => `${plural(n, 'hypothesis', 'hypotheses')} still to test`,
   'open-branch': n => `${plural(n, 'branch', 'branches')} without a stop point`,
 };
 
@@ -2141,8 +2161,8 @@ function askSwitchStyle(style) {
   const name = CHART_STYLES[style].name;
   openDialog(`<h2>Switch to ${style === 'tree' ? 'a cause tree' : 'Apollo'}?</h2>
     <p>${style === 'tree'
-      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes <b>possible</b>. Actions and conditions keep their type, for a move back.'
-      : 'Nothing is lost. <b>Possible</b> causes become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
+      ? 'Nothing is lost. Each cause backed by evidence becomes <b>confirmed</b>; one without evidence, or unverified, becomes a <b>hypothesis</b>. Actions and conditions keep their type, for a move back.'
+      : 'Nothing is lost. <b>Hypotheses</b> become unverified (?). Causes made in the tree have no type yet, and each effect needs an action and a condition.'}</p>
     <div class="sub">Still needed after the switch</div>
     ${groups.size ? `<ul class="needs">${[...groups].map(([code, g]) => `<li class="need-${g.level}">${NEEDS[code]?.(g.n, style) ?? plural(g.n, 'issue')}</li>`).join('')}</ul>
       <p class="note">Each one shows in the issues list, and is outlined on the chart, so you can work through them.</p>`
@@ -2262,12 +2282,24 @@ function ruleOutSelected() {
 
 // A cause tree: Alt+1, Alt+2, and Alt+3 set the selected cause's status. A confirmed cause happened,
 // so the effects it leads to did too: the possible ones on the way to the primary effect are confirmed
-// with it. A ruled-out effect stops the way; the issues list flags it.
+// with it. A ruled-out effect stops the way; the issues list flags it. When a confirmed cause becomes
+// a hypothesis or is ruled out, the effects it confirmed go back to hypotheses: each one that has no
+// other confirmed cause and no evidence of its own.
 function setNodeStatus(status) {
   const n = byId(selected);
   if (!n || !isCause(n) || !treeStyle()) return;
+  const was = n.status;
   n.status = status;
-  let more = 0;
+  let more = 0, fewer = 0;
+  if (was === 'confirmed' && status !== 'confirmed') {
+    const todo = effectsOf(n.id);
+    while (todo.length) {
+      const e = todo.pop();
+      if (!isCause(e) || e.status !== 'confirmed' || hasEvidence(e) || causesOf(e.id).some(c => c.status === 'confirmed')) continue;
+      e.status = 'possible'; fewer++;
+      todo.push(...effectsOf(e.id));
+    }
+  }
   if (status === 'confirmed') {
     const seen = new Set(), todo = effectsOf(n.id);
     while (todo.length) {
@@ -2279,7 +2311,8 @@ function setNodeStatus(status) {
     }
   }
   render(); persist();
-  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}${more ? `, with the ${more} effect${more > 1 ? 's' : ''} it leads to` : ''}`);
+  setStatus(`"${n.title}": ${STATUSES[status].name.toLowerCase()}${more ? `, with the ${more} effect${more > 1 ? 's' : ''} it leads to` : ''}`
+    + (fewer ? `; ${plural(fewer, 'effect')} it confirmed ${fewer > 1 ? 'are hypotheses' : 'is a hypothesis'} again` : ''));
 }
 
 // Collapsing is a view setting: saved with the file, but not an undo step.
@@ -4112,7 +4145,7 @@ function buildReport() {
     <section class="r-page">
       <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
       <p class="r-legend">${treeStyle()
-        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed: possible, still to test. Grey, struck through: ruled out. E-codes: evidence. ?: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
+        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed, H: hypothesis, still to test. Grey, struck through, ✕: ruled out. E-codes: evidence. Orange badge: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
         : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
       ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}

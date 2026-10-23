@@ -43,10 +43,14 @@ function nodeFoot(n, hidden) {
 }
 const hasFoot = f => f.codes.length || f.controllable || f.stop || f.hidden;
 
+// In a cause tree a cause has no kind label: its status badge in the corner says it.
+const statusBadge = n => treeStyle() && isCause(n);
+const kindLine = n => statusBadge(n) ? 0 : KIND_LINE;
+
 function nodeSize(n, hidden) {
-  const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X, TITLE_SIZE, 600);
+  const lines = wrapText(n.title.trim() || 'Untitled', NODE_W - 2 * NODE_PAD_X - (statusBadge(n) ? BADGE_ROOM : 0), TITLE_SIZE, 600);
   const foot = nodeFoot(n, hidden);
-  const h = NODE_PAD_Y * 2 + KIND_LINE + lines.length * TITLE_LINE + (hasFoot(foot) ? FOOT_LINE : 0);
+  const h = NODE_PAD_Y * 2 + kindLine(n) + lines.length * TITLE_LINE + (hasFoot(foot) ? FOOT_LINE : 0);
   return {w: NODE_W, h, lines, foot};
 }
 

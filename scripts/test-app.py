@@ -1358,6 +1358,19 @@ def run_tests(b):
     assert node(possible)['status'] == 'possible' and node('Root of it')['status'] == 'possible', 'one undo step'
     select('Root of it'); b.js('document.querySelector("#properties [data-status=confirmed]").click();return true')
     assert node(possible)['status'] == 'confirmed', 'the status buttons confirm the effects too'
+    # Taking a confirmation back puts the effects it confirmed back to hypotheses: not one that has another
+    # confirmed cause, nor one with evidence of its own.
+    for title in ('Deeper', 'Deeper too'):
+        select('Root of it'); key('a', alt=True); set_title(title)
+        select(title); key('2', alt=True)
+    select('Deeper'); key('1', alt=True)
+    assert node('Root of it')['status'] == 'confirmed', 'another confirmed cause keeps the effect confirmed'
+    select('Deeper too'); key('3', alt=True)
+    own = bool(node(possible)['evidenceIds'])
+    assert node('Root of it')['status'] == 'possible' and node(possible)['status'] == ('confirmed' if own else 'possible'), 'unconfirming reverts its effects'
+    assert ('1 effect it confirmed is a hypothesis again' if own else '2 effects it confirmed are hypotheses again') in b.js("return document.getElementById('status').textContent")
+    for _ in range(8): click('undo')
+    assert node('Root of it')['status'] == 'confirmed' and 'Deeper' not in [n['title'] for n in rca()['nodes']]
     click('undo'); click('undo'); click('undo')
     tree_file = rca()
     tree_file['meta']['style'] = 'nonsense'

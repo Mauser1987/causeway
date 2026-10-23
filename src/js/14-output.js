@@ -151,7 +151,7 @@ function buildReport() {
     <section class="r-page">
       <h2>${treeStyle() ? 'Cause tree' : 'Cause-and-effect chart'}</h2>
       <p class="r-legend">${treeStyle()
-        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed: possible, still to test. Grey, struck through: ruled out. E-codes: evidence. ?: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
+        ? 'Read left to right: each effect, then its possible causes. Red: primary effect. Solid teal, with a bold link: confirmed. White, dashed, H: hypothesis, still to test. Grey, struck through, ✕: ruled out. E-codes: evidence. Orange badge: no evidence. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'
         : 'Read left to right: each effect, then the causes that were all needed for it (AND). Red: primary effect. Dark: action. Light: condition. E-codes: evidence. ?: no evidence or unverified. Double bar and STOP: stop point. Dashed purple: a further link of a shared cause.'}</p>
       ${chartFigures().join('')}
       ${issues.length ? `<h3>Open rule issues</h3><ul>${issues.map(i => `<li class="${i.level === 'error' ? 'r-issue-error' : ''}">${escapeHtml(byId(i.nodeId)?.title || '')}: ${escapeHtml(i.text)}</li>`).join('')}</ul>` : ''}

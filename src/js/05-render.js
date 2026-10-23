@@ -33,13 +33,14 @@ function nodeMarkup(b, opts) {
   s += `<rect width="${w}" height="${h}" rx="8" ${attrs({fill: c.fill, stroke: c.stroke, 'stroke-width': c.dash || n.kind === 'condition' ? 1.5 : isPrimary ? 2 : 1, 'stroke-dasharray': c.dash})}/>`;
   const kind = isPrimary ? KINDS.effect.label : n.kind === 'effect' ? 'EFFECT' : treeStyle() ? STATUSES[n.status].label
     : n.kind === 'cause' ? 'CAUSE · CHOOSE A TYPE' : KINDS[n.kind].label;
-  s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
+  const kl = kindLine(n);
+  if (kl) s += `<text x="${NODE_PAD_X}" y="${NODE_PAD_Y + 9}" font-size="9.5" font-weight="700" letter-spacing="0.8" fill="${c.sub}">${kind}</text>`;
   s += `<text x="${NODE_PAD_X}" font-size="${TITLE_SIZE}" font-weight="600" fill="${c.text}">`;
-  b.lines.forEach((line, i) => { s += `<tspan x="${NODE_PAD_X}" y="${NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 12}">${escapeHtml(line)}</tspan>`; });
+  b.lines.forEach((line, i) => { s += `<tspan x="${NODE_PAD_X}" y="${NODE_PAD_Y + kl + TITLE_LINE * i + 12}">${escapeHtml(line)}</tspan>`; });
   s += '</text>';
   // A ruled-out cause in a cause tree is struck through.
   if (isRuledOut(n)) b.lines.forEach((line, i) => {
-    const y = NODE_PAD_Y + KIND_LINE + TITLE_LINE * i + 8;
+    const y = NODE_PAD_Y + kl + TITLE_LINE * i + 8;
     s += `<line x1="${NODE_PAD_X}" y1="${y}" x2="${NODE_PAD_X + textWidth(line, TITLE_SIZE, 600)}" y2="${y}" stroke="${c.text}" stroke-width="1.2"/>`;
   });
 
@@ -76,7 +77,17 @@ function nodeMarkup(b, opts) {
     const open = !collapsed.has(n.id);
     s += `<g class="toggle" transform="translate(${w} ${h / 2})"><title>${open ? 'Collapse' : 'Expand'} this branch (Space)</title><circle r="8" fill="${C.panel}" stroke="${C.wire}" stroke-width="1.5"/><path d="M -3.5 0 H 3.5${open ? '' : ' M 0 -3.5 V 3.5'}" stroke="${C.stop}" stroke-width="1.6"/></g>`;
   }
-  if (isCause(n) && needsEvidence(n)) {
+  // A cause tree's status badge: H for a hypothesis, a tick for confirmed, a cross for ruled out.
+  // Orange while a hypothesis or a confirmed cause has no evidence.
+  if (statusBadge(n)) {
+    const bare = needsEvidence(n), mark = STATUSES[n.status].mark;
+    const look = bare ? {fill: C.unverified.fill, stroke: C.unverified.fill, text: C.unverified.text}
+      : n.status === 'confirmed' ? {fill: C.confirmedWire, stroke: C.confirmedWire, text: '#ffffff'}
+      : n.status === 'ruled-out' ? {fill: C.effect.fill, stroke: C.effect.fill, text: '#ffffff'}
+      : {fill: C.panel, stroke: C.possible.stroke, text: C.possible.text};
+    s += `<g class="status-badge" transform="translate(${w - 3} 3)"><title>${STATUSES[n.status].name}${bare ? ': no evidence linked' : ''}</title><circle r="11" fill="${look.fill}" stroke="${C.panel}" stroke-width="2"/>`
+      + `<circle r="9.5" fill="none" stroke="${look.stroke}" stroke-width="1.2"/><text y="${mark === 'H' ? 4.5 : 4.8}" font-size="${mark === 'H' ? 12.5 : 13}" font-weight="800" text-anchor="middle" fill="${look.text}">${mark}</text></g>`;
+  } else if (isCause(n) && needsEvidence(n)) {
     s += `<g transform="translate(${w - 3} 3)"><title>${n.unverified && !treeStyle() ? 'Unverified' : 'No evidence linked'}</title><circle r="11" fill="${C.unverified.fill}" stroke="${C.panel}" stroke-width="2"/><text y="4.5" font-size="13" font-weight="800" text-anchor="middle" fill="${C.unverified.text}">?</text></g>`;
   }
   return s + '</g>';
@@ -195,7 +206,7 @@ function renderStyle() {
   $('app').dataset.style = state.meta.style;
   $('railChartName').textContent = tree ? 'Cause tree' : 'Cause & effect';
   $('railChart').title = tree ? 'Cause tree' : 'Cause-and-effect chart';
-  $('chartHint').textContent = tree ? 'Read left to right: each effect, then its possible causes. Test each until a confirmed branch reaches a root cause.'
+  $('chartHint').textContent = tree ? 'Read left to right: each effect, then its hypotheses. Test each until a confirmed branch reaches a root cause.'
     : 'Read left to right: each effect, then the causes that were all needed for it (AND).';
   $('addActionName').textContent = tree ? '+ Cause' : '+ Action';
   $('addAction').title = tree ? 'Add a possible cause to the selected effect' : 'Add an action cause to the selected effect';

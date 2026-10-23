@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7 — 2026-10-23
+
+Hypotheses, and status badges in the cause tree.
+
+- A cause still to test is a **Hypothesis**. In a cause tree the status line above each cause's title is gone; a badge in its corner shows the status instead: **H** for a hypothesis, **✓** confirmed, and a red **✕** ruled out. The badge turns orange while a hypothesis or a confirmed cause has no evidence, in place of the **?**. Files keep `"status": "possible"`.
+- Making a confirmed cause a hypothesis again, or ruling it out, now takes back the confirmations it made: the effects on the way go back to hypotheses, unless another of their causes is confirmed or they have evidence of their own.
+
 ## v1.6 — 2026-10-23
 
 Import mind maps.

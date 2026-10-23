@@ -18,11 +18,11 @@ const KINDS = {
 // needed (AND). Cause tree: each effect has its possible causes, any of which may explain it.
 const CHART_STYLES = {
   apollo: {name: 'Apollo', about: 'Each effect has at least one action and one condition, all needed (AND).'},
-  tree: {name: 'Cause tree', about: 'Each effect has its possible causes, any of which may explain it. Test each: possible, confirmed, or ruled out.'},
+  tree: {name: 'Cause tree', about: 'Each effect has its possible causes, any of which may explain it. Test each hypothesis until it is confirmed or ruled out.'},
 };
 // A cause's status in a cause tree.
 const STATUSES = {
-  possible: {name: 'Possible', label: 'POSSIBLE · TO TEST', mark: '?'},
+  possible: {name: 'Hypothesis', label: 'HYPOTHESIS', mark: 'H'},
   confirmed: {name: 'Confirmed', label: '✓ CONFIRMED', mark: '✓'},
   'ruled-out': {name: 'Ruled out', label: '✕ RULED OUT', mark: '✕'},
 };
@@ -61,6 +61,7 @@ const NODE_W = 200;
 const NODE_PAD_X = 12;
 const NODE_PAD_Y = 9;
 const KIND_LINE = 15;        // the small kind label above the title
+const BADGE_ROOM = 14;       // in a cause tree, what the title leaves free for the status badge
 const TITLE_LINE = 16;
 const TITLE_SIZE = 12.5;
 const FOOT_LINE = 20;        // evidence codes and tags under the title
