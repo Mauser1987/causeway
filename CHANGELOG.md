@@ -1,10 +1,11 @@
 # Changelog
 
-## v1.15 — unreleased
+## v1.15 — 2026-10-24
 
-Reports as Word documents.
+Reports as Word documents, and the chart as a PDF.
 
 - **Export ▾** offers the **full report** and the **8D report** as `.docx` files, written in the browser with no library and no network. They hold what the printed reports hold, in a clean landscape layout: a cover with the RCA's references, headings that show in Word's navigation pane, tables with repeating header rows, the chart, fishbones, and timelines as pictures, and page numbers. They open in Word, LibreOffice, and Google Docs.
+- **Export ▾ → Chart as PDF** puts the whole cause-and-effect chart or cause tree on one landscape sheet of A4, A3, or A1. The dialog shows the text size each paper gives. The PDF is vector, written in the browser in the PDF base fonts: sharp at any zoom, searchable, and small (a few kB for the example).
 
 ## v1.14 — 2026-10-24
 

@@ -718,6 +718,7 @@ textarea.answer { font-size: 14px; font-weight: 600; min-height: 32px; resize: n
 .dialog .sub { margin-top: 4px; }
 .dialog-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 .style-choices { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.style-choices.three { grid-template-columns: repeat(3, 1fr); }
 .style-choice { display: flex; flex-direction: column; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); text-align: left; font-size: 12.5px; line-height: 1.45; }
 .style-choice b { font-size: 15px; }
 .style-choice span { color: var(--muted); }

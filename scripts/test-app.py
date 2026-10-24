@@ -10,6 +10,8 @@ Run directly to start a temporary headless Firefox, or pass --port to use an
 existing Firefox started with --headless --marionette and a temporary profile.
 """
 import argparse
+import base64
+import io
 import json
 from pathlib import Path
 import re
@@ -18,6 +20,9 @@ import socket
 import subprocess
 import tempfile
 import time
+import xml.etree.ElementTree as ET
+import zipfile
+import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
 STORAGE = 'causeway-v1'
@@ -1803,8 +1808,6 @@ def run_tests(b):
     print('PASS: guide beside each page, the Learn page, and examples for every method', flush=True)
 
     # ---- Word reports ----
-    import base64, io, zipfile
-    import xml.etree.ElementTree as ET
     open_app()
 
     def docx(button):
@@ -1835,6 +1838,27 @@ def run_tests(b):
     assert all(f'D{i}' in text for i in range(1, 9)) and 'Escape point' in text and 'Not ready to close' in text
     assert 'RCA-2026-014' in z.read('word/footer1.xml').decode()
     print('PASS: full and 8D reports as Word documents', flush=True)
+
+    # ---- Chart as PDF ----
+    click('exportPdf')
+    papers = b.js("return [...document.querySelectorAll('#dialog [data-choice]')].map(x=>x.dataset.choice+'|'+x.textContent.replace(/\\s+/g,' ').trim())")
+    assert [p.split('|')[0] for p in papers] == ['a4', 'a3', 'a1', ''] and all('Text at' in p for p in papers[:3]), papers
+    data = b.async_js('''const done=arguments[arguments.length-1],seen=__downloads.length;document.querySelector('#dialog [data-choice=a3]').click();
+        const wait=()=>{const f=__downloads.slice(seen).find(x=>x.type==='application/pdf');if(!f)return setTimeout(wait,50);
+          const r=new FileReader();r.onload=()=>done(r.result);r.readAsDataURL(f)};wait()''')
+    pdf = base64.b64decode(data.split(',')[1])
+    assert pdf.startswith(b'%PDF-1.4') and pdf.rstrip().endswith(b'%%EOF') and b'/MediaBox [0 0 1190.55 841.89]' in pdf
+    # Every object is where the cross-reference table says.
+    xref = int(re.search(rb'startxref\n(\d+)', pdf).group(1))
+    rows = pdf[xref:].split(b'\n')
+    count = int(rows[1].split()[1])
+    for n, row in enumerate(rows[3:3 + count - 1], start=1):
+        assert pdf[int(row[:10]):].startswith(f'{n} 0 obj'.encode()), n
+    content = zlib.decompress(re.search(rb'stream\n(.*?)\nendstream', pdf, re.S).group(1)).decode('latin-1')
+    assert '(High seal leakage, 15 ml/min \\(limit under 1 ml/min\\)) Tj' in content
+    assert content.count(' Tj') > 60 and content.count(' re ') + content.count(' c ') > 50
+    assert all(f'/BaseFont /{f}' in pdf.decode('latin-1') for f in ['Helvetica', 'Helvetica-Bold', 'Courier-Bold', 'ZapfDingbats'])
+    print('PASS: chart as a vector PDF on a chosen paper size', flush=True)
 
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')

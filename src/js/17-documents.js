@@ -343,3 +343,261 @@ async function exportDocx(layout) {
 }
 $('exportDocxFull').onclick = () => exportDocx('full');
 $('exportDocx8d').onclick = () => exportDocx('8d');
+
+// ---- PDF ----
+// The chart as a vector PDF on one sheet. The chart's SVG is drawn again in PDF operators: rectangles,
+// paths, circles, and text in the PDF base fonts, so it needs no font files and stays sharp at any zoom.
+
+const PDF_PAPERS = {a4: {name: 'A4', w: 841.89, h: 595.28}, a3: {name: 'A3', w: 1190.55, h: 841.89}, a1: {name: 'A1', w: 2383.94, h: 1683.78}};
+const PDF_MARGIN = 28;   // points, about 10 mm
+
+// Widths of the base fonts, in thousandths of the size, for the characters 32 to 126.
+const HELVETICA_W = [278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556,
+  278, 278, 584, 584, 584, 556, 1015, 667, 667, 722, 722, 667, 611, 778, 722, 278, 500, 667, 556, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944,
+  667, 667, 611, 278, 278, 278, 469, 556, 333, 556, 556, 500, 556, 556, 278, 556, 556, 222, 222, 500, 222, 833, 556, 556, 556, 556, 333, 500, 278, 556,
+  500, 722, 500, 500, 500, 334, 260, 334, 584];
+const HELVETICA_BOLD_W = [278, 333, 474, 556, 556, 889, 722, 238, 333, 333, 389, 584, 278, 333, 278, 278, 556, 556, 556, 556, 556, 556, 556, 556, 556, 556,
+  333, 333, 584, 584, 584, 611, 975, 722, 722, 722, 722, 667, 611, 778, 722, 278, 556, 722, 611, 833, 722, 778, 667, 778, 722, 667, 611, 722, 667, 944,
+  667, 667, 611, 333, 278, 333, 584, 556, 333, 556, 611, 556, 611, 556, 333, 611, 611, 278, 278, 556, 278, 889, 611, 611, 611, 611, 389, 556, 333, 611,
+  556, 778, 556, 556, 500, 389, 280, 389, 584];
+// WinAnsi codes 128 to 159 that are not Latin-1.
+const WIN_ANSI = {'€': 128, '‚': 130, 'ƒ': 131, '„': 132, '…': 133, '†': 134, '‡': 135, 'ˆ': 136, '‰': 137, 'Š': 138, '‹': 139, 'Œ': 140, 'Ž': 142,
+  '‘': 145, '’': 146, '“': 147, '”': 148, '•': 149, '–': 150, '—': 151, '˜': 152, '™': 153, 'š': 154, '›': 155, 'œ': 156, 'ž': 158, 'Ÿ': 159};
+// Characters outside WinAnsi that the Symbol and ZapfDingbats base fonts have.
+const PDF_SYMBOL = {'→': 0xae, '←': 0xac, '↑': 0xad, '↓': 0xaf, '↔': 0xab, '≤': 0xa3, '≥': 0xb3, '≈': 0xbb, '≠': 0xb9, '∞': 0xa5, '√': 0xd6, '∆': 0x44, 'Δ': 0x44,
+  'Ω': 0x57, 'α': 0x61, 'β': 0x62, 'γ': 0x67, 'δ': 0x64, 'ε': 0x65, 'θ': 0x71, 'λ': 0x6c, 'μ': 0x6d, 'π': 0x70, 'ρ': 0x72, 'σ': 0x73, 'τ': 0x74, 'φ': 0x66, 'ω': 0x77, '∑': 0xe5, '∅': 0xc6};
+const PDF_DINGBATS = {'✓': 0x33, '✔': 0x34, '✕': 0x35, '✖': 0x36, '✗': 0x37, '✘': 0x38, '↳': 0xe2, '➔': 0xd4};
+
+// The code of a character in a base font, as [font, code]; text the fonts lack falls back to its
+// plain form (₂ to 2), and then to "?".
+function pdfChar(ch, bold, mono) {
+  const text = mono ? 'Courier-Bold' : bold ? 'Helvetica-Bold' : 'Helvetica';
+  const code = ch.codePointAt(0);
+  if (code >= 32 && code < 127 || code >= 160 && code < 256) return [[text, code]];
+  if (WIN_ANSI[ch]) return [[text, WIN_ANSI[ch]]];
+  if (PDF_SYMBOL[ch]) return [['Symbol', PDF_SYMBOL[ch]]];
+  if (PDF_DINGBATS[ch]) return [['ZapfDingbats', PDF_DINGBATS[ch]]];
+  const plain = ch.normalize('NFKD').replace(/[̀-ͯ]/g, '');
+  if (plain && plain !== ch) return [...plain].flatMap(c => pdfChar(c, bold, mono));
+  return [[text, 63]];
+}
+// The width of a code in a base font, in thousandths of the size; non-ASCII Latin is near enough at 556.
+function pdfCharWidth(font, code) {
+  if (font === 'Courier-Bold') return 600;
+  if (font === 'Symbol' || font === 'ZapfDingbats') return 760;
+  const table = font === 'Helvetica-Bold' ? HELVETICA_BOLD_W : HELVETICA_W;
+  return code >= 32 && code < 127 ? table[code - 32] : code === 133 ? 1000 : 556;
+}
+const PDF_FONTS = {Helvetica: 'F1', 'Helvetica-Bold': 'F2', 'Courier-Bold': 'F3', Symbol: 'F4', ZapfDingbats: 'F5'};
+
+const pdfNum = v => (Math.round(v * 100) / 100).toString();
+const pdfString = bytes => '(' + bytes.map(b => b === 40 || b === 41 || b === 92 ? '\\' + String.fromCharCode(b) : b < 32 || b > 126 ? '\\' + b.toString(8).padStart(3, '0') : String.fromCharCode(b)).join('') + ')';
+
+// A colour from an SVG attribute: #rgb, #rrggbb, or rgb()/rgba(); null for none.
+function pdfColor(v) {
+  if (!v || v === 'none' || v === 'transparent') return null;
+  let m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(v.trim());
+  if (m) {
+    const h = m[1].length === 3 ? [...m[1]].map(c => c + c).join('') : m[1];
+    return {rgb: [0, 2, 4].map(i => parseInt(h.slice(i, i + 2), 16) / 255), a: 1};
+  }
+  m = /^rgba?\(([^)]+)\)$/i.exec(v.trim());
+  if (m) { const p = m[1].split(',').map(Number); return {rgb: p.slice(0, 3).map(x => x / 255), a: p[3] ?? 1}; }
+  return {rgb: [0, 0, 0], a: 1};
+}
+
+// An SVG path's d, in absolute M, L, H, V, C, Q, and Z, as PDF path operators.
+function pdfPath(d) {
+  const tokens = d.match(/[a-zA-Z]|-?[\d.]+(?:e-?\d+)?/g) || [];
+  let i = 0, cmd = '', x = 0, y = 0, sx = 0, sy = 0, out = '';
+  const num = () => Number(tokens[i++]);
+  while (i < tokens.length) {
+    if (/[a-zA-Z]/.test(tokens[i])) cmd = tokens[i++];
+    const rel = cmd === cmd.toLowerCase() && cmd !== 'z' ? 1 : 0, C = cmd.toUpperCase();
+    const px = () => num() + (rel ? x : 0), py = () => num() + (rel ? y : 0);
+    if (C === 'M') { x = px(); y = py(); sx = x; sy = y; out += `${pdfNum(x)} ${pdfNum(y)} m `; cmd = rel ? 'l' : 'L'; }
+    else if (C === 'L') { x = px(); y = py(); out += `${pdfNum(x)} ${pdfNum(y)} l `; }
+    else if (C === 'H') { x = num() + (rel ? x : 0); out += `${pdfNum(x)} ${pdfNum(y)} l `; }
+    else if (C === 'V') { y = num() + (rel ? y : 0); out += `${pdfNum(x)} ${pdfNum(y)} l `; }
+    else if (C === 'C') { const p = [px(), py(), px(), py(), px(), py()]; [x, y] = p.slice(4); out += p.map(pdfNum).join(' ') + ' c '; }
+    else if (C === 'Q') {
+      const qx = px(), qy = py(), ex = px(), ey = py();
+      out += [x + 2 / 3 * (qx - x), y + 2 / 3 * (qy - y), ex + 2 / 3 * (qx - ex), ey + 2 / 3 * (qy - ey), ex, ey].map(pdfNum).join(' ') + ' c ';
+      x = ex; y = ey;
+    }
+    else if (C === 'Z') { out += 'h '; x = sx; y = sy; }
+    else i++;
+  }
+  return out;
+}
+// A rectangle with rounded corners, and a circle, as Bézier curves.
+function pdfRoundRect(x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  if (!r) return `${pdfNum(x)} ${pdfNum(y)} ${pdfNum(w)} ${pdfNum(h)} re `;
+  const k = r * 0.5523;
+  return pdfPath(`M ${x + r} ${y} H ${x + w - r} C ${x + w - r + k} ${y} ${x + w} ${y + r - k} ${x + w} ${y + r} V ${y + h - r}
+    C ${x + w} ${y + h - r + k} ${x + w - r + k} ${y + h} ${x + w - r} ${y + h} H ${x + r} C ${x + r - k} ${y + h} ${x} ${y + h - r + k} ${x} ${y + h - r}
+    V ${y + r} C ${x} ${y + r - k} ${x + r - k} ${y} ${x + r} ${y} Z`);
+}
+const pdfCircle = (cx, cy, r) => pdfRoundRect(cx - r, cy - r, 2 * r, 2 * r, r);
+
+// Draws an SVG element tree into PDF operators. Inherited attributes are passed down; transforms
+// are translate and scale, as the chart uses.
+class PdfPainter {
+  constructor() { this.ops = []; this.alphas = new Map(); }
+  alpha(a) {
+    if (a >= 1) return '';
+    const key = pdfNum(a);
+    if (!this.alphas.has(key)) this.alphas.set(key, `GS${this.alphas.size + 1}`);
+    return `/${this.alphas.get(key)} gs `;
+  }
+  paint(el, inherit = {}) {
+    const get = name => el.getAttribute(name) ?? inherit[name];
+    const own = {...inherit};
+    for (const name of ['fill', 'stroke', 'stroke-width', 'stroke-dasharray', 'font-size', 'font-weight', 'font-family', 'text-anchor', 'letter-spacing', 'stroke-linejoin']) {
+      if (el.hasAttribute(name)) own[name] = el.getAttribute(name);
+    }
+    const tag = el.tagName.toLowerCase();
+    if (tag === 'title' || tag === 'desc') return;
+    const opacity = Number(el.getAttribute('opacity') ?? 1) * (inherit.opacity ?? 1);
+    own.opacity = opacity;
+    const transform = el.getAttribute('transform');
+    let pushed = false;
+    if (transform) {
+      this.ops.push('q');
+      pushed = true;
+      for (const [, fn, args] of transform.matchAll(/(translate|scale)\(([^)]*)\)/g)) {
+        const [a, b] = args.split(/[\s,]+/).filter(Boolean).map(Number);
+        this.ops.push(fn === 'translate' ? `1 0 0 1 ${pdfNum(a)} ${pdfNum(b ?? 0)} cm` : `${pdfNum(a)} 0 0 ${pdfNum(b ?? a)} 0 0 cm`);
+      }
+    }
+    if (tag === 'g' || tag === 'svg') for (const c of el.children) this.paint(c, own);
+    else if (tag === 'text') this.text(el, own);
+    else {
+      const n = name => Number(el.getAttribute(name) || 0);
+      const shape = tag === 'rect' ? pdfRoundRect(n('x'), n('y'), n('width'), n('height'), n('rx'))
+        : tag === 'circle' ? pdfCircle(n('cx'), n('cy'), n('r'))
+        : tag === 'path' ? pdfPath(el.getAttribute('d') || '')
+        : tag === 'line' ? `${pdfNum(n('x1'))} ${pdfNum(n('y1'))} m ${pdfNum(n('x2'))} ${pdfNum(n('y2'))} l ` : '';
+      if (shape) this.shape(shape, tag === 'line' ? null : pdfColor(get('fill') ?? '#000'), pdfColor(get('stroke')), own);
+    }
+    if (pushed) this.ops.push('Q');
+  }
+  shape(path, fill, stroke, a) {
+    if (!fill && !stroke) return;
+    const width = Number(a['stroke-width'] ?? 1), dash = a['stroke-dasharray'];
+    let s = 'q ';
+    if (fill) s += `${fill.rgb.map(pdfNum).join(' ')} rg ` + this.alpha(fill.a * a.opacity);
+    if (stroke) {
+      s += `${stroke.rgb.map(pdfNum).join(' ')} RG ${pdfNum(width)} w ` + (dash && dash !== 'none' ? `[${dash.split(/[\s,]+/).map(Number).map(pdfNum).join(' ')}] 0 d ` : '');
+      if (a['stroke-linejoin'] === 'round') s += '1 j ';
+      if (!fill) s += this.alpha(stroke.a * a.opacity);
+    }
+    this.ops.push(s + path + (fill && stroke ? 'B' : fill ? 'f' : 'S') + ' Q');
+  }
+  // Text, line by line (each tspan with its own x and y). Where the base font is wider than the
+  // chart's own font, the line is narrowed to the width the chart laid it out for.
+  text(el, a) {
+    const lines = el.children.length ? [...el.children].map(t => ({t: t.textContent, x: t.getAttribute('x') ?? el.getAttribute('x'), y: t.getAttribute('y') ?? el.getAttribute('y')}))
+      : [{t: el.textContent, x: el.getAttribute('x'), y: el.getAttribute('y')}];
+    const size = Number(a['font-size'] || 12), weight = Number(a['font-weight'] || 400), bold = weight >= 600;
+    const mono = /mono|consolas|courier/i.test(a['font-family'] || ''), spacing = Number(a['letter-spacing'] || 0);
+    const color = pdfColor(a.fill ?? '#000') || {rgb: [0, 0, 0], a: 1};
+    for (const line of lines) {
+      if (!line.t) continue;
+      const glyphs = [...line.t].flatMap(ch => pdfChar(ch, bold, mono));
+      const natural = glyphs.reduce((w, [f, c]) => w + pdfCharWidth(f, c) * size / 1000, 0);
+      const target = textWidth(line.t, size, weight, mono ? MONO_FONT : CHART_FONT);
+      const squeeze = natural > target * 1.01 ? target / natural : 1;
+      const width = natural * squeeze + spacing * glyphs.length;
+      const anchor = a['text-anchor'];
+      const x = Number(line.x || 0) - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0), y = Number(line.y || 0);
+      let s = `q ${color.rgb.map(pdfNum).join(' ')} rg ${this.alpha(color.a * a.opacity)}BT 1 0 0 -1 ${pdfNum(x)} ${pdfNum(y)} Tm ${pdfNum(squeeze * 100)} Tz ${pdfNum(spacing)} Tc `;
+      // One run per font.
+      for (let i = 0; i < glyphs.length;) {
+        const font = glyphs[i][0], codes = [];
+        while (i < glyphs.length && glyphs[i][0] === font) codes.push(glyphs[i++][1]);
+        s += `/${PDF_FONTS[font]} ${pdfNum(size)} Tf ${pdfString(codes)} Tj `;
+      }
+      this.ops.push(s + 'ET Q');
+    }
+  }
+}
+
+// A PDF file of one page: the content stream, the base fonts, and the transparency states used.
+async function pdfDocument({w, h}, content, alphas, title) {
+  const enc = new TextEncoder();
+  let stream = enc.encode(content), filter = '';
+  if (typeof CompressionStream === 'function') {
+    stream = new Uint8Array(await new Response(new Blob([stream]).stream().pipeThrough(new CompressionStream('deflate'))).arrayBuffer());
+    filter = '/Filter /FlateDecode ';
+  }
+  const fonts = Object.entries(PDF_FONTS).map(([name, id], i) => [id, 6 + i,
+    `<< /Type /Font /Subtype /Type1 /BaseFont /${name}${['Symbol', 'ZapfDingbats'].includes(name) ? '' : ' /Encoding /WinAnsiEncoding'} >>`]);
+  const states = [...alphas].map(([a, id], i) => [id, 6 + fonts.length + i, `<< /Type /ExtGState /ca ${a} /CA ${a} >>`]);
+  const info = pdfString([...title].flatMap(c => pdfChar(c, false, false)).map(([, code]) => code));
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pdfNum(w)} ${pdfNum(h)}] /Contents 4 0 R /Resources << /Font << ${fonts.map(([id, n]) => `/${id} ${n} 0 R`).join(' ')} >>`
+      + `${states.length ? ` /ExtGState << ${states.map(([id, n]) => `/${id} ${n} 0 R`).join(' ')} >>` : ''} >> >>`,
+    null,   // the content stream, written as bytes
+    `<< /Title ${info} /Creator (Causeway) /Producer (Causeway) /CreationDate (D:${new Date().toISOString().replace(/[-:T]/g, '').slice(0, 14)}Z) >>`,
+    ...fonts.map(f => f[2]), ...states.map(s => s[2]),
+  ];
+  const parts = [enc.encode('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n')], offsets = [];
+  let at = parts[0].length;
+  objects.forEach((body, i) => {
+    offsets.push(at);
+    const chunk = body === null
+      ? [enc.encode(`${i + 1} 0 obj\n<< ${filter}/Length ${stream.length} >>\nstream\n`), stream, enc.encode('\nendstream\nendobj\n')]
+      : [enc.encode(`${i + 1} 0 obj\n${body}\nendobj\n`)];
+    parts.push(...chunk);
+    at += chunk.reduce((n, c) => n + c.length, 0);
+  });
+  parts.push(enc.encode(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map(o => String(o).padStart(10, '0') + ' 00000 n \n').join('')}`
+    + `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info 5 0 R >>\nstartxref\n${at}\n%%EOF\n`));
+  return new Blob(parts, {type: 'application/pdf'});
+}
+
+// The scale at which the whole chart, with its heading, fits a sheet of the given paper.
+function pdfFit(paper) {
+  const l = fullLayout(), b = l.bounds, p = PDF_PAPERS[paper];
+  const w = b.r - b.l + 2 * CHART_PAD, h = b.b - b.t + 2 * CHART_PAD + 44;
+  // Chart units are CSS pixels: 0.75 points each at 100 %.
+  return {l, scale: Math.min((p.w - 2 * PDF_MARGIN) / (w * 0.75), (p.h - 2 * PDF_MARGIN) / (h * 0.75))};
+}
+
+async function chartPdf(paper) {
+  const {l, scale} = pdfFit(paper), p = PDF_PAPERS[paper];
+  const svg = new DOMParser().parseFromString(chartSvg(l), 'image/svg+xml').documentElement;
+  const [vx, vy, vw, vh] = svg.getAttribute('viewBox').split(/\s+/).map(Number);
+  const k = scale * 0.75, ox = (p.w - vw * k) / 2, oy = (p.h - vh * k) / 2;
+  const painter = new PdfPainter();
+  // Flip to y down, then put the chart in the middle of the sheet.
+  painter.ops.push(`1 0 0 -1 0 ${pdfNum(p.h)} cm ${pdfNum(k)} 0 0 ${pdfNum(k)} ${pdfNum(ox)} ${pdfNum(oy)} cm 1 0 0 1 ${pdfNum(-vx)} ${pdfNum(-vy)} cm`);
+  for (const c of svg.children) painter.paint(c);
+  return pdfDocument(p, painter.ops.join('\n'), painter.alphas, rcaName());
+}
+
+function exportPdf() {
+  showMenu(false);
+  const pct = paper => Math.round(pdfFit(paper).scale * 100);
+  const best = Object.keys(PDF_PAPERS).find(k => pct(k) >= 70) || 'a1';
+  openDialog(`<h2>Chart as PDF</h2>
+    <p>The whole chart on one landscape sheet, scaled to fit. It stays sharp at any zoom. Text at 70 % or more reads well when printed.</p>
+    <div class="style-choices three">${Object.entries(PDF_PAPERS).map(([k, p]) => `<button class="style-choice" data-choice="${k}"${k === best ? ' autofocus' : ''}>
+      <b>${p.name}</b><span>Text at ${pct(k)} %${pct(k) >= 70 ? '' : pct(k) >= 45 ? ', small' : ', too small to print'}</span></button>`).join('')}</div>
+    <div class="dialog-foot"><button class="button" data-choice="">Cancel</button></div>`, async paper => {
+    const name = `${baseName()}-chart-${PDF_PAPERS[paper].name}.pdf`;
+    setStatus(`Writing ${name}…`);
+    try {
+      download(name, await chartPdf(paper));
+      setStatus(`Exported ${name}`);
+    } catch (err) {
+      setStatus('Export failed');
+      alert('Could not write the PDF: ' + err.message);
+    }
+  });
+}
+$('exportPdf').onclick = exportPdf;

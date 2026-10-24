@@ -1,6 +1,6 @@
 # Causeway
 
-A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, team, evidence log, causes ruled out, solutions, and the action plan. No installation, server, account, or network connection is needed.
+A root cause analysis workbench in one offline HTML file. Build the cause-and-effect chart, back each cause with evidence, and keep the RCA records alongside it: problem definition, equipment and duty, team and sign-off, evidence log, causes ruled out, solutions, and the action plan. A guide explains every method, with a worked example. Reports print, or export as Word documents, and the chart as a vector PDF. No installation, server, account, or network connection is needed.
 
 Each RCA picks one of two chart styles. **Apollo** follows the cause-and-effect principles of the Apollo method (Dean Gano): every effect has at least one action and one condition, joined by AND, and every cause is backed by evidence. A **cause tree** charts the possible causes of each effect, any of which may explain it, and each is a hypothesis, tested until it is confirmed or ruled out. Alongside the chart, the 5 Whys, the fishbone diagram, and the sequence of events help find the causes, and add what they find to the chart.
 
@@ -8,7 +8,7 @@ Causeway is independent. Apollo Root Cause Analysis is a trademark of its owner;
 
 ## Run it
 
-Open **https://mauser1987.github.io/causeway/** in Chrome, Edge, or Firefox, or download [`index.html`](index.html) and open it from disk; it works the same offline. Choose **Load example** to see a finished chart: high leakage on the single cartridge seal of pump P-101A.
+Open **https://mauser1987.github.io/causeway/** in Chrome, Edge, or Firefox, or download [`index.html`](index.html) and open it from disk; it works the same offline. Choose **Load example** to see a finished RCA: high leakage on the single cartridge seal of pump P-101A. New to RCA? Start with **Learn the methods**, at the top of the left rail.
 
 RCAs are saved as files on your computer (see **Files** below). Nothing is sent anywhere, including from the hosted page.
 
@@ -59,8 +59,8 @@ In a cause tree, the 5 Whys, the fishbone, and the sequence of events add causes
 
 ## Screen
 
-- **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the guide, theme, export, and print buttons; the file commands.
-- **Learn the methods**, **Analysis**, and **Records** on the left: the cause-and-effect chart, the 5 Whys, the fishbone, and the sequence of events, then the six RCA records, with their counts. Below them, the legend.
+- **Top bar**: the RCA number, tag, status, and primary effect; undo and redo; the **issues** button; the guide, theme, export, and print buttons; the file commands.
+- **Left rail**: **Learn the methods**; under **Analysis**, the cause-and-effect chart, the 5 Whys, the fishbone, the Is / Is Not, and the sequence of events; under **Records**, the seven RCA records; each with its count. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
 - **Guide** on the far right, when open: how to use the page shown.
@@ -260,12 +260,13 @@ All causes under one effect are joined by AND: each was needed. Every effect nee
 
 Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whole chart.
 
-## Export and print
+## Reports and exports
 
 | Control | Result |
 |---|---|
 | **Export ▾ → Full report as Word** | The full RCA report as a `.docx`, with the same content as the printed one: headings, tables whose header row repeats on each page, the chart, fishbone, and timeline as pictures, page numbers in the footer. It opens in Word, LibreOffice, and Google Docs, to edit before sending. |
 | **Export ▾ → 8D report as Word** | The 8D report as a `.docx`, D1 to D8 as in print. |
+| **Export ▾ → Chart as PDF** | The whole chart, with its heading, on one landscape sheet of A4, A3, or A1, scaled to fit. Each paper shows the text size it gives; at 70 % or more it reads well when printed. The PDF is vector: sharp at any zoom, with text that can be searched and copied, in the PDF base fonts, so it embeds no font. |
 | **Export ▾ → Chart as SVG** | The chart as one self-contained SVG file: colours are attributes, with no stylesheet, font, or image to fetch. It opens in browsers, Inkscape, and Office, and can be edited further. |
 | **Export ▾ → Chart as PNG** | The chart as an image at twice screen resolution (less for very large charts, which browsers limit). |
 | **Print ▾ → Full RCA report** | Every record, on landscape pages: cover (RCA number, revision, equipment, seal type, status, customer reference, dates), lead and team, problem definition with the equipment and duty, chart and open rule issues, 5 Whys, fishbone diagrams, Is / Is Not, sequences of events, evidence log, causes ruled out, solutions with the four criteria, the action plan with read-across, and the sign-off. |
@@ -273,7 +274,9 @@ Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whol
 | **Print ▾ → One-page summary** | For management: the problem and its impact, the root causes with how they led to the problem, the actions with their status and whether they worked, read-across, and the sign-off. |
 | **Ctrl/Cmd+P** | Prints the layout last chosen, the full report at first. Choose **Save as PDF** as the printer for a PDF. |
 
-Exports and the report always show the **whole chart**, with every branch expanded, in the light colours, whatever the screen shows. On the report, a chart that fits one page at 55 % or more is scaled to fit; a larger one is split into page-sized parts, numbered by row and column, with the cuts between columns so no box is split across.
+Exports and the reports always show the **whole chart**, with every branch expanded, in the light colours, whatever the screen shows. In the printed and Word reports, a chart that fits one page at 55 % or more is scaled to fit; a larger one is split into page-sized parts, numbered by row and column, with the cuts between columns so no box is split across. For a large chart, **Chart as PDF** on A3 or A1 shows it whole, to send with the report.
+
+The Word reports are made from the same content as the printed ones, so they always agree. They are landscape A4: a cover with the RCA's references, headings that show in Word's navigation pane (and can make a table of contents), tables with repeating header rows, and the sign-off with space to sign. Edit them freely before sending; Causeway does not read them back.
 
 ## Theme
 
@@ -326,14 +329,14 @@ Stop point reasons are `outside-control`, `solution-found`, `no-evidence`, and `
 
 ## Offline
 
-The page has no external references and uses the system fonts, and its Content Security Policy (`default-src 'none'`) makes the browser refuse any network request. It contains no third-party code.
+The page has no external references and uses the system fonts, and its Content Security Policy (`default-src 'none'`) makes the browser refuse any network request. It contains no third-party code: the Word documents, the zip files they are, and the PDF are written by Causeway itself, in the browser.
 
 ## Project files and development
 
 `index.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-guide` (the guide panel, its examples, and the Learn page), `17-documents` (zip writer and Word reports), `18-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-guide` (the guide panel, its examples, and the Learn page), `17-documents` (zip writer, Word reports, and the chart as PDF), `18-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `index.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.
@@ -343,4 +346,4 @@ python3 scripts/build.py      # after editing src/ or media/
 python3 scripts/test-app.py   # needs Firefox
 ```
 
-The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list and its good-practice checks, root cause types, action kinds, strength, and statuses, the equipment and duty record, the Is / Is Not (specification, cause testing, flags, and file checks), status and sign-off with the closing rule, the 8D report and the one-page summary, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
+The tests start a separate headless Firefox with a temporary profile. They check the script's syntax, then cover the example and its rule warnings, the layout (no overlaps, causes right of effects), adding, naming, and deleting causes, the Insert, A, C, and Delete keys, searching, linking, and adding evidence, arrow keys, the issues list and its good-practice checks, root cause types, action kinds, strength, and statuses, the equipment and duty record, the Is / Is Not (specification, cause testing, flags, and file checks), status and sign-off with the closing rule, the 8D report and the one-page summary, AND junctions, linking shared causes with loop refusal, moving and reordering by drag and by keys, moving up and down by hand, copying, cutting, and pasting branches (also into another RCA, and refusing bad clipboard data), unlinking, collapsing and expanding, the 5 Whys and adding its steps to the chart, the cause tree (statuses, ruling out on the tree, switching to Apollo and back with what each style still needs), the fishbone (editing from the diagram, sub-causes, adding to the chart, ruling out and restoring, and what happens when the node or record goes) and its SVG export, the sequence of events (phases, events in time order, deviations to the chart, what happens when the node or evidence goes, export, report, and file checks), each record page and its links to the chart (evidence numbering and highlighting, rule out, solutions and actions from causes), undo of record edits, SVG and PNG export, the printed report (also printed to PDF through Firefox), the full and 8D reports as Word documents (a valid zip of well-formed XML, its headings, pictures, page breaks, and repeating table headers), the chart as a PDF (paper choice, cross-reference table, content, and fonts), the guide (following the page, every topic with its example, the cause tree's own guide, staying closed after a reload) and the Learn page, themes, undo and redo, the save and open round trip, importing XMind maps, shared causes and loop protection in opened files, refused files, cleared fishbone references, files and browser storage from the earlier name, autosave recovery, unavailable storage, and that no network request is made.
