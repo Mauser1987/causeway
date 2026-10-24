@@ -70,6 +70,14 @@ const GUIDE_EXAMPLES = {
       gx.pairs([['Is', at(i).is], ['Is not', at(i).isNot], ['Distinctive', at(i).distinction], ['Changed', at(i).change]].filter(([, v]) => v)))).join('')
       + `<div class="g-sub">Causes tested against the facts</div><ul class="g-list">${tested.join('')}</ul>`;
   },
+  compare: ex => {
+    const c = ex.comparison, failed = r => r.field ? ex.equipment[r.field] : r.failed;
+    const diffs = c.rows.filter(r => r.explains === 'yes' || r.explains === 'partly'), same = c.rows.filter(r => r.differs === 'same');
+    return gx.pairs(c.cases.map((x, i) => [i ? `Good case ${i}` : 'Failed', `${x.name}: ${x.why}`]))
+      + `<div class="g-sub">Differences that could explain it</div>` + diffs.slice(0, 4).map(r => gx.item(`<b>${escapeHtml(r.factor)}</b> ${gx.pills(gx.codes(ex, r.evidenceIds))}${r.nodeId ? ' <span class="g-flag ok">on the chart</span>' : ''}`,
+        gx.pairs([[escapeHtml(c.cases[0].name), failed(r)], ...r.good.map((g, i) => [escapeHtml(c.cases[i + 1].name), g]).filter(([, g]) => g)]))).join('')
+      + `<div class="g-sub">The same in every case</div><ul class="g-list">${same.slice(0, 4).map(r => `<li>${escapeHtml(r.factor)}: ${escapeHtml(failed(r))}</li>`).join('')}</ul>`;
+  },
   fishbone: ex => {
     const f = ex.fishbones[0];
     const mark = c => c.nodeId ? '<span class="g-flag ok">on the chart</span>' : c.ruledOutId ? '<span class="g-flag no">ruled out</span>' : '<span class="g-flag">to test</span>';
@@ -130,7 +138,7 @@ const GUIDE_EXAMPLES = {
 
 const GUIDE_STAGES = [
   {name: 'Define the problem', topics: ['problem', 'team', 'equipment']},
-  {name: 'Collect the facts', topics: ['evidence', 'timeline', 'spec']},
+  {name: 'Collect the facts', topics: ['evidence', 'timeline', 'spec', 'compare']},
   {name: 'Find the causes', topics: ['fishbone', 'whys', 'chart', 'ruledOut']},
   {name: 'Fix it and close', topics: ['solutions', 'actions', 'reports']},
 ];
@@ -243,6 +251,24 @@ const GUIDES = {
       'A weak IS NOT (“everything else”) gives nothing to compare. Name a specific item.',
       'Keep it to facts. Possible causes belong in the test, not in the table.',
       'Each <b>?</b> is an assumption to verify: it shows where the next piece of evidence is needed.',
+    ],
+  },
+  compare: {
+    name: 'Failed vs good', page: 'compare',
+    summary: 'Optional: compare the failed case with two that did not fail.',
+    what: 'A comparative and change analysis. The failed case sits beside two comparable cases that did <b>not</b> fail, factor by factor. A factor that differs, and could explain the failure, is a candidate cause; one that is the same in every case cannot explain why only this one failed, though it may still be a condition that let it happen.',
+    when: 'Optional. Use it when there is a fair comparison: a twin on the same duty, the same machine before it failed, or a similar machine elsewhere. Skip it for a one-off machine or a first failure with nothing to compare with; nothing in Causeway asks for it.',
+    steps: [
+      '<b>Start from the equipment record</b>: each field filled there becomes a factor, with the failed case already filled in. Editing it here edits the record.',
+      'Name the two <b>good cases</b>, and say why each is comparable and how long it has run.',
+      'Fill in each factor for the good cases. Add factors the record does not hold, such as the filter upstream of the flush, or what changed before the failure.',
+      'Mark whether each factor <b>differs</b>, and whether the difference could <b>explain</b> the failure: yes, partly, or no.',
+      'For a difference that explains it: <b>add it to the chart</b> as a possible cause, <b>send it to the Is / Is Not</b> as a distinction or a change, and give <b>when it changed</b>, linked to an event of the sequence of events or added to it.',
+    ],
+    tips: [
+      'Pick good cases close to the failed one. A pump on another site with another fluid differs in too much to tell you anything.',
+      'A difference is a lead, not a cause: it still needs evidence on the chart.',
+      'The reports show the differences only, and say that matching factors are hidden.',
     ],
   },
   fishbone: {

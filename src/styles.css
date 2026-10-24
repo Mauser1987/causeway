@@ -459,6 +459,39 @@ textarea.text { resize: vertical; min-height: 60px; line-height: 1.4; }
 table.spec .spec-dim th { padding-top: 14px; text-align: left; font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
 table.spec .spec-dim .link { margin-left: 10px; text-transform: none; letter-spacing: 0; font-weight: 600; }
 .spec-code { display: block; margin: 2px 0 0 6px; color: var(--muted); font-size: 10.5px; font-weight: 700; }
+/* Failed vs good */
+.cmp-cases { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.cmp-case { padding: 8px 10px 10px; border-top: 4px solid var(--ok); border-radius: 8px; background: var(--rail); }
+.cmp-case.failed { border-top-color: var(--effect); }
+.cmp-role { margin: 0 0 4px 6px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ok-ink); }
+.cmp-case.failed .cmp-role { color: var(--danger); }
+.cmp-case .cell.title { font-weight: 600; }
+table.cmp th.cmp-failed { color: var(--danger); }
+table.cmp tr.cmp-diff td.cmp-failed { background: var(--danger-soft); }
+table.cmp tr.cmp-explains td:first-child { box-shadow: inset 3px 0 0 var(--effect); }
+.cmp-from { display: block; margin: 2px 0 0 6px; color: var(--muted); font-size: 10.5px; }
+select.cmp-differs.differs { font-weight: 600; }
+select.cmp-judge.yes { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger); font-weight: 600; }
+select.cmp-judge.partly { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn-ink); font-weight: 600; }
+td.cmp-when .picker, .cmp-goes .picker { margin-top: 4px; max-width: 100%; }
+.cmp-goes { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.cmp-goes .link { font-size: 12px; text-align: left; }
+.cmp-event { position: relative; padding: 4px 22px 4px 7px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); font-size: 12px; line-height: 1.35; }
+.cmp-event small { display: block; color: var(--muted); font-family: var(--mono); font-size: 10.5px; }
+.cmp-event .link { padding: 0; text-align: left; white-space: normal; }
+.cmp-event .unlink { position: absolute; top: 2px; right: 2px; width: 20px; height: 20px; font-size: 13px; }
+table.cmp .picker { max-width: 100%; }
+table.cmp td { overflow-wrap: anywhere; }
+.card > .decision-row:first-child { margin: 0 0 10px; padding-top: 0; border-top: 0; }
+td.cmp-hidden { color: var(--muted); font-size: 12px; font-style: italic; }
+.cmp-outcome { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.cmp-outcome .card { margin: 0; }
+.cmp-h.explains { color: var(--danger); }
+.cmp-h.open { color: var(--warn-ink); }
+.cmp-list { margin: 0; padding-left: 18px; line-height: 1.45; }
+.cmp-list li { margin: 4px 0; }
+.cmp-list small { display: block; color: var(--muted); }
+@media (max-width: 1100px) { .cmp-cases, .cmp-outcome { grid-template-columns: 1fr; } }
 table.log.spec-test { table-layout: auto; }
 table.spec-test td:first-child { min-width: 200px; max-width: 320px; }
 table.spec-test .cause-chip { border-radius: 8px; }

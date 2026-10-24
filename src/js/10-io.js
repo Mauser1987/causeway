@@ -91,6 +91,14 @@ function normalizeProject(p) {
       events: (Array.isArray(ph.events) ? ph.events : []).filter(ev => ev?.id).map(ev => ({text: '', ...ev,
         start: when(ev.start), end: when(ev.end), kind: ['action', 'condition'].includes(ev.kind) ? ev.kind : 'action', deviation: ev.deviation === true,
         evidenceIds: Array.isArray(ev.evidenceIds) ? ev.evidenceIds : [], nodeId: nodeIds.has(ev.nodeId) ? ev.nodeId : null}))}))}));
+  const cmp = p.comparison, eventIds = new Set(s.timelines.flatMap(t => t.phases.flatMap(ph => ph.events.map(ev => ev.id)))), specIds = new Set(s.specification.rows.map(r => r.id));
+  s.comparison = {cases: [0, 1, 2].map(i => ({name: str(cmp?.cases?.[i]?.name), why: str(cmp?.cases?.[i]?.why)})),
+    rows: (Array.isArray(cmp?.rows) ? cmp.rows : []).filter(r => r?.id).map(r => ({id: r.id,
+      cat: COMPARE_CATEGORIES.includes(r.cat) ? r.cat : COMPARE_CATEGORIES.at(-1), factor: str(r.factor),
+      field: EQUIPMENT_KEYS.includes(r.field) ? r.field : '', failed: str(r.failed), good: [0, 1].map(i => str(Array.isArray(r.good) ? r.good[i] : '')),
+      differs: r.differs in COMPARE_DIFFERS ? r.differs : '', explains: r.explains in COMPARE_EXPLAINS ? r.explains : '',
+      evidenceIds: Array.isArray(r.evidenceIds) ? r.evidenceIds : [], eventId: eventIds.has(r.eventId) ? r.eventId : '', when: str(r.when),
+      nodeId: nodeIds.has(r.nodeId) ? r.nodeId : null, specRowId: specIds.has(r.specRowId) ? r.specRowId : ''}))};
   s.actions = s.actions.filter(a => a?.id).map(a => ({action: '', solutionId: '', owner: '', due: '', verification: '', ...a,
     status: a.status === 'done' ? 'implemented' : a.status in ACTION_STATUS ? a.status : 'open',
     kind: a.kind in ACTION_KINDS ? a.kind : 'corrective', strength: a.strength in ACTION_STRENGTH ? a.strength : '',

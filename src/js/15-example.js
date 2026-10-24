@@ -196,5 +196,42 @@ function exampleRca() {
       event('2026-09-15T09:00', '', 'DCS trends and the upset report reviewed', 'action', {codes: ['E3', 'E5']}),
       event('2026-09-17T08:00', '2026-09-17T16:00', 'Seal teardown in the workshop', 'action', {codes: ['E2', 'E4']})),
   ]}];
+  // Failed vs good: P-101A beside its twin and a pump with the same seal on another service. The
+  // differences that explain it are on the chart; the same 3 mm orifice in all three cannot explain it alone.
+  const eventOf = key => s.timelines[0].phases.flatMap(p => p.events).find(x => x.nodeId === ids[key]).id;
+  const whenRow = s.specification.rows.find(r => r.dim === 'when');
+  s.comparison = {
+    cases: [
+      {name: 'P-101A', why: 'Leaked 15 ml/min on 14 Sep 2026, 439 days after the seal was fitted.'},
+      {name: 'P-101B', why: 'The twin pump on the same duty, with the same seal; ran as duty pump until 2025 with no seal failure.'},
+      {name: 'P-103A', why: 'Same unit, same seal and Plan 11, on a heavier naphtha service; three years with no seal failure.'},
+    ],
+    rows: [],
+  };
+  const row = (cat, factor, field, failed, good, differs, explains, {codes = [], key = null, event = null, when = '', spec = ''} = {}) =>
+    s.comparison.rows.push({...blankCompareRow(cat, factor, field), failed: field ? '' : failed, good, differs, explains,
+      evidenceIds: codes.map(c => ev[c]), nodeId: key ? ids[key] : null, eventId: event ? eventOf(event) : '', when, specRowId: spec});
+  const [machine, duty, support, mech, install, operation] = COMPARE_CATEGORIES;
+  row(machine, 'Machine', 'machine', '', ['Same', 'Same type, smaller (2x3-8)'], 'differs', 'no');
+  row(machine, 'Seal make, model, and drawing', 'sealModel', '', ['Same', 'Same'], 'same', 'no', {codes: ['E7']});
+  row(machine, 'Face materials', 'faces', '', ['Same', 'Same'], 'same', 'no');
+  row(machine, 'Secondary seals', 'elastomers', '', ['Same', 'Same'], 'same', 'no');
+  row(duty, 'Product', 'product', '', ['Same', 'Heavier naphtha, no fines'], 'differs', 'partly');
+  row(duty, 'Vapour pressure', 'vapourPressure', '', ['Same', 'Well below the seal chamber pressure'], 'differs', 'partly', {codes: ['E6'], key: 'vapour'});
+  row(duty, 'Flow', 'flowRate', '', ['Same', '70 % of BEP'], 'differs', 'no');
+  row(duty, 'Operation before the failure', 'operation', '', ['Standby since 2025', 'Continuous; upsets, never a filter bypass'], 'differs', 'partly');
+  row(duty, 'Seal chamber temperature', '', 'Rose 18 °C in the 6 h before the leak', ['Steady when it was the duty pump', 'Steady'], 'differs', 'yes',
+    {codes: ['E3'], key: 'temp', event: 'temp'});
+  row(support, 'Flush or buffer flow', 'flushFlow', '', ['Steady, about 6 l/min', 'Steady'], 'differs', 'yes', {codes: ['E3', 'E4'], key: 'flow', event: 'flow'});
+  row(support, 'Flush pressure', 'flushPressure', '', ['Same', 'Same'], 'same', 'no', {codes: ['E4'], key: 'orifice'});
+  row(support, 'Filter upstream of the flush', '', 'F-101, bypassed for 40 min on 12 Sep', ['F-102, never bypassed', 'F-103, never bypassed'], 'differs', 'yes',
+    {codes: ['E5'], key: 'bypass', event: 'bypass', spec: whenRow.id});
+  row(support, 'Solids reaching the seal', '', 'Catalyst fines blocking the orifice', ['None found', 'None found at the read-across check'], 'differs', 'yes',
+    {codes: ['E4'], key: 'solids', event: 'solids'});
+  row(mech, 'Shaft runout', 'runout', '', ['0.04 mm TIR', '0.03 mm TIR'], 'same', 'no', {codes: ['E9']});
+  row(mech, 'Vibration before the failure', 'vibration', '', ['1.9 mm/s', '2.4 mm/s'], 'same', 'no', {codes: ['E9']});
+  row(install, 'Fitted by', '', 'Site workshop, to the seal maker’s instructions', ['Same', 'Same'], 'same', 'no', {codes: ['E9']});
+  row(operation, 'Seal-system check after an upset', '', 'None; OP-212 does not ask for one', ['None', 'None'], 'same', 'no', {codes: ['E8'], key: 'nocheck'});
+  row(operation, 'Upsets during the run', '', 'One, 12 Sep 2026, with the filter bypassed', ['Several while it was the duty pump; filter in service', ''], 'unknown', 'unknown');
   return {...s, view: {collapsed: []}};
 }

@@ -127,7 +127,7 @@ const citingNodes = id => state.nodes.filter(n => n.evidenceIds.includes(id));
 const citingRuledOut = id => state.ruledOut.filter(r => r.evidenceIds.includes(id));
 function deleteEvidence(id) {
   state.evidence = state.evidence.filter(e => e.id !== id);
-  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses(), ...timelineEvents()]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
+  for (const x of [...state.nodes, ...state.ruledOut, ...state.fiveWhys.flatMap(c => c.steps), ...fishCauses(), ...timelineEvents(), ...state.comparison.rows]) x.evidenceIds = x.evidenceIds.filter(e => e !== id);
   if (highlight === id) highlight = null;
 }
 // ---- 5 Whys ----
@@ -349,6 +349,7 @@ function deleteNodes(ids) {
     }
   }
   state.specification.tests = state.specification.tests.filter(t => !gone.has(t.causeId));
+  for (const r of state.comparison.rows) if (gone.has(r.nodeId)) r.nodeId = null;
   state.nodes = state.nodes.filter(n => !gone.has(n.id));
   state.links = state.links.filter(l => !gone.has(l.effectId) && !gone.has(l.causeId));
   for (const s of state.solutions) s.causeIds = s.causeIds.filter(id => !gone.has(id));
@@ -430,6 +431,75 @@ function specResult(test) {
 }
 const specSummary = res => res.no.length ? `Fails ${plural(res.no.length, 'fact')}`
   : res.open.length ? `${plural(res.open.length, 'fact')} to judge` : res.only.length ? `Explains all, on ${plural(res.only.length, 'assumption')}` : 'Explains every fact';
+
+// ---- Failed vs good ----
+// The failed case beside two that did not fail: the same machine before, a twin on the same duty, or a
+// similar one elsewhere. For each factor: does it differ, and could the difference explain the failure?
+// What is the same in every case cannot explain why only this one failed. A row made from the equipment
+// record shows and edits that field for the failed case, so the two always agree. A row can go to the
+// chart as a cause, to the Is / Is Not as a distinction or a change, and to the sequence of events.
+// Optional: an RCA with no comparable case leaves it empty, and nothing asks for it.
+
+const blankCompareRow = (cat, factor = '', field = '') => ({id: uuid(), cat, factor, field, failed: '', good: ['', ''], differs: '', explains: '',
+  evidenceIds: [], eventId: '', when: '', nodeId: null, specRowId: ''});
+const compareRow = id => state.comparison.rows.find(r => r.id === id);
+const compareFailed = r => r.field ? state.equipment[r.field] ?? '' : r.failed;
+const compareExplains = r => r.explains === 'yes' || r.explains === 'partly';
+const compareDiffs = () => state.comparison.rows.filter(r => r.differs === 'differs');
+const compareNode = r => r.nodeId ? byId(r.nodeId) : null;
+const compareEvent = r => r.eventId ? eventFind(r.eventId)?.event ?? null : null;
+const compareCaseName = i => state.comparison.cases[i].name.trim() || ['Failed case', 'Good case 1', 'Good case 2'][i];
+// The words a row takes to the chart, the timeline, and the Is / Is Not.
+const compareText = r => [r.factor.trim(), compareFailed(r).trim()].filter(Boolean).join(': ') || 'Untitled factor';
+// When the change happened: its event's time, or the words written.
+const compareWhen = r => { const ev = compareEvent(r); return ev ? [ev.start, ev.end].filter(Boolean).map(v => v.replace('T', ' ')).join(' to ') : r.when; };
+
+// A new row goes after the last of its category, or of the categories before it.
+function compareInsert(r) {
+  const rows = state.comparison.rows, rank = cat => COMPARE_CATEGORIES.indexOf(cat);
+  rows.splice(rows.findLastIndex(x => rank(x.cat) <= rank(r.cat)) + 1, 0, r);
+  return r;
+}
+// The filled equipment fields that have no row yet, under the category of their section.
+const compareNewFields = () => EQUIPMENT_SECTIONS.filter(sec => COMPARE_CATEGORIES.includes(sec.title)).flatMap(sec => sec.fields
+  .filter(([key]) => state.equipment[key]?.trim() && !state.comparison.rows.some(r => r.field === key)).map(([key, label]) => ({cat: sec.title, key, label})));
+// Starting, or bringing in fields filled since, adds a row for each; the failed case is named after the equipment.
+function compareFromEquipment() {
+  const fields = compareNewFields(), c = state.comparison;
+  for (const f of fields) compareInsert(blankCompareRow(f.cat, f.label, f.key));
+  if (!c.rows.length) compareInsert(blankCompareRow(COMPARE_CATEGORIES[0]));
+  if (!c.cases[0].name.trim() && state.meta.equipmentTag.trim()) c.cases[0].name = state.meta.equipmentTag.trim();
+  return fields.length;
+}
+const addCompareRow = cat => compareInsert(blankCompareRow(cat));
+// A difference goes on the chart under the primary effect, as a possible cause with the row's evidence.
+function compareToChart(id) {
+  const r = compareRow(id);
+  if (compareNode(r)) return;
+  const n = addCause(state.problem.primaryEffectId, 'condition', compareText(r));
+  n.evidenceIds = [...r.evidenceIds];
+  r.nodeId = n.id;
+}
+// Into a question of the Is / Is Not: what changed, when the row says when; otherwise what is distinctive.
+function compareToSpec(id, specId) {
+  const r = compareRow(id), row = specRow(specId), field = compareWhen(r).trim() ? 'change' : 'distinction';
+  const good = r.good.map(g => g.trim()).filter(Boolean);
+  const line = compareText(r) + (good.length ? ` (good cases: ${good.join('; ')})` : '');
+  row[field] = row[field].trim() ? `${row[field].trim()}\n${line}` : line;
+  r.specRowId = specId;
+  return field;
+}
+// A change becomes a deviation on the timeline, at the time written when it reads as one.
+function compareTime(when) {
+  const m = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2}))?$/.exec(when.trim());
+  return m ? `${m[1]}T${m[2] || '00:00'}` : '';
+}
+function compareToTimeline(id, phaseId) {
+  const r = compareRow(id), ev = {...blankEvent(compareTime(r.when)), text: compareText(r), deviation: true, evidenceIds: [...r.evidenceIds]};
+  timelinePhase(phaseId).events.push(ev);
+  r.eventId = ev.id;
+  return ev;
+}
 
 // ---- Rule checks ----
 // A node is an effect when something is charted as its cause. Each effect needs at least one

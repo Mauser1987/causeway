@@ -111,6 +111,13 @@ const EQUIPMENT_SECTIONS = [
 ];
 const EQUIPMENT_KEYS = EQUIPMENT_SECTIONS.flatMap(s => s.fields.map(f => f[0]));
 
+// Failed vs good: the failed case beside two comparable ones that did not fail. Factor rows are sorted
+// into these categories; the first four are the equipment record's, so its fields start the rows.
+const COMPARE_CATEGORIES = ['Machine and seal', 'Duty at the failure', 'Seal support system', 'Mechanical condition', 'Installation and maintenance', 'Operation and changes'];
+const COMPARE_DIFFERS = {same: 'Same', differs: 'Differs', unknown: '?'};
+const COMPARE_EXPLAINS = {yes: 'Yes', partly: 'Partly', no: 'No', unknown: '?'};
+const COMPARE_NOTE = 'This table shows only the factors that differ between the failed case and the good cases; factors that match are hidden.';
+
 // Where the RCA stands. It can only be closed once its actions are validated.
 const RCA_STATUS = {open: 'Open', 'root-cause': 'Root cause found', actions: 'Actions in progress', closed: 'Closed'};
 const SIGNOFF_ROLES = {prepared: 'Prepared by', reviewed: 'Reviewed by', approved: 'Approved by'};

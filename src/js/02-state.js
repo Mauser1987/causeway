@@ -32,6 +32,7 @@ const blankNode = (kind, title) => ({
 const blankSignoff = () => Object.fromEntries(Object.keys(SIGNOFF_ROLES).map(k => [k, {name: '', date: ''}]));
 const blankSpecRow = (dim, question = '') => ({id: uuid(), dim, question, is: '', isNot: '', distinction: '', change: ''});
 const blankSpecification = () => ({rows: Object.entries(SPEC_QUESTIONS).flatMap(([dim, qs]) => qs.map(q => blankSpecRow(dim, q))), tests: []});
+const blankComparison = () => ({cases: [0, 1, 2].map(() => ({name: '', why: ''})), rows: []});
 
 function blankState(style = 'apollo') {
   const effect = blankNode('effect', 'Describe the primary effect');
@@ -40,7 +41,7 @@ function blankState(style = 'apollo') {
     meta: {rcaNumber: '', equipmentTag: '', sealType: '', style, leadId: '', team: [], dates: {opened: today(), eventDate: '', closed: ''},
       status: 'open', customerRef: '', revision: '', signoff: blankSignoff()},
     problem: {primaryEffectId: effect.id, when: '', where: '', readAcross: '', significance: {safety: '', environment: '', productionCost: '', reliability: ''}},
-    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [], specification: blankSpecification(),
+    equipment: {}, nodes: [effect], links: [], evidence: [], ruledOut: [], solutions: [], actions: [], fiveWhys: [], fishbones: [], timelines: [], specification: blankSpecification(), comparison: blankComparison(),
     counters: {evidence: 1},
   };
 }

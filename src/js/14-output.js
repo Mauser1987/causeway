@@ -179,6 +179,20 @@ const actionRows = actions => actions.map(a => `<tr><td>${rText(a.action)}${ACTI
   <td>${[a.effectiveness.date, a.effectiveness.result].filter(x => x?.trim()).map(escapeHtml).join('\n') || '—'}</td></tr>`);
 const ACTION_HEADS = ['Action', 'Owner', 'Due', 'Verification', 'Status', 'Effectiveness check'];
 
+// Failed vs good in a report: the cases, then the factors that differ only, with a note saying so.
+function compareReport(heading) {
+  const rows = compareDiffs();
+  if (!rows.length) return '';
+  const c = state.comparison;
+  return `${heading}
+    <dl class="r-grid">${c.cases.map((x, i) => rItem(i ? `Good case ${i}` : 'Failed case', [x.name, x.why].filter(v => v.trim()).join('\n'))).join('')}</dl>
+    <p class="r-legend">${COMPARE_NOTE}</p>
+    ${rTable(['Factor', ...[0, 1, 2].map(i => escapeHtml(compareCaseName(i))), 'Explains it?', 'Evidence', 'When it changed'], rows.map(r => `<tr><td><b>${rText(r.factor)}</b></td>
+      <td>${rText(compareFailed(r))}</td><td>${rText(r.good[0])}</td><td>${rText(r.good[1])}</td>
+      <td>${compareExplains(r) ? `<b>${COMPARE_EXPLAINS[r.explains]}</b>` : COMPARE_EXPLAINS[r.explains] || '—'}${compareNode(r) ? '\nOn the chart' : ''}</td>
+      <td>${rCodes(r.evidenceIds)}</td><td>${rText(compareWhen(r))}</td></tr>`), '')}`;
+}
+
 function fullReport() {
   const m = state.meta, p = state.problem, sig = p.significance;
   const text = rText, item = rItem, table = rTable, codes = rCodes, lead = m.team.find(t => t.id === m.leadId);
@@ -228,6 +242,7 @@ function fullReport() {
           ${specFacts().map(f => `<td class="r-mark">${SPEC_MARKS[t.marks[f.id]]?.mark || '·'}</td>`).join('')}<td>${specSummary(specResult(t))}</td></tr>`), '')}
         <p class="r-legend">✓ explains why the problem is here and not there; ? only if an assumption holds; ✕ does not explain it.</p>` : ''}
     </section>` : ''}
+    ${compareDiffs().length ? `<section class="r-page">${compareReport('<h2>Failed vs good</h2>')}</section>` : ''}
     ${state.timelines.length ? `<section class="r-page">
       <h2>Sequence of events</h2>
       ${state.timelines.map(t => {
@@ -298,6 +313,7 @@ function report8D() {
           <td>${n.evidenceIds.map(evidenceById).filter(Boolean).map(ev => `<span class="r-code">${escapeHtml(ev.code)}</span> ${escapeHtml(ev.description)}`).join('\n') || '—'}</td>
           <td class="r-chain">${causeChain(n).slice(1).map(x => escapeHtml(shorten(x.title, 60))).join(' → ')}</td></tr>`), '')}`).join('')
       : '<p class="r-none">No root cause identified yet: give the causes a root cause type, or a stop point “Effective solution found”.</p>'}
+      ${compareReport('<h3>Failed vs good</h3>')}
       ${ruled.length ? `<h3>Possible causes ruled out</h3>${rTable(['Cause', 'How it was ruled out'], ruled.map(([c, t]) => `<tr><td>${rText(c)}</td><td>${rText(t)}</td></tr>`), '')}` : ''}
       <div class="r-chart-pages"><h3>Cause-and-effect chart</h3>${chartFigures().join('')}</div>`)}
     ${d(5, 'Permanent corrective actions chosen', rTable(['Solution', 'Attacks', 'Prevents recurrence', 'Within our control', 'No new problems'], chosen.map(s => `<tr><td><b>${rText(s.title)}</b></td>

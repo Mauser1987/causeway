@@ -1107,6 +1107,109 @@ def run_tests(b):
     page('chart')
     print('PASS: sequence of events: phases, events in time order, deviations to the chart, export, report, and files', flush=True)
 
+    # ---- Failed vs good ----
+    before_compare = rca()
+    page('compare')
+    c = rca()['comparison']
+    assert [x['name'] for x in c['cases']] == ['P-101A', 'P-101B', 'P-103A'] and len(c['rows']) == 18
+    assert b.js("return document.getElementById('railCompare').textContent") == '9', 'the rail counts the differences'
+    assert b.js("return document.querySelectorAll('#records table.cmp tbody tr:not(.spec-dim)').length") == 18
+    b.js("document.getElementById('compareOnly').click();return true")
+    assert b.js("return document.querySelectorAll('#records table.cmp tr.cmp-diff').length") == 9
+    assert '3 factors the same, hidden' in b.js("return document.querySelector('#records table.cmp').textContent")
+    b.js("document.getElementById('compareOnly').click();return true")
+    outcome = b.js("return [...document.querySelectorAll('#records .cmp-outcome section')].map(s=>s.querySelectorAll('li').length)")
+    assert outcome == [7, 8, 1], outcome
+    # A row from the equipment record shows and edits that field.
+    set_field('equipment', '', 'flushFlow', 'Near zero when found')
+    assert rca()['equipment']['flushFlow'] == 'Near zero when found'
+    # It is optional: an empty comparison raises no issue and leaves no section in the reports.
+    empty = rca()
+    empty['comparison'] = {'cases': [], 'rows': []}
+    empty['equipment'] = {'machine': 'Centrifugal pump', 'faces': 'Carbon against SiC', 'runout': '0.03 mm', 'installed': '2025-07-02'}
+    load(empty)
+    page('compare')
+    assert b.js("return document.getElementById('railCompare').textContent") == '0'
+    click('issuesButton')
+    assert not b.js("return [...document.querySelectorAll('#issuesList button')].some(x=>x.dataset.record==='compare'||/failed vs good|good case/i.test(x.textContent))"), 'nothing asks for it'
+    click('issuesButton')
+    b.js("window.dispatchEvent(new Event('beforeprint'));return true")
+    assert 'Failed vs good' not in b.js("return document.getElementById('report').textContent")
+    # Starting takes the filled fields of the first four sections, and names the failed case.
+    act('compare-start')
+    c = rca()['comparison']
+    assert [(r['cat'], r['factor'], r['field']) for r in c['rows']] == [('Machine and seal', 'Machine', 'machine'), ('Machine and seal', 'Face materials', 'faces'),
+        ('Mechanical condition', 'Shaft runout', 'runout')], c['rows']
+    assert c['cases'][0]['name'] == 'P-101A' and len(c['cases']) == 3
+    assert not b.js("return document.querySelector('#records [data-act=compare-start]')"), 'no fields left to bring in'
+    page('equipment'); set_field('equipment', '', 'product', 'Light naphtha'); page('compare')
+    act('compare-start')
+    assert [r['field'] for r in rca()['comparison']['rows']] == ['machine', 'faces', 'product', 'runout'], 'a field filled since goes under its section'
+    # A factor of our own: it differs, explains it, and goes to the chart, the timeline, and the Is / Is Not.
+    act('compare-add-row', v='Seal support system')
+    row = rca()['comparison']['rows'][-2]
+    assert row['cat'] == 'Seal support system' and focused() == ['cmpRows', row['id'], 'factor']
+    rid = row['id']
+    for path, value in [('factor', 'Filter upstream of the flush'), ('failed', 'Bypassed for 40 min'), ('good.0', 'Never bypassed'), ('good.1', 'Never bypassed')]:
+        set_field('cmpRows', rid, path, value)
+    set_field('cmpRows', rid, 'differs', 'differs')
+    set_field('cmpRows', rid, 'explains', 'yes')
+    row = next(r for r in rca()['comparison']['rows'] if r['id'] == rid)
+    assert row['good'] == ['Never bypassed', 'Never bypassed'] and row['differs'] == 'differs' and row['explains'] == 'yes'
+    assert b.js("return document.getElementById('railCompare').textContent") == '1'
+    e5 = next(e['id'] for e in rca()['evidence'] if e['code'] == 'E5')
+    pick('compare-add-evidence', rid, e5)
+    act('compare-to-chart', rid)
+    row = next(r for r in rca()['comparison']['rows'] if r['id'] == rid)
+    node = next(n for n in rca()['nodes'] if n['id'] == row['nodeId'])
+    assert node['title'] == 'Filter upstream of the flush: Bypassed for 40 min' and node['evidenceIds'] == [e5]
+    assert any(l['causeId'] == node['id'] and l['effectId'] == rca()['problem']['primaryEffectId'] for l in rca()['links'])
+    set_field('cmpRows', rid, 'when', '2026-09-12 14:05')
+    phase = rca()['timelines'][0]['phases'][0]
+    pick('compare-to-timeline', rid, phase['id'])
+    row = next(r for r in rca()['comparison']['rows'] if r['id'] == rid)
+    ev = next(x for x in rca()['timelines'][0]['phases'][0]['events'] if x['id'] == row['eventId'])
+    assert ev['start'] == '2026-09-12T14:05' and ev['deviation'] is True and ev['text'] == 'Filter upstream of the flush: Bypassed for 40 min' and ev['evidenceIds'] == [e5]
+    assert '2026-09-12 14:05' in b.js("return document.querySelector('#records .cmp-event').textContent")
+    act('compare-unlink-event', rid)
+    assert next(r for r in rca()['comparison']['rows'] if r['id'] == rid)['eventId'] == '' and any(x['id'] == ev['id'] for x in rca()['timelines'][0]['phases'][0]['events']), 'unlinking keeps the event'
+    pick('compare-link-event', rid, ev['id'])
+    spec_row = rca()['specification']['rows'][0]
+    pick('compare-to-spec', rid, spec_row['id'])
+    spec_row = rca()['specification']['rows'][0]
+    assert spec_row['change'].endswith('Filter upstream of the flush: Bypassed for 40 min (good cases: Never bypassed; Never bypassed)'), 'with a time, it is a change'
+    assert 'In Is / Is Not, What 1' in b.js("return [...document.querySelectorAll('#records .cmp-goes')].map(x=>x.textContent).join()")
+    # The reports show the differences only, with the note; the full report and the 8D's D4.
+    set_field('cmpRows', rca()['comparison']['rows'][0]['id'], 'differs', 'same')
+    b.js("document.getElementById('printFull').click();return true")
+    section = b.js('''const s=[...document.querySelectorAll('#report section')].find(x=>x.querySelector('h2')?.textContent==='Failed vs good');
+        return s&&{rows:[...s.querySelectorAll('tbody tr')].map(r=>r.cells[0].textContent),note:s.querySelector('.r-legend').textContent,text:s.textContent}''')
+    assert section['rows'] == ['Filter upstream of the flush'] and 'factors that match are hidden' in section['note'] and 'Machine' not in section['rows']
+    b.js("document.getElementById('print8d').click();return true")
+    d4 = b.js("return [...document.querySelectorAll('#report section')].find(x=>x.querySelector('.r-dnum')?.textContent==='D4').textContent")
+    assert 'Failed vs good' in d4 and 'Filter upstream of the flush' in d4 and 'factors that match are hidden' in d4
+    b.js("document.getElementById('printFull').click();return true")
+    # Deleting its node, evidence, or event leaves the row; a file with odd values is checked.
+    node_id_cmp = row['nodeId']
+    saved_cmp = rca()
+    broken = json.loads(json.dumps(saved_cmp))
+    broken['comparison']['cases'] = [{'name': 5}, 'x']
+    broken['comparison']['rows'].append({'id': 'r1', 'cat': 'Elsewhere', 'field': 'nonsense', 'good': 'x', 'differs': 'maybe', 'explains': 2,
+        'eventId': 'missing', 'nodeId': 'missing', 'specRowId': 'missing', 'evidenceIds': 'E1'})
+    load(broken)
+    c = rca()['comparison']
+    assert [x['name'] for x in c['cases']] == ['', '', ''] and len(c['cases']) == 3
+    r1 = c['rows'][-1]
+    assert r1 == {'id': 'r1', 'cat': 'Operation and changes', 'factor': '', 'field': '', 'failed': '', 'good': ['', ''], 'differs': '', 'explains': '',
+        'evidenceIds': [], 'eventId': '', 'when': '', 'nodeId': None, 'specRowId': ''}, r1
+    load(saved_cmp)
+    page('chart'); select('Filter upstream of the flush: Bypassed for 40 min'); b.js("document.getElementById('deleteNode').click();return true")
+    row = next(r for r in rca()['comparison']['rows'] if r['id'] == rid)
+    assert row['nodeId'] is None and row['factor'] == 'Filter upstream of the flush', 'the row stays when its node goes'
+    load(before_compare)
+    page('chart')
+    print('PASS: failed vs good: optional, starts from the equipment record, differences to the chart, timeline, and Is / Is Not, reports, and files', flush=True)
+
     # ---- Files ----
     b.js('__downloads.length=0;return true')
     click('saveProject')
@@ -1488,7 +1591,7 @@ def run_tests(b):
         evidence:[...r.querySelectorAll("section")].find(x=>x.querySelector("h2")?.textContent==="Evidence log").querySelectorAll("tbody tr").length,
         events:[...r.querySelectorAll("figure.r-timeline svg")].map(s=>s.querySelectorAll(".tl-row").length),
         whys:r.querySelectorAll(".r-whys li").length,text:r.textContent}''')
-    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], report['h2']
+    assert report['h2'] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Failed vs good', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], report['h2']
     assert report['figures'] == 2 and all(n > 0 for n in report['nodes']), 'the wide chart is split across two pages'
     assert report['evidence'] == len(rca()['evidence'])
     assert report['whys'] == sum(len(c['steps']) for c in rca()['fiveWhys']), 'the report lists every why'
@@ -1778,7 +1881,7 @@ def run_tests(b):
     assert b.js("return document.getElementById('app').dataset.record") == 'actions' and guide()['topic'] == 'actions'
     # Every topic has its parts and an excerpt of the example.
     topics = b.js("return [...document.querySelectorAll('#guideTopic option')].map(o=>o.value)")
-    assert len(topics) == 13
+    assert len(topics) == 14
     for t in topics:
         b.js("const s=document.getElementById('guideTopic');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}));return true", [t])
         parts = b.js("return [...document.querySelectorAll('#guide h3')].map(h=>h.firstChild.textContent.trim())")
@@ -1786,7 +1889,7 @@ def run_tests(b):
         assert len(guide()['example']) > 80 and 'undefined' not in guide()['example'], t
     # The Learn page lists the methods in order; its buttons open a guide or a page, and keep the topic chosen.
     b.js("document.querySelector('.rail [data-record=learn]').click();return true")
-    assert b.js("return document.querySelectorAll('.learn-list li').length") == 13
+    assert b.js("return document.querySelectorAll('.learn-list li').length") == 14
     assert b.js("return [...document.querySelectorAll('.learn-stage h2')].map(h=>h.textContent)") == ['Define the problem', 'Collect the facts', 'Find the causes', 'Fix it and close']
     b.js("document.querySelector('[data-act=learn-guide][data-v=spec]').click();return true")
     assert guide()['topic'] == 'spec' and 'P-101B' in guide()['example']
@@ -1826,7 +1929,7 @@ def run_tests(b):
     text = ''.join(t.text or '' for t in doc.iter(W + 't'))
     styles = [s.get(W + 'val') for s in doc.iter(W + 'pStyle')]
     heads = [''.join(t.text or '' for t in p.iter(W + 't')) for p in doc.iter(W + 'p') if any(s.get(W + 'val') == 'Heading1' for s in p.iter(W + 'pStyle'))]
-    assert heads == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], heads
+    assert heads == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Failed vs good', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], heads
     assert 'Title' in styles and 'High seal leakage, 15 ml/min (limit under 1 ml/min)' in text and 'Add a cyclone separator to the flush (Plan 11 + 31)' in text
     assert len([n for n in z.namelist() if n.startswith('word/media/')]) >= 3, 'the chart, fishbone, and timeline are pictures'
     assert len(list(doc.iter(W + 'pageBreakBefore'))) >= 5, 'sections start on a new page as in print'
@@ -1861,7 +1964,7 @@ def run_tests(b):
     z, slides = deck('exportPptxFull')
     titles = [s[0] for s in slides[1:]]
     assert slides[0][1] == 'High seal leakage, 15 ml/min (limit under 1 ml/min)', slides[0][:3]
-    assert [t for i, t in enumerate(titles) if 'continued' not in t] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], titles
+    assert [t for i, t in enumerate(titles) if 'continued' not in t] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Failed vs good', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], titles
     assert any('continued' in t for t in titles), 'a long section runs on to another slide'
     assert all(s[-1] == f'{i + 1} / {len(slides)}' for i, s in enumerate(slides)), 'every slide is numbered'
     assert any('Add a cyclone separator to the flush (Plan 11 + 31)' in t for s in slides for t in s)

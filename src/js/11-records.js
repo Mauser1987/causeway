@@ -58,12 +58,12 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {learn: learnPage, spec: specPage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {learn: learnPage, spec: specPage, compare: comparePage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
-  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone', 'timeline'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
-  box.querySelectorAll('textarea.answer, table.spec textarea').forEach(fitArea);
+  box.innerHTML = `<div class="page${['evidence', 'ruledOut', 'actions', 'fishbone', 'timeline', 'compare'].includes(record) ? ' wide' : ''}">${page()}</div>${teamList()}`;
+  box.querySelectorAll('textarea.answer, table.spec textarea, table.cmp textarea, .cmp-case textarea').forEach(fitArea);
   box.scrollTop = scroll;
   if (key) [...box.querySelectorAll('[data-list],[data-act]')].find(el => ['list', 'id', 'field', 'act', 'node'].map(k => el.dataset[k] ?? '').join('|') === key)?.focus();
 }
@@ -218,7 +218,8 @@ function specPage() {
   return `${pageHead('Is / Is Not', 'Specify the problem precisely before explaining it, after Kepner-Tregoe: for each question, what the problem <b>is</b>, and what it could be but <b>is not</b>. Then test each possible cause against those facts: the true cause explains why the problem is here and not there.')}
     <section class="card">
       <h2>Specification</h2>
-      <p class="note">For IS NOT, give the closest thing that could have the problem but does not: the other seal on the same pump, the spare pump, the same seal before the upset. Then note what is distinctive about the IS side, and what changed in or around it.</p>
+      <p class="note">For IS NOT, give the closest thing that could have the problem but does not: the other seal on the same pump, the spare pump, the same seal before the upset. Then note what is distinctive about the IS side, and what changed in or around it.
+        To go through it factor by factor against cases that did not fail: <button class="link" data-act="goto-record" data-v="compare">Failed vs good</button>.</p>
       <div class="table-wrap"><table class="log spec">
         <colgroup><col style="width:20%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:19%"><col style="width:44px"></colgroup>
         <thead><tr><th>Question</th><th>Is</th><th>Is not</th><th>Distinctive about the IS</th><th>Changed in or around it</th><th><span class="sr">Remove</span></th></tr></thead>
@@ -254,6 +255,93 @@ function specPage() {
         ${candidates.length <= 30 ? `<button class="button" data-act="spec-add-all">Test all ${candidates.length}</button>` : ''}
       </div>` : ''}
     </section>`;
+}
+
+// ---- Failed vs good ----
+
+let compareOnly = false;     // show the factors that differ, and those not yet judged, only
+
+function comparePage() {
+  const c = state.comparison, fresh = compareNewFields().length;
+  const head = pageHead('Failed vs good', 'Optional: when there is a case that did <b>not</b> fail to compare with. Put the failed case beside two that did not: the same machine before, a twin on the same duty, or a similar one elsewhere. Mark where each factor <b>differs</b>, and whether the difference could <b>explain</b> the failure. What is the same in every case cannot explain why only this one failed.');
+  if (!c.rows.length) return `${head}<div class="empty-card"><p>No comparison yet. It starts with the factors the equipment and duty record already holds${equipmentFilled() ? '' : ' (none filled in yet: it starts with one empty factor)'}; the failed case is filled in, and you add the two good cases.</p>
+    <button class="button primary" data-act="compare-start">${equipmentFilled() ? 'Start from the equipment record' : 'Start the comparison'}</button></div>`;
+  const cases = c.cases.map((x, i) => `<div class="cmp-case${i ? '' : ' failed'}">
+    <div class="cmp-role">${i ? `Good case ${i}` : 'Failed'}</div>
+    <input class="cell title" ${bind('cmpCases', String(i), 'name')} value="${escapeHtml(x.name)}" aria-label="${i ? `Good case ${i}` : 'Failed case'}" placeholder="${i ? 'e.g. The twin pump on the same duty' : 'The failed item'}">
+    <textarea class="cell" rows="2" ${bind('cmpCases', String(i), 'why')} aria-label="${i ? `Why good case ${i} is comparable` : 'The failure'}" placeholder="${i ? 'Why it is comparable, and how long it has run' : 'What failed, when, after how long'}">${escapeHtml(x.why)}</textarea></div>`).join('');
+  const shown = r => !compareOnly || r.differs !== 'same';
+  const goes = r => {
+    if (!compareExplains(r)) return '';
+    const n = compareNode(r), sr = r.specRowId && specRow(r.specRowId);
+    return `${n ? `<button class="link" data-act="goto-node" data-node="${n.id}" title="Show it on the chart">On the chart</button>` : `<button class="button small" data-act="compare-to-chart" data-id="${r.id}" title="Add it to the chart as a possible cause, with its evidence">Add to chart</button>`}
+      ${sr ? `<button class="link" data-act="goto-record" data-v="spec" title="${escapeHtml(sr.question)}">In Is / Is Not, ${specLabel(sr)}</button>`
+        : `<select class="picker" data-act="compare-to-spec" data-id="${r.id}" aria-label="Send to a question of the Is / Is Not"><option value="">Send to Is / Is Not…</option>${state.specification.rows.map(q =>
+          `<option value="${q.id}">${specLabel(q)}: ${escapeHtml(shorten(q.question, 50))}</option>`).join('')}</select>`}`;
+  };
+  const when = r => {
+    const ev = compareEvent(r);
+    if (ev) return `<div class="cmp-event"><small>${escapeHtml(compareWhen(r) || 'No time given')}</small>
+      <button class="link" data-act="goto-record" data-v="timeline" title="Show the sequence of events">${escapeHtml(shorten(eventText(ev), 60))}</button>
+      <button class="unlink" data-act="compare-unlink-event" data-id="${r.id}" aria-label="Unlink the event; it stays on the timeline">×</button></div>`;
+    const events = state.timelines.flatMap(t => t.phases.flatMap(p => eventsInOrder(p))), phases = state.timelines.flatMap(t => t.phases);
+    return `${cell('cmpRows', r.id, 'when', r.when, 'When it changed', 'placeholder="Date, or an event"')}
+      ${events.length ? `<select class="picker" data-act="compare-link-event" data-id="${r.id}" aria-label="Link an event of the sequence of events"><option value="">Link an event…</option>${events.map(ev =>
+        `<option value="${ev.id}">${escapeHtml(ev.start.replace('T', ' ') || '—')} · ${escapeHtml(shorten(eventText(ev), 50))}</option>`).join('')}</select>` : ''}
+      ${phases.length ? `<select class="picker" data-act="compare-to-timeline" data-id="${r.id}" aria-label="Add it to the sequence of events as a deviation"><option value="">Add to timeline…</option>${phases.map(p =>
+        `<option value="${p.id}">${escapeHtml(p.name.trim() || 'Unnamed phase')}</option>`).join('')}</select>` : ''}`;
+  };
+  const row = r => {
+    const cited = r.evidenceIds.map(evidenceById).filter(Boolean), rest = state.evidence.filter(e => !r.evidenceIds.includes(e.id));
+    return `<tr class="${r.differs === 'differs' ? 'cmp-diff' : ''}${compareExplains(r) ? ' cmp-explains' : ''}">
+      <td>${cellArea('cmpRows', r.id, 'factor', r.factor, 'Factor', 'placeholder="Factor"')}${r.field ? '<small class="cmp-from">From the equipment record</small>' : ''}</td>
+      <td class="cmp-failed">${r.field ? cellArea('equipment', '', r.field, compareFailed(r), `${r.factor}: failed case`) : cellArea('cmpRows', r.id, 'failed', r.failed, `${r.factor}: failed case`)}</td>
+      ${[0, 1].map(i => `<td>${cellArea('cmpRows', r.id, `good.${i}`, r.good[i], `${r.factor}: good case ${i + 1}`)}</td>`).join('')}
+      <td><select class="cell cmp-differs ${r.differs}" ${bind('cmpRows', r.id, 'differs')} aria-label="${escapeHtml(r.factor)}: differs?">${optionList(COMPARE_DIFFERS, r.differs, '')}</select></td>
+      <td><select class="cell cmp-judge ${r.explains}" ${bind('cmpRows', r.id, 'explains')} aria-label="${escapeHtml(r.factor)}: explains it?">${optionList(COMPARE_EXPLAINS, r.explains, '')}</select></td>
+      <td><div class="chips">${cited.map(e => evidenceChip(e, 'compare-remove-evidence', r.id)).join('')}
+        ${rest.length ? `<select class="picker" data-act="compare-add-evidence" data-id="${r.id}" aria-label="Cite evidence"><option value="">+ Evidence…</option>${rest.map(e =>
+          `<option value="${e.id}">${escapeHtml(e.code)} · ${escapeHtml(shorten(e.description, 50))}</option>`).join('')}</select>` : ''}</div></td>
+      <td class="cmp-when">${when(r)}</td>
+      <td><div class="cmp-goes">${goes(r)}</div></td>
+      <td class="row-actions"><button class="unlink" data-act="compare-delete-row" data-id="${r.id}" aria-label="Remove this factor${compareNode(r) ? '; it stays on the chart' : ''}">×</button></td>
+    </tr>`;
+  };
+  const all = c.rows, explains = all.filter(compareExplains), same = all.filter(r => r.differs === 'same' && !compareExplains(r));
+  const open = all.filter(r => r.differs === 'unknown' || r.explains === 'unknown' || !r.differs || r.differs === 'differs' && !r.explains || !compareFailed(r).trim() || r.good.some(g => !g.trim()));
+  const missing = r => [!compareFailed(r).trim() && 'failed case', ...r.good.map((g, i) => !g.trim() && `good case ${i + 1}`)].filter(Boolean);
+  const list = (rows, fmt, none) => rows.length ? `<ul class="cmp-list">${rows.map(fmt).join('')}</ul>` : `<p class="muted">${none}</p>`;
+  return `${head}
+    <section class="card"><div class="cmp-cases">${cases}</div></section>
+    <section class="card">
+      <div class="decision-row">
+        <label class="starts"><input type="checkbox" id="compareOnly" ${compareOnly ? 'checked' : ''}> Differences only</label>
+        <span class="spacer"></span>
+        ${fresh ? `<button class="button" data-act="compare-start" title="Add a factor for each field filled in since">+ ${plural(fresh, 'factor')} from the equipment record</button>` : ''}
+      </div>
+      <div class="table-wrap"><table class="log cmp">
+        <colgroup><col style="width:14%"><col style="width:15%"><col style="width:13%"><col style="width:13%"><col style="width:86px"><col style="width:86px"><col style="width:11%"><col style="width:14%"><col style="width:12%"><col style="width:44px"></colgroup>
+        <thead><tr><th>Factor</th><th class="cmp-failed">${escapeHtml(compareCaseName(0))}</th><th>${escapeHtml(compareCaseName(1))}</th><th>${escapeHtml(compareCaseName(2))}</th>
+          <th>Differs?</th><th>Explains it?</th><th>Evidence</th><th>When it changed</th><th>Goes to</th><th><span class="sr">Remove</span></th></tr></thead>
+        ${COMPARE_CATEGORIES.map(cat => {
+          const rows = all.filter(r => r.cat === cat);
+          return `<tbody><tr class="spec-dim"><th colspan="10">${cat}<button class="link" data-act="compare-add-row" data-v="${cat}">+ Factor</button></th></tr>
+            ${rows.filter(shown).map(row).join('')}${compareOnly && rows.some(r => !shown(r)) ? `<tr><td colspan="10" class="cmp-hidden">${plural(rows.filter(r => !shown(r)).length, 'factor')} the same, hidden</td></tr>` : ''}</tbody>`;
+        }).join('')}
+      </table></div>
+    </section>
+    <div class="cmp-outcome">
+      <section class="card"><h2 class="cmp-h explains">Differences that could explain it</h2>
+        <p class="note">Candidates for the chart, as possible causes with their evidence; and for the Is / Is Not.</p>
+        ${list(explains, r => `<li><b>${escapeHtml(r.factor || 'Untitled factor')}</b>${r.explains === 'partly' ? ' <span class="muted">(partly)</span>' : ''}${compareNode(r) ? ' <span class="badge small implement">On the chart</span>' : ''}
+          <small>${escapeHtml(compareFailed(r))}${compareWhen(r) ? ` · changed ${escapeHtml(compareWhen(r))}` : ''}</small></li>`, 'None marked yet.')}</section>
+      <section class="card"><h2 class="cmp-h">The same in every case</h2>
+        <p class="note">These cannot explain why only this one failed. They may still be a condition, or a systemic cause that let it happen.</p>
+        ${list(same, r => `<li>${escapeHtml(r.factor || 'Untitled factor')}${compareNode(r) ? ' <span class="badge small implement">On the chart</span>' : ''}<small>${escapeHtml(compareFailed(r))}</small></li>`, 'None marked yet.')}</section>
+      <section class="card"><h2 class="cmp-h open">Still to find out</h2>
+        <p class="note">Cases not known, and differences not judged: what to collect or decide next.</p>
+        ${list(open, r => `<li>${escapeHtml(r.factor || 'Untitled factor')}<small>${missing(r).length ? missing(r).join(', ') + ' not known' : r.differs === 'differs' || r.differs === 'same' ? 'whether it explains the failure' : 'whether it differs'}</small></li>`, 'Nothing open.')}</section>
+    </div>`;
 }
 
 function timelinePage() {
@@ -569,6 +657,8 @@ function boundObject(el) {
   if (list === 'problem') return state.problem;
   if (list === 'equipment') return state.equipment;
   if (list === 'specRows') return specRow(id);
+  if (list === 'cmpCases') return state.comparison.cases[+id];
+  if (list === 'cmpRows') return compareRow(id);
   if (list === 'node') return byId(id);
   if (list === 'whySteps') return stepById(id);
   if (list === 'fishCauses') return fishFind(id)?.cause;
@@ -589,7 +679,8 @@ $('records').addEventListener('input', e => {
   const obj = boundObject(el);
   if (!obj) return;
   setPath(obj, el.dataset.field, el.value);
-  if (el.matches('textarea.answer, table.spec textarea')) fitArea(el);
+  if (el.matches('textarea.answer, table.spec textarea, table.cmp textarea, .cmp-case textarea')) fitArea(el);
+  if (el.dataset.list === 'cmpCases' && el.dataset.field === 'name') $('records').querySelectorAll('table.cmp thead th')[+el.dataset.id + 1].textContent = compareCaseName(+el.dataset.id);
   renderTitle();
   if (record === 'fishbone') refreshFishFigures();
   if (record === 'timeline') refreshTimelineFigures();
@@ -612,10 +703,21 @@ $('records').addEventListener('change', e => {
     if (el.dataset.act === 'event-add-evidence') eventSource(eventFind(el.dataset.id).event).evidenceIds.push(value);
     if (el.dataset.act === 'spec-add-test') state.specification.tests.push({causeId: value, marks: {}});
     if (el.dataset.act === 'timeline-effect') state.timelines.find(t => t.id === el.dataset.id).effectId = value;
+    if (el.dataset.act === 'compare-add-evidence') compareRow(el.dataset.id).evidenceIds.push(value);
+    if (el.dataset.act === 'compare-link-event') compareRow(el.dataset.id).eventId = value;
+    if (el.dataset.act === 'compare-to-spec') {
+      const field = compareToSpec(el.dataset.id, value);
+      setStatus(`Added to ${specLabel(specRow(value))} of the Is / Is Not, under ${field === 'change' ? 'Changed' : 'Distinctive'}`);
+    }
+    if (el.dataset.act === 'compare-to-timeline') {
+      compareToTimeline(el.dataset.id, value);
+      setStatus(`Added to the sequence of events, under ${timelinePhase(value).name.trim() || 'an unnamed phase'}, as a deviation`);
+    }
     render(); persist();
   }
   if (e.target.id === 'fishPreset') fishPreset = e.target.value;
   if (e.target.id === 'timelinePreset') timelinePreset = e.target.value;
+  if (e.target.id === 'compareOnly') { compareOnly = e.target.checked; render(); }
   // A changed time puts the event in its place; after the focus has moved, so it stays where it went.
   if (e.target.type === 'datetime-local') setTimeout(render);
   const radio = e.target.closest('input[data-act="lead"]');
@@ -634,6 +736,20 @@ $('records').addEventListener('click', e => {
       reveal(selected);
       showRecord('chart');
       return;
+    case 'goto-record': showRecord(el.dataset.v); return;
+    case 'compare-start': {
+      const added = compareFromEquipment();
+      setStatus(added ? `Added ${plural(added, 'factor')} from the equipment record` : 'Started with one empty factor');
+      break;
+    }
+    case 'compare-add-row': focusId = addCompareRow(el.dataset.v).id; break;
+    case 'compare-delete-row': state.comparison.rows = state.comparison.rows.filter(r => r.id !== id); break;
+    case 'compare-to-chart':
+      compareToChart(id);
+      setStatus(`Added "${compareText(compareRow(id))}" to the chart`);
+      break;
+    case 'compare-remove-evidence': compareRow(id).evidenceIds = compareRow(id).evidenceIds.filter(x => x !== el.dataset.evidence); break;
+    case 'compare-unlink-event': compareRow(id).eventId = ''; break;
     case 'show-evidence':
       highlight = id; selected = null;
       citingNodes(id).forEach(n => reveal(n.id));

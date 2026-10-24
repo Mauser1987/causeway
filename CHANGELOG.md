@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.17 — 2026-10-24
+
+Failed vs good: the failed case beside two that did not fail.
+
+- A new, **optional** Analysis page, beside the Is / Is Not. Nothing asks for it: no issue when it is empty, and the reports leave it out.
+- It **starts from the equipment and duty record**: each filled field becomes a factor with the failed case filled in, and editing it there edits the record. Add your own factors under six categories.
+- For each factor: the two good cases, whether it **differs**, whether it could **explain** the failure, the evidence, and **when it changed**, typed or linked to an event of the sequence of events.
+- A difference that explains it goes **to the chart** as a possible cause, **to the Is / Is Not** (as a change or a distinction), and **to the sequence of events** as a deviation.
+- The **full report**, and the **8D under D4**, show the differences only, with a note that matching factors are hidden; so do the Word and PowerPoint exports.
+- The guide and Learn page explain it, with the P-101A example compared with its twin P-101B and with P-103A.
+
 ## v1.16 — 2026-10-24
 
 Reports as PowerPoint decks.
