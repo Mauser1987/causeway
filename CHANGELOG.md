@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.16 — 2026-10-24
+
+Reports as PowerPoint decks.
+
+- **Export ▾ → PowerPoint** offers the **full report**, the **8D report**, and the **one-page summary** as 16:9 `.pptx` decks, written in the browser with no library and no network. A cover slide carries the RCA's references and team; each section starts its own slide, and one that does not fit runs on to the next, marked *continued*, with a table's header repeated. The chart is one picture of the whole chart. The summary is one slide in two columns.
+- Slides are plain text boxes, tables, and pictures, to edit or paste into a company template. They open in PowerPoint, LibreOffice Impress, Keynote, and Google Slides.
+- The Export menu is grouped under Word, PowerPoint, and Chart.
+
 ## v1.15 — 2026-10-24
 
 Reports as Word documents, and the chart as a PDF.

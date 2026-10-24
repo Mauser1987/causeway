@@ -1810,10 +1810,10 @@ def run_tests(b):
     # ---- Word reports ----
     open_app()
 
-    def docx(button):
+    def docx(button, kind='wordprocessingml'):
         data = b.async_js('''const done=arguments[arguments.length-1],seen=__downloads.length;document.getElementById(arguments[0]).click();
-            const wait=()=>{const f=__downloads.slice(seen).find(x=>x.type.includes('wordprocessingml'));if(!f)return setTimeout(wait,50);
-              const r=new FileReader();r.onload=()=>done(r.result);r.readAsDataURL(f)};wait()''', [button])
+            const wait=()=>{const f=__downloads.slice(seen).find(x=>x.type.includes(arguments[1]));if(!f)return setTimeout(wait,50);
+              const r=new FileReader();r.onload=()=>done(r.result);r.readAsDataURL(f)};wait()''', [button, kind])
         z = zipfile.ZipFile(io.BytesIO(base64.b64decode(data.split(',')[1])))
         assert z.testzip() is None
         for name in z.namelist():
@@ -1838,6 +1838,40 @@ def run_tests(b):
     assert all(f'D{i}' in text for i in range(1, 9)) and 'Escape point' in text and 'Not ready to close' in text
     assert 'RCA-2026-014' in z.read('word/footer1.xml').decode()
     print('PASS: full and 8D reports as Word documents', flush=True)
+
+    # ---- PowerPoint decks ----
+    A, PN = '{http://schemas.openxmlformats.org/drawingml/2006/main}', '{http://schemas.openxmlformats.org/presentationml/2006/main}'
+
+    def deck(button):
+        z = docx(button, 'presentationml')
+        pres = ET.fromstring(z.read('ppt/presentation.xml'))
+        n = len(list(pres.iter(PN + 'sldId')))
+        assert n == len([x for x in z.namelist() if re.fullmatch(r'ppt/slides/slide\d+\.xml', x)])
+        size = pres.find(PN + 'sldSz')
+        slides = []
+        for i in range(1, n + 1):
+            xml = ET.fromstring(z.read(f'ppt/slides/slide{i}.xml'))
+            for off, ext in zip(xml.iter(A + 'off'), xml.iter(A + 'ext')):
+                assert int(off.get('x')) + int(ext.get('cx')) <= int(size.get('cx')) + 1 and int(off.get('y')) + int(ext.get('cy')) <= int(size.get('cy')) + 1, f'slide {i}: a shape runs off the slide'
+            rels = z.read(f'ppt/slides/_rels/slide{i}.xml.rels').decode()
+            for target in re.findall(r'Target="\.\./media/([^"]+)"', rels):
+                assert f'ppt/media/{target}' in z.namelist()
+            slides.append([''.join(t.text or '' for t in para.iter(A + 't')) for para in xml.iter(A + 'p')])
+        return z, slides
+    z, slides = deck('exportPptxFull')
+    titles = [s[0] for s in slides[1:]]
+    assert slides[0][1] == 'High seal leakage, 15 ml/min (limit under 1 ml/min)', slides[0][:3]
+    assert [t for i, t in enumerate(titles) if 'continued' not in t] == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], titles
+    assert any('continued' in t for t in titles), 'a long section runs on to another slide'
+    assert all(s[-1] == f'{i + 1} / {len(slides)}' for i, s in enumerate(slides)), 'every slide is numbered'
+    assert any('Add a cyclone separator to the flush (Plan 11 + 31)' in t for s in slides for t in s)
+    assert len([x for x in z.namelist() if x.startswith('ppt/media/')]) >= 3, 'the chart, fishbone, and timeline are pictures'
+    z, slides = deck('exportPptx8d')
+    text = ' '.join(t for s in slides for t in s)
+    assert all(f'D{i}' in text for i in range(1, 9)) and 'Escape point' in text and 'Not ready to close' in text
+    z, slides = deck('exportPptxSummary')
+    assert len(slides) == 1 and 'Root causes' in slides[0] and 'Actions' in slides[0], slides
+    print('PASS: full, 8D, and summary reports as PowerPoint decks', flush=True)
 
     # ---- Chart as PDF ----
     click('exportPdf')
