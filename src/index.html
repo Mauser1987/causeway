@@ -27,6 +27,7 @@
       <div id="issuesList" class="popover" role="menu" hidden></div>
     </div>
     <div class="toolbar" id="fileGroup">
+      <button id="guideButton" aria-pressed="false" aria-controls="guide" title="Show or hide the guide to the page shown: what it is and how to fill it in">Guide</button>
       <button class="icon" id="themeButton" aria-label="Theme" title="Theme"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg></button>
       <div class="menu-wrap">
         <button id="exportButton" aria-expanded="false" aria-controls="exportMenu" title="Export the chart as an image">Export ▾</button>
@@ -54,7 +55,8 @@
   </header>
 
   <nav class="rail" aria-label="RCA records">
-    <div class="panel-title">Analysis</div>
+    <button class="record learn" data-record="learn" title="Every method in the order an investigation uses them, each with a guide and an example">Learn the methods</button>
+    <div class="panel-title group-title">Analysis</div>
     <button class="record active" data-record="chart" aria-current="page" id="railChart"><b id="railChartName">Cause &amp; effect</b><span id="railCauses">0</span></button>
     <button class="record" data-record="whys">5 Whys<span id="railWhys">0</span></button>
     <button class="record" data-record="fishbone">Fishbone<span id="railFish">0</span></button>
@@ -114,6 +116,8 @@
   </main>
 
   <aside class="inspector" aria-label="Properties"><div id="properties"></div></aside>
+
+  <aside class="guide" id="guide" aria-label="Guide" hidden></aside>
 
   <section class="records" id="records" aria-live="off"></section>
 

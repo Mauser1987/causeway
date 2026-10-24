@@ -12,6 +12,12 @@ Open **https://mauser1987.github.io/causeway/** in Chrome, Edge, or Firefox, or 
 
 RCAs are saved as files on your computer (see **Files** below). Nothing is sent anywhere, including from the hosted page.
 
+## Learn the methods
+
+New to RCA, or to one of its methods? **Learn the methods**, at the top of the left rail, lists every method in the order an investigation uses them: define the problem (problem definition, team and sign-off, equipment and duty), collect the facts (evidence log, sequence of events, Is / Is Not), find the causes (fishbone, 5 Whys, the cause-and-effect chart, causes ruled out), and fix it and close (solutions, action plan, reports).
+
+Each has a guide: what the method is, when to use it, how to fill it in step by step, good practice and the usual mistakes, and an excerpt of the P-101A example showing it filled in. **Guide** in the top bar opens it beside any page and follows you from page to page; the list at its top picks another method. In a cause tree, the chart's guide explains hypotheses, confirmed, and ruled out. **Open the full example** loads the whole P-101A case.
+
 ## Build a chart
 
 1. **New** asks for the chart style: **Apollo** or **Cause tree** (see [Chart styles](#chart-styles)). The steps below are for Apollo. A new RCA starts with the **primary effect**. Click it and type what happened in **Title**.
@@ -53,10 +59,11 @@ In a cause tree, the 5 Whys, the fishbone, and the sequence of events add causes
 
 ## Screen
 
-- **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the theme, export, and print buttons; the file commands.
-- **Analysis** and **Records** on the left: the cause-and-effect chart, the 5 Whys, the fishbone, and the sequence of events, then the six RCA records, with their counts. Below them, the legend.
+- **Top bar**: the RCA number, tag, and primary effect; undo and redo; the **issues** button; the guide, theme, export, and print buttons; the file commands.
+- **Learn the methods**, **Analysis**, and **Records** on the left: the cause-and-effect chart, the 5 Whys, the fishbone, and the sequence of events, then the six RCA records, with their counts. Below them, the legend.
 - **Chart** in the middle, with the edit bar at the bottom: **+ Action**, **+ Condition**, **Delete**, and zoom. Each button shows its key.
 - **Properties** on the right, for the selected node, or for the RCA when nothing is selected.
+- **Guide** on the far right, when open: how to use the page shown.
 - **Status bar** at the bottom: the last file action, the counts, and the keys.
 
 ## Shared causes
@@ -324,7 +331,7 @@ The page has no external references and uses the system fonts, and its Content S
 `index.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-guide` (the guide panel, its examples, and the Learn page), `17-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `index.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.

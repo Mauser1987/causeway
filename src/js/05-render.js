@@ -182,6 +182,7 @@ function render() {
   renderIssues(issues);
   renderTitle();
   renderStyle();
+  renderGuide();
   if (record !== 'chart') { renderRecord(); return; }
   renderCanvas();
   const n = byId(selected);

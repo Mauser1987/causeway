@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.14 — 2026-10-24
+
+A guide and a worked example for every method.
+
+- **Learn the methods**, at the top of the rail, lists the thirteen methods and records in the order an investigation uses them, in four stages: define the problem, collect the facts, find the causes, fix it and close.
+- **Guide** in the top bar opens a panel beside the page: what the method is, when to use it, how to fill it in, good practice, and an excerpt of the P-101A example filled in. It follows the page shown; the list at its top picks any other. The chart's guide changes with the chart style. The panel stays open or closed across sessions.
+- The excerpts are drawn from the built-in example, so they always match what **Load example** opens.
+
 ## v1.13 — 2026-10-23
 
 Three report layouts from one RCA, and its status and sign-off.

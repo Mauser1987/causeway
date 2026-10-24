@@ -1753,6 +1753,55 @@ def run_tests(b):
     load(example_file)
     print('PASS: layout of chains, mixed heights, shared and collapsed causes, cause trees, and several roots', flush=True)
 
+    # ---- Guide and the Learn page ----
+    def guide():
+        return b.js('''const g=document.getElementById('guide');return {open:!g.hidden,topic:g.dataset.topic,title:g.querySelector('h2')?.textContent,
+            example:g.querySelector('.guide-example')?.textContent.trim()||'',cols:getComputedStyle(document.getElementById('app')).gridTemplateColumns.split(' ').length}''')
+    b.js("document.querySelector('.rail [data-record=chart]').click();return true")
+    assert not guide()['open']
+    click('guideButton')
+    g = guide()
+    assert g['open'] and g['topic'] == 'chart' and g['title'] == 'Cause and effect' and g['cols'] == 4
+    assert 'High seal leakage' in g['example'] and 'AND' in g['example']
+    assert b.js("return localStorage.getItem('causeway-guide')") == 'open'
+    # It follows the page shown, and its button goes to the page of a topic chosen from the list.
+    b.js("document.querySelector('.rail [data-record=whys]').click();return true")
+    assert guide()['topic'] == 'whys' and 'Leak path opened across primary faces' in guide()['example']
+    b.js("const s=document.getElementById('guideTopic');s.value='actions';s.dispatchEvent(new Event('change',{bubbles:true}));return true")
+    assert guide()['topic'] == 'actions' and 'cyclone' in guide()['example']
+    b.js("document.querySelector('#guide [data-guide-go]').click();return true")
+    assert b.js("return document.getElementById('app').dataset.record") == 'actions' and guide()['topic'] == 'actions'
+    # Every topic has its parts and an excerpt of the example.
+    topics = b.js("return [...document.querySelectorAll('#guideTopic option')].map(o=>o.value)")
+    assert len(topics) == 13
+    for t in topics:
+        b.js("const s=document.getElementById('guideTopic');s.value=arguments[0];s.dispatchEvent(new Event('change',{bubbles:true}));return true", [t])
+        parts = b.js("return [...document.querySelectorAll('#guide h3')].map(h=>h.firstChild.textContent.trim())")
+        assert parts == ['When to use it', 'How to fill it in', 'Good practice', 'Example'], (t, parts)
+        assert len(guide()['example']) > 80 and 'undefined' not in guide()['example'], t
+    # The Learn page lists the methods in order; its buttons open a guide or a page, and keep the topic chosen.
+    b.js("document.querySelector('.rail [data-record=learn]').click();return true")
+    assert b.js("return document.querySelectorAll('.learn-list li').length") == 13
+    assert b.js("return [...document.querySelectorAll('.learn-stage h2')].map(h=>h.textContent)") == ['Define the problem', 'Collect the facts', 'Find the causes', 'Fix it and close']
+    b.js("document.querySelector('[data-act=learn-guide][data-v=spec]').click();return true")
+    assert guide()['topic'] == 'spec' and 'P-101B' in guide()['example']
+    b.js("document.querySelector('[data-act=learn-go][data-v=evidence]').click();return true")
+    assert b.js("return document.getElementById('app').dataset.record") == 'evidence' and guide()['topic'] == 'evidence'
+    # In a cause tree, the chart's guide explains hypotheses, confirmed, and ruled out.
+    tree = rca()
+    tree['meta']['style'] = 'tree'
+    load(tree)
+    b.js("document.querySelector('.rail [data-record=chart]').click();return true")
+    g = guide()
+    assert g['title'] == 'Cause tree' and all(x in g['example'] for x in ['✓', '✕', 'Face manufacturing defect', 'Pump run away']), g
+    load(example_file)
+    # Closed, it stays closed after a reload; the chart takes the room back.
+    b.js("document.getElementById('closeGuide').click();return true")
+    assert not guide()['open'] and guide()['cols'] == 3
+    b.call('WebDriver:Navigate', {'url': url})
+    assert not guide()['open']
+    print('PASS: guide beside each page, the Learn page, and examples for every method', flush=True)
+
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')
     type_into('nodeNotes', 'Check with the seal vendor')

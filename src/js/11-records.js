@@ -32,6 +32,7 @@ const empty = (cols, text) => `<tr><td colspan="${cols}" class="empty-row">${tex
 function setRecord(name) {
   record = name; fishOn = null; eventOn = null;
   $('app').dataset.record = name;
+  guideFollow();
   document.querySelectorAll('.rail [data-record]').forEach(b => {
     b.classList.toggle('active', b.dataset.record === name);
     if (b.dataset.record === name) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
@@ -57,7 +58,7 @@ function fitArea(el) {
 }
 
 function renderRecord() {
-  const page = {spec: specPage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
+  const page = {learn: learnPage, spec: specPage, equipment: equipmentPage, whys: whysPage, fishbone: fishbonePage, timeline: timelinePage, problem: problemPage, team: teamPage, evidence: evidencePage, ruledOut: ruledOutPage, solutions: solutionsPage, actions: actionsPage}[record];
   const box = $('records'), focus = document.activeElement, scroll = box.scrollTop;
   // A rebuild keeps the focused field, so a picker or a status change does not lose the place.
   const key = box.contains(focus) && focus.dataset ? ['list', 'id', 'field', 'act', 'node'].map(k => focus.dataset[k] ?? '').join('|') : null;
