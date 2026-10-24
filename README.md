@@ -264,6 +264,8 @@ Drag the empty canvas to pan, use the wheel to zoom, and **Fit** to see the whol
 
 | Control | Result |
 |---|---|
+| **Export ▾ → Full report as Word** | The full RCA report as a `.docx`, with the same content as the printed one: headings, tables whose header row repeats on each page, the chart, fishbone, and timeline as pictures, page numbers in the footer. It opens in Word, LibreOffice, and Google Docs, to edit before sending. |
+| **Export ▾ → 8D report as Word** | The 8D report as a `.docx`, D1 to D8 as in print. |
 | **Export ▾ → Chart as SVG** | The chart as one self-contained SVG file: colours are attributes, with no stylesheet, font, or image to fetch. It opens in browsers, Inkscape, and Office, and can be edited further. |
 | **Export ▾ → Chart as PNG** | The chart as an image at twice screen resolution (less for very large charts, which browsers limit). |
 | **Print ▾ → Full RCA report** | Every record, on landscape pages: cover (RCA number, revision, equipment, seal type, status, customer reference, dates), lead and team, problem definition with the equipment and duty, chart and open rule issues, 5 Whys, fishbone diagrams, Is / Is Not, sequences of events, evidence log, causes ruled out, solutions with the four criteria, the action plan with read-across, and the sign-off. |
@@ -331,7 +333,7 @@ The page has no external references and uses the system fonts, and its Content S
 `index.html` is generated. Edit the sources and rebuild; do not edit the HTML by hand.
 
 - `src/index.html` — the page; `src/styles.css` — the styles.
-- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-guide` (the guide panel, its examples, and the Learn page), `17-main` (startup).
+- `src/js/` — the application, concatenated in filename order into one script: `01-constants`, `02-state` (state, undo, autosave), `03-model` (links, loop check, deletion, rule checks), `04-layout` (automatic layout and connector routing), `05-render`, `06-inspector` (Properties panel, evidence search), `07-issues` (issues list), `08-actions` (edits), `09-interactions` (pointer, pan, zoom, keys, arrow navigation), `10-io` (open, save, file checks), `11-records` (the 5 Whys, fishbone, Is / Is Not, sequence of events, and record pages), `12-fishbone` (fishbone layout and drawing), `13-timeline` (the sequence of events figure), `14-output` (SVG and PNG export, the printed report, themes), `15-example`, `16-guide` (the guide panel, its examples, and the Learn page), `17-documents` (zip writer and Word reports), `18-main` (startup).
 - `media/favicon.svg` — the tab icon.
 - `scripts/build.py` — builds `index.html`; standard library only. It refuses to build if the page references a remote resource.
 - `scripts/test-app.py` — Firefox regression tests; standard library only.

@@ -42,7 +42,7 @@ async function exportPng() {
 }
 
 // The SVG is drawn into a canvas at twice its size, or less where browsers limit canvas size.
-async function savePng(svgText, name) {
+async function svgPng(svgText) {
   const [, w, h] = /width="([\d.]+)" height="([\d.]+)"/.exec(svgText).map(Number);
   const scale = Math.min(2, 16000 / Math.max(w, h), Math.sqrt(120e6 / (w * h)));
   const url = URL.createObjectURL(new Blob([svgText], {type: 'image/svg+xml'}));
@@ -55,12 +55,17 @@ async function savePng(svgText, name) {
     canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
     const blob = await new Promise(done => canvas.toBlob(done, 'image/png'));
     if (!blob) throw Error('the browser could not encode the image');
-    download(name, blob);
+    return {blob, w, h};
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+async function savePng(svgText, name) {
+  try {
+    download(name, (await svgPng(svgText)).blob);
     setStatus(`Exported ${name}`);
   } catch (err) {
     alert('Could not export the PNG: ' + err.message);
-  } finally {
-    URL.revokeObjectURL(url);
   }
 }
 
@@ -145,7 +150,7 @@ function reportCover(kind) {
       <h1>${escapeHtml(primaryEffect()?.title || 'Untitled RCA')}</h1>
       <dl class="r-grid">
         ${rItem('Equipment / tag', m.equipmentTag)}${rItem('Seal type', m.sealType)}${rItem('Status', RCA_STATUS[m.status])}${rItem('Customer reference', m.customerRef)}
-        ${rItem('Event', m.dates.eventDate)}${rItem('RCA opened', m.dates.opened)}${rItem('RCA closed', m.dates.closed)}${rItem('Report printed', today())}
+        ${rItem('Event', m.dates.eventDate)}${rItem('RCA opened', m.dates.opened)}${rItem('RCA closed', m.dates.closed)}${rItem('Report date', today())}
       </dl>
     </header>`;
 }

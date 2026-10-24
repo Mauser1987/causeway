@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.15 — unreleased
+
+Reports as Word documents.
+
+- **Export ▾** offers the **full report** and the **8D report** as `.docx` files, written in the browser with no library and no network. They hold what the printed reports hold, in a clean landscape layout: a cover with the RCA's references, headings that show in Word's navigation pane, tables with repeating header rows, the chart, fishbones, and timelines as pictures, and page numbers. They open in Word, LibreOffice, and Google Docs.
+
 ## v1.14 — 2026-10-24
 
 A guide and a worked example for every method.

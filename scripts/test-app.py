@@ -1802,6 +1802,40 @@ def run_tests(b):
     assert not guide()['open']
     print('PASS: guide beside each page, the Learn page, and examples for every method', flush=True)
 
+    # ---- Word reports ----
+    import base64, io, zipfile
+    import xml.etree.ElementTree as ET
+    open_app()
+
+    def docx(button):
+        data = b.async_js('''const done=arguments[arguments.length-1],seen=__downloads.length;document.getElementById(arguments[0]).click();
+            const wait=()=>{const f=__downloads.slice(seen).find(x=>x.type.includes('wordprocessingml'));if(!f)return setTimeout(wait,50);
+              const r=new FileReader();r.onload=()=>done(r.result);r.readAsDataURL(f)};wait()''', [button])
+        z = zipfile.ZipFile(io.BytesIO(base64.b64decode(data.split(',')[1])))
+        assert z.testzip() is None
+        for name in z.namelist():
+            if name.endswith(('.xml', '.rels')):
+                ET.fromstring(z.read(name))
+        return z
+    W = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+    z = docx('exportDocxFull')
+    doc = ET.fromstring(z.read('word/document.xml'))
+    text = ''.join(t.text or '' for t in doc.iter(W + 't'))
+    styles = [s.get(W + 'val') for s in doc.iter(W + 'pStyle')]
+    heads = [''.join(t.text or '' for t in p.iter(W + 't')) for p in doc.iter(W + 'p') if any(s.get(W + 'val') == 'Heading1' for s in p.iter(W + 'pStyle'))]
+    assert heads == ['Problem definition', 'Cause-and-effect chart', '5 Whys', 'Fishbone', 'Is / Is Not', 'Sequence of events', 'Evidence log', 'Causes ruled out', 'Solutions', 'Action plan', 'Sign-off'], heads
+    assert 'Title' in styles and 'High seal leakage, 15 ml/min (limit under 1 ml/min)' in text and 'Add a cyclone separator to the flush (Plan 11 + 31)' in text
+    assert len([n for n in z.namelist() if n.startswith('word/media/')]) >= 3, 'the chart, fishbone, and timeline are pictures'
+    assert len(list(doc.iter(W + 'pageBreakBefore'))) >= 5, 'sections start on a new page as in print'
+    assert len(list(doc.iter(W + 'tblHeader'))) >= 8, 'table headers repeat on each page'
+    rels = z.read('word/_rels/document.xml.rels').decode()
+    assert all(f'media/{n.split("/")[-1]}' in rels for n in z.namelist() if n.startswith('word/media/'))
+    z = docx('exportDocx8d')
+    text = ''.join(t.text or '' for t in ET.fromstring(z.read('word/document.xml')).iter(W + 't'))
+    assert all(f'D{i}' in text for i in range(1, 9)) and 'Escape point' in text and 'Not ready to close' in text
+    assert 'RCA-2026-014' in z.read('word/footer1.xml').decode()
+    print('PASS: full and 8D reports as Word documents', flush=True)
+
     # ---- Autosave recovery ----
     select('Seal relies on a stable liquid film')
     type_into('nodeNotes', 'Check with the seal vendor')

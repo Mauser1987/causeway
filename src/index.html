@@ -30,8 +30,10 @@
       <button id="guideButton" aria-pressed="false" aria-controls="guide" title="Show or hide the guide to the page shown: what it is and how to fill it in">Guide</button>
       <button class="icon" id="themeButton" aria-label="Theme" title="Theme"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="8" cy="8" r="5.5"/><path d="M8 2.5a5.5 5.5 0 0 1 0 11z" fill="currentColor"/></svg></button>
       <div class="menu-wrap">
-        <button id="exportButton" aria-expanded="false" aria-controls="exportMenu" title="Export the chart as an image">Export ▾</button>
+        <button id="exportButton" aria-expanded="false" aria-controls="exportMenu" title="Export the chart as an image, or a report as a Word document">Export ▾</button>
         <div id="exportMenu" class="popover right" role="menu" hidden>
+          <button role="menuitem" id="exportDocxFull"><b>Full report as Word</b><small>.docx: every record and the chart, to edit and send</small></button>
+          <button role="menuitem" id="exportDocx8d"><b>8D report as Word</b><small>.docx: D1 to D8, for a customer's 8D request</small></button>
           <button role="menuitem" id="exportSvg"><b>Chart as SVG</b><small>Vector, for documents and further editing</small></button>
           <button role="menuitem" id="exportPng"><b>Chart as PNG</b><small>Image at twice screen resolution</small></button>
         </div>
